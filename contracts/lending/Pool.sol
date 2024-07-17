@@ -115,7 +115,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
     function supply(
         address _account,
-        address _for,
+        address _supplyFor,
         uint256 _amount
     ) external override nonReentrant onlyNotPaused returns (
         uint256 depositedUnderlying,
@@ -135,14 +135,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             10 ** _decimals
         );
         underlyingAsset.safeTransferFrom(_account, address(this), depositedUnderlying);
-        _mint(_for, mintedTeaToken);
+        _mint(_supplyFor, mintedTeaToken);
 
-        emit Supplied(_account, _for, depositedUnderlying, mintedTeaToken);
+        emit Supplied(_account, _supplyFor, depositedUnderlying, mintedTeaToken);
     }
 
     function withdraw(
         address _account,
-        address _to,
+        address _withdrawTo,
         uint256 _amount
     ) external override nonReentrant onlyNotPaused returns (
         uint256 withdrawnUnderlying,
@@ -173,9 +173,9 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         if (burntTeaToken == 0) revert ZeroAmountNotAllowed();
         suppliedUnderlying = _suppliedUnderlying - withdrawnUnderlying;
         _burn(_account, burntTeaToken);
-        underlyingAsset.safeTransfer(_to, withdrawnUnderlying);
+        underlyingAsset.safeTransfer(_withdrawTo, withdrawnUnderlying);
 
-        emit Withdrew(_account, _to, withdrawnUnderlying, burntTeaToken);
+        emit Withdrew(_account, _withdrawTo, withdrawnUnderlying, burntTeaToken);
     }
 
     function getSupplyQuota() external view override returns (uint256) {

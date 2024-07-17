@@ -27,20 +27,20 @@ interface IPool {
 
     function pause() external;
     function unpause() external;
-    function setSupplyCap(uint256 _cap) external;
-    function setBorrowCap(uint256 _cap) external;
-    function setReserveRatio(uint256 _ratio) external;
+    function setSupplyCap(uint256 cap) external;
+    function setBorrowCap(uint256 cap) external;
+    function setReserveRatio(uint256 ratio) external;
     function getInterestRateModel() external view returns (IInterestRateModel);
-    function supply(address _account, address _for, uint256 _amount) external returns (uint256 depositedUnderlying, uint256 mintedTeaToken);
-    function withdraw(address _account, address _to, uint256 _amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);
+    function supply(address account, address supplyFor, uint256 amount) external returns (uint256 depositedUnderlying, uint256 mintedTeaToken);
+    function withdraw(address account, address withdrawTo, uint256 amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);
     function getSupplyQuota() external view returns (uint256 quota);
     function getWithdrawQuota() external view returns (uint256 quota);
-    function borrow(address _account, uint256 _underlyingAmount) external returns (uint256 id, uint256 borrowedTeaTokenAmount);
-    function repay(address _account, uint256 _id, uint256 _teaTokenAmount) external returns (uint256 repaidUnderlyingAmount);
+    function borrow(address account, uint256 underlyingAmount) external returns (uint256 id, uint256 borrowedTeaTokenAmount);
+    function repay(address account, uint256 id, uint256 teaTokenAmount) external returns (uint256 repaidUnderlyingAmount);
     function suppliedTeaTokenToUnderlying() external view returns (uint256 rate);
-    function balanceOfUnderlying(address _account) external view returns (uint256 underlyingAmount);
-    function debtOf(uint256 _id) external view returns (uint256 teaTokenAmount);
+    function balanceOfUnderlying(address account) external view returns (uint256 underlyingAmount);
+    function debtOf(uint256 id) external view returns (uint256 teaTokenAmount);
     function borrowedTeaTokenToUnderlying() external view returns (uint256 rate);
-    function debtOfUnderlying(uint256 _id) external view returns (uint256 underlyingAmount);
+    function debtOfUnderlying(uint256 id) external view returns (uint256 underlyingAmount);
 
 }

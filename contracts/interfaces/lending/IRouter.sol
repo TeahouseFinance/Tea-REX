@@ -8,6 +8,7 @@ import {Pool} from "../../lending/Pool.sol";
 
 interface IRouter {
 
+    error ExceedsFeeCap();
     error InvalidInterestRateModelType();
     error ModelNotSet();
     error PoolAlreadyExists();
@@ -34,81 +35,81 @@ interface IRouter {
     function pause() external;
     function unpause() external;
     function isAllPoolPaused() external view returns (bool isPaused);
-    function setTradingCore(address _tradingCore) external;
-    function setFeeConfig(address _treasury, uint32 _borrowFee) external;
+    function setTradingCore(address tradingCore) external;
+    function setFeeConfig(address treasury, uint32 borrowFee) external;
     function getFeeConfig() external view returns (FeeConfig memory feeConfig);
-    function setInterestRateModel(InterestRateModelType _type, address _model) external;
-    function getInterestRateModel(InterestRateModelType _type) external view returns (address model);
+    function setInterestRateModel(InterestRateModelType modelType, address model) external;
+    function getInterestRateModel(InterestRateModelType modelType) external view returns (address model);
     function createLendingPool(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        uint256 _supplyCap,
-        uint256 _borrowCap,
-        uint32 _reserveRatio
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        uint256 supplyCap,
+        uint256 borrowCap,
+        uint32 reserveRatio
     ) external returns (
         address proxyAddress
     );
-    function getLendingPool(ERC20Upgradeable _underlyingAsset, InterestRateModelType _type) external view returns (Pool);
+    function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (Pool);
     function supply(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        address _for,
-        uint256 _amount
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address supplyFor,
+        uint256 amount
     ) external returns (
         uint256 depositedUnderlying,
         uint256 mintedTeaToken
     );
     function withdraw(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        address _to,
-        uint256 _amount
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address withdrawTo,
+        uint256 amount
     ) external returns (
         uint256 withdrawnUnderlying,
         uint256 burntTeaToken
     );
     function borrow(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        uint256 _underlyingAmount
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        uint256 underlyingAmount
     ) external returns (
         uint256 id,
         uint256 borrowedTeaTokenAmount
     );
     function repay(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        address _account,
-        uint256 _id,
-        uint256 _teaTokenAmount
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address account,
+        uint256 id,
+        uint256 teaTokenAmount
     ) external returns (
         uint256 repaidUnderlyingAmount
     );
     function balanceOf(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        address _account
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address account
     ) external view returns (
         uint256 teaTokenAmount
     );
     function balanceOfUnderlying(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        address _account
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address account
     ) external view returns (
         uint256 underlyingAmount
     );
     function debtOf(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        uint256 _id
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        uint256 id
     ) external view returns (
         uint256 teaTokenAmount
     );
     function debtOfUnderlying(
-        ERC20Upgradeable _underlyingAsset,
-        InterestRateModelType _type,
-        uint256 _id
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        uint256 id
     ) external view returns (
         uint256 underlyingAmount
     );
