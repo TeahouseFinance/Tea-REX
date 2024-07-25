@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-import {Pool} from "../../lending/Pool.sol";
+import {IPool} from "./IPool.sol";
 
 interface IRouter {
 
@@ -49,7 +49,8 @@ interface IRouter {
     ) external returns (
         address proxyAddress
     );
-    function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (Pool);
+    function isAssetEnabled(ERC20Upgradeable asset) external view returns (bool);
+    function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool);
     function supply(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -73,17 +74,24 @@ interface IRouter {
         InterestRateModelType modelType,
         uint256 underlyingAmount
     ) external returns (
-        uint256 id,
-        uint256 borrowedTeaTokenAmount
+        address pool
+    );
+    function commitBorrow(
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        uint256 underlyingAmount
+    ) external returns (
+        uint256 id
     );
     function repay(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
         address account,
         uint256 id,
-        uint256 teaTokenAmount
+        uint256 underlyingAmount
     ) external returns (
-        uint256 repaidUnderlyingAmount
+        uint256 repaidUnderlyingAmount,
+        uint256 unrepaidUnderlyingAmount
     );
     function balanceOf(
         ERC20Upgradeable underlyingAsset,
@@ -112,6 +120,13 @@ interface IRouter {
         uint256 id
     ) external view returns (
         uint256 underlyingAmount
+    );
+    function collectInterestFeeAndCommit(
+        ERC20Upgradeable _underlyingAsset,
+        InterestRateModelType _modelType
+    ) external returns (
+        uint256 interest,
+        uint256 fee
     );
 
 }

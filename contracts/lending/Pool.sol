@@ -35,7 +35,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     uint256 public unpaidBorrowFeeUnderlying;
     uint256 public borrowedTeaToken;
     uint256 private idCounter;
-    mapping (uint256 => DebtInfo) public debtInfo;
+    mapping(uint256 => DebtInfo) public debtInfo;
 
     constructor() {
         _disableInitializers();
@@ -129,7 +129,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         if (quota == 0) revert ExceedsCap();
         depositedUnderlying = quota > _amount ? _amount : quota;
         suppliedUnderlying = suppliedUnderlying + depositedUnderlying;
-        uint8 _decimals = DECIMALS;
+        uint8 _decimals = decimals();
         mintedTeaToken = LendingUtils.suppliedUnderlyingToTeaToken(_decimals, totalSupply(), _suppliedUnderlying).mulDiv(
             depositedUnderlying,
             10 ** _decimals
@@ -154,7 +154,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         uint256 _suppliedUnderlying = suppliedUnderlying;
         uint256 quota = LendingUtils.getWithdrawQuota(_suppliedUnderlying, unpaidBorrowFeeUnderlying, borrowedUnderlying);
         if (quota == 0) revert NoUnborrowedUnderlying();
-        uint8 _decimals = DECIMALS;
+        uint8 _decimals = decimals();
         withdrawnUnderlying = LendingUtils.suppliedTeaTokenToUnderlying(_decimals, totalSupply(), _suppliedUnderlying).mulDiv(
             _amount,
             10 ** _decimals
@@ -195,21 +195,25 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
     }
 
-    function borrow(
+    function borrow(address _account, uint256 _underlyingAmount) external override nonReentrant onlyNotPaused onlyRouter {
+        if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
+
+        underlyingAsset.safeTransfer(_account, _underlyingAmount);
+    }
+
+    function commitBorrow(
         address _account,
         uint256 _underlyingAmount
-    ) external override nonReentrant onlyNotPaused returns (
-        uint256 id,
-        uint256 borrowedTeaTokenAmount
+    ) external override nonReentrant onlyNotPaused onlyRouter returns (
+        uint256 id
     ) {
         if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
-        if (msg.sender != address(router)) revert CallerIsNotRouter();
         _collectInterestFeeAndCommit(router.getFeeConfig());
-        if (borrowedUnderlying + _underlyingAmount > borrowCap) revert ExceedsCap(); 
-
-        uint8 _decimals = DECIMALS;
-        uint256 _borrowedTeaToken = borrowedTeaToken;
         uint256 _borrowedUnderlying = borrowedUnderlying;
+        uint256 _borrowedTeaToken = borrowedTeaToken;
+        if (_borrowedUnderlying + _underlyingAmount > borrowCap) revert ExceedsCap(); 
+
+        uint8 _decimals = decimals();
         uint256 rate = LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying);
         uint256 rateWithoutFee = LendingUtils.borrowedUnderlyingWithoutFeeToTeaToken(
             _decimals,
@@ -217,7 +221,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
         );
-        borrowedTeaTokenAmount = _underlyingAmount.mulDiv(rate, 10 ** _decimals, Math.Rounding.Ceil);
+        uint256 borrowedTeaTokenAmount = _underlyingAmount.mulDiv(rate, 10 ** _decimals, Math.Rounding.Ceil);
         id = idCounter;
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
@@ -225,7 +229,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             lastBorrowRate: rate,
             lastBorrowRateWithoutFee: rateWithoutFee
         });
-        underlyingAsset.safeTransfer(_account, _underlyingAmount);
+        borrowedUnderlying = borrowedUnderlying + _underlyingAmount;
+        borrowedTeaToken = borrowedTeaToken + borrowedTeaTokenAmount;
 
         emit Borrowed(_account, id, _underlyingAmount, borrowedTeaTokenAmount);
     }
@@ -233,15 +238,16 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     function repay(
         address _account,
         uint256 _id,
-        uint256 _teaTokenAmount
+        uint256 _underlyingAmount
     ) external override nonReentrant onlyNotPaused returns (
-        uint256 repaidUnderlyingAmount
+        uint256 repaidUnderlyingAmount,
+        uint256 unrepaidUnderlyingAmount
     ) {
-        if (_teaTokenAmount == 0) revert ZeroAmountNotAllowed();
+        if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
         IRouter.FeeConfig memory feeConfig = router.getFeeConfig();
         _collectInterestFeeAndCommit(feeConfig);
 
-        uint8 _decimals = DECIMALS;
+        uint8 _decimals = decimals();
         uint256 _borrowedTeaToken = borrowedTeaToken;
         uint256 _borrowedUnderlying = borrowedUnderlying;
         uint256 rate = LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying);
@@ -253,19 +259,25 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
 
         DebtInfo memory _debtInfo = debtInfo[_id];
+        uint256 _teaTokenAmount = _underlyingAmount.mulDiv(rate, 10 ** _decimals);
+        if (_teaTokenAmount >= _debtInfo.borrowedTeaToken) {
+            _teaTokenAmount = _debtInfo.borrowedTeaToken;
+        }
+
         uint256 borrowFee = _teaTokenAmount.mulDiv(
             rate + _debtInfo.lastBorrowRate - rateWithoutFee - _debtInfo.lastBorrowRateWithoutFee,
             10 ** _decimals
         );
-        repaidUnderlyingAmount = _teaTokenAmount.mulDiv(rate, 10 ** _decimals);
+        repaidUnderlyingAmount = _teaTokenAmount.mulDiv(10 ** _decimals, rate);
+        unrepaidUnderlyingAmount = _debtInfo.borrowedTeaToken.mulDiv(rate, 10 ** _decimals) - repaidUnderlyingAmount;
         ERC20Upgradeable _underlyingAsset = underlyingAsset;
         _underlyingAsset.safeTransferFrom(_account, address(this), repaidUnderlyingAmount);
         _underlyingAsset.safeTransfer(feeConfig.treasury, borrowFee);
         debtInfo[_id].borrowedTeaToken = debtInfo[_id].borrowedTeaToken - _teaTokenAmount;
 
         borrowedUnderlying = _borrowedUnderlying - repaidUnderlyingAmount;
-        unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;
+        unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
 
         emit Repaid(_account, _id, _teaTokenAmount, repaidUnderlyingAmount);
     }
@@ -278,6 +290,10 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         (uint256 interest, ) = _collectInterestAndFee(router.getFeeConfig());
 
         return LendingUtils.suppliedTeaTokenToUnderlying(DECIMALS, totalSupply(), suppliedUnderlying + interest);
+    }
+
+    function balanceOf(address _account) public view override(IPool, ERC20Upgradeable) returns (uint256) {
+        return super.balanceOf(_account);
     }
 
     function balanceOfUnderlying(address _account) external view override returns (uint256) {
@@ -306,6 +322,10 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
     function debtOfUnderlying(uint256 _id) external view override returns (uint256) {
         return debtInfo[_id].borrowedTeaToken.mulDiv(_borrowedTeaTokenToUnderlying(), 10 ** DECIMALS);
+    }
+
+    function collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) external override returns (uint256 interest, uint256 fee) {
+        return _collectInterestFeeAndCommit(_feeConfig);
     }
 
     function _collectInterestAndFee(IRouter.FeeConfig memory _feeConfig) internal view returns (uint256 interest, uint256 fee) {
@@ -346,7 +366,16 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _;
     }
 
+    modifier onlyRouter() {
+        _onlyRouter();
+        _;
+    }
+
     function _onlyNotPaused() internal view {
         if (paused() || router.isAllPoolPaused()) revert EnforcedPause();
+    }
+
+    function _onlyRouter() internal view {
+        if (msg.sender != address(router)) revert CallerIsNotRouter();
     }
 }

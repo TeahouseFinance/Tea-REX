@@ -2,6 +2,7 @@
 // Teahouse Finance
 pragma solidity ^0.8.0;
 
+import {IRouter} from "./IRouter.sol";
 import {IInterestRateModel} from "./IInterestRateModel.sol";
 
 interface IPool {
@@ -35,12 +36,15 @@ interface IPool {
     function withdraw(address account, address withdrawTo, uint256 amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);
     function getSupplyQuota() external view returns (uint256 quota);
     function getWithdrawQuota() external view returns (uint256 quota);
-    function borrow(address account, uint256 underlyingAmount) external returns (uint256 id, uint256 borrowedTeaTokenAmount);
-    function repay(address account, uint256 id, uint256 teaTokenAmount) external returns (uint256 repaidUnderlyingAmount);
+    function borrow(address account, uint256 underlyingAmount) external;
+    function commitBorrow(address account, uint256 underlyingAmount) external returns (uint256 id);
+    function repay(address account, uint256 id, uint256 underlyingAmount) external returns (uint256 repaidUnderlyingAmount, uint256 unrepaidUnderlyingAmount);
     function suppliedTeaTokenToUnderlying() external view returns (uint256 rate);
+    function balanceOf(address account) external view returns (uint256 teaTokenAmount);
     function balanceOfUnderlying(address account) external view returns (uint256 underlyingAmount);
     function debtOf(uint256 id) external view returns (uint256 teaTokenAmount);
     function borrowedTeaTokenToUnderlying() external view returns (uint256 rate);
     function debtOfUnderlying(uint256 id) external view returns (uint256 underlyingAmount);
+    function collectInterestFeeAndCommit(IRouter.FeeConfig memory feeConfig) external returns (uint256 interest, uint256 fee);
 
 }

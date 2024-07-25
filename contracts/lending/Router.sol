@@ -13,6 +13,7 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {IRouter} from "../interfaces/lending/IRouter.sol";
+import {IPool} from "../interfaces/lending/IPool.sol";
 import {IInterestRateModel} from "../interfaces/lending/IInterestRateModel.sol";
 import {Pool} from "./Pool.sol";
 import {Constant} from "../libraries/Constant.sol";
@@ -27,6 +28,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     FeeConfig public feeConfig;
     mapping(ERC20Upgradeable => mapping(InterestRateModelType => Pool)) public pool;
     mapping(InterestRateModelType => address) public interestRateModel;
+    mapping(ERC20Upgradeable => bool) public isAssetEnabled;
 
     constructor() {
         _disableInitializers();
@@ -100,7 +102,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         if (interestRateModel[_modelType] == address(0)) revert ModelNotSet();
         if (pool[_underlyingAsset][_modelType] != Pool(address(0))) revert PoolAlreadyExists();
 
-        BeaconProxy proxy = new BeaconProxy(
+        proxyAddress = address(new BeaconProxy(
             poolBeacon,
             abi.encodeWithSelector(
                 Pool.initialize.selector,
@@ -111,22 +113,20 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
                 _borrowCap,
                 _reserveRatio
             )
-        );
-        proxyAddress = address(proxy);
+        ));
         pool[_underlyingAsset][_modelType] = Pool(proxyAddress);
+        isAssetEnabled[_underlyingAsset] = true;
         
-        emit LendingPoolCreated(address(proxy), address(_underlyingAsset), _modelType);
+        emit LendingPoolCreated(address(proxyAddress), address(_underlyingAsset), _modelType);
     }
 
-    function getLendingPool(ERC20Upgradeable _underlyingAsset, InterestRateModelType _modelType) external view override returns (Pool) {
+    function getLendingPool(ERC20Upgradeable _underlyingAsset, InterestRateModelType _modelType) external view override returns (IPool) {
         return _getLendingPool(_underlyingAsset, _modelType);
     }
 
-    function _getLendingPool(ERC20Upgradeable _underlyingAsset, InterestRateModelType _modelType) internal view returns (Pool) {
-        Pool lendingPool = pool[_underlyingAsset][_modelType];
+    function _getLendingPool(ERC20Upgradeable _underlyingAsset, InterestRateModelType _modelType) internal view returns (IPool lendingPool) {
+        lendingPool = pool[_underlyingAsset][_modelType];
         if (lendingPool == Pool(address(0))) revert PoolNotExists();
-
-        return lendingPool;
     }
 
     function supply(
@@ -158,12 +158,26 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         uint256 _underlyingAmount
     ) external override nonReentrant returns (
-        uint256,
+        address
+    ) {
+        if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
+
+        IPool lendingPool = _getLendingPool(_underlyingAsset, _modelType);
+        lendingPool.borrow(tradingCore, _underlyingAmount);
+
+        return address(lendingPool);
+    }    
+
+    function commitBorrow(
+        ERC20Upgradeable _underlyingAsset,
+        InterestRateModelType _modelType,
+        uint256 _underlyingAmount
+    ) external override nonReentrant returns (
         uint256
     ) {
         if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
 
-        return _getLendingPool(_underlyingAsset, _modelType).borrow(tradingCore, _underlyingAmount);
+        return _getLendingPool(_underlyingAsset, _modelType).commitBorrow(tradingCore, _underlyingAmount);
     }
 
     function repay(
@@ -171,11 +185,12 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         address _account,
         uint256 _id,
-        uint256 _teaTokenAmount
+        uint256 _underlyingAmount
     ) external override nonReentrant returns (
+        uint256,
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _teaTokenAmount);
+        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _underlyingAmount);
     }
 
     function balanceOf(
@@ -216,5 +231,15 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256
     ) {
         return _getLendingPool(_underlyingAsset, _modelType).debtOfUnderlying(_id);
+    }
+
+    function collectInterestFeeAndCommit(
+        ERC20Upgradeable _underlyingAsset,
+        InterestRateModelType _modelType
+    ) external returns (
+        uint256 interest,
+        uint256 fee
+    ) {
+        return _getLendingPool(_underlyingAsset, _modelType).collectInterestFeeAndCommit(feeConfig);
     }
 }
