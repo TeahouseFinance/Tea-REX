@@ -14,6 +14,7 @@ interface IRouter {
     error PoolAlreadyExists();
     error PoolNotExists();
     error CallerIsNotTradingCore();
+    error NotInWhitelist();
     
     event TradingCoreSet(address indexed sender, address indexed tradingCore);
     event FeeConfigSet(address indexed sender, address indexed treasury, uint32 indexed borrowFee);

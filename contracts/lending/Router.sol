@@ -26,9 +26,12 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     address public lendingPoolImplementation;
     uint32 public FEE_CAP;
     FeeConfig public feeConfig;
+    bool enableWhitelist;
+
     mapping(ERC20Upgradeable => mapping(InterestRateModelType => Pool)) public pool;
     mapping(InterestRateModelType => address) public interestRateModel;
     mapping(ERC20Upgradeable => bool) public isAssetEnabled;
+    mapping(address => bool) public whitelistedOperator;
 
     constructor() {
         _disableInitializers();
@@ -134,7 +137,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         address _supplyFor,
         uint256 _amount
-    ) external override nonReentrant returns (
+    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256,
         uint256
     ) {
@@ -146,7 +149,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         address _withdrawTo,
         uint256 _amount
-    ) external override nonReentrant returns (
+    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256,
         uint256
     ) {
@@ -241,5 +244,25 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256 fee
     ) {
         return _getLendingPool(_underlyingAsset, _modelType).collectInterestFeeAndCommit(feeConfig);
+    }
+
+    function setEnableWhitelist(bool _enableWhitelist) external onlyOwner {
+        enableWhitelist = _enableWhitelist;
+    }
+
+    function setWhitelistedOperator(address[] calldata _accounts, bool[] calldata _isWhitelisted) external onlyOwner {
+        uint256 length = _accounts.length;
+        for (uint256 i; i < length; i = i + 1) {
+            whitelistedOperator[_accounts[i]] = _isWhitelisted[i];
+        }
+    }
+
+    function _onlyWhitelistedOperator(address _account) internal view {
+        if (enableWhitelist && !whitelistedOperator[_account]) revert NotInWhitelist();
+    }
+
+    modifier onlyWhitelistedOperator(address _account) {
+        _onlyWhitelistedOperator(_account);
+        _;
     }
 }

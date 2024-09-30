@@ -96,7 +96,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     }
 
     function _setReserveRatio(uint256 _ratio) internal {
-        if (_ratio >= 100 * Percent.MULTIPLIER) revert InvalidPercentage();
+        if (_ratio >= Percent.MULTIPLIER) revert InvalidPercentage();
 
         reserveRatio = _ratio;
     }
@@ -117,7 +117,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         address _account,
         address _supplyFor,
         uint256 _amount
-    ) external override nonReentrant onlyNotPaused returns (
+    ) external override nonReentrant onlyNotPaused onlyRouter returns (
         uint256 depositedUnderlying,
         uint256 mintedTeaToken
     ) {
@@ -144,7 +144,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         address _account,
         address _withdrawTo,
         uint256 _amount
-    ) external override nonReentrant onlyNotPaused returns (
+    ) external override nonReentrant onlyNotPaused onlyRouter returns (
         uint256 withdrawnUnderlying,
         uint256 burntTeaToken
     ) {

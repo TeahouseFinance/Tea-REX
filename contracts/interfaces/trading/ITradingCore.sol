@@ -17,6 +17,8 @@ interface ITradingCore {
     error PriceConditionNotMet();
     error IdenticalAddress();
     error SlippageTooLarge();
+    error AmountExceedsLimit();
+    error NotInWhitelist();
 
     event CreateMarket(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, address marketAddress);
     event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
@@ -89,38 +91,57 @@ interface ITradingCore {
         ERC20Upgradeable token0,
         ERC20Upgradeable token1,
         uint256 positionId,
-        uint256 assetAmountToDecrease
+        uint256 assetAmountToDecrease,
+        uint256 minDecreasedDebtAmount,
+        address swapRouter,
+        bytes calldata data
     ) external returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
     );
     function stopLoss(
         ERC20Upgradeable token0,
         ERC20Upgradeable token1,
         uint256 positionId,
-        uint256 assetAmountToDecrease
+        uint256 assetAmountToDecrease,
+        uint256 minDecreasedDebtAmount,
+        address swapRouter,
+        bytes calldata data
     ) external returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
     );
     function liquidate(
         ERC20Upgradeable token0,
         ERC20Upgradeable token1,
         uint256 positionId,
         uint256 assetAmountToDecrease,
-        uint256 maxDecreasedDebtAmount
+        uint256 minDecreasedDebtAmount,
+        address swapRouter,
+        bytes calldata data
     ) external returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
+    );
+    function liquidateAuctionPrice(
+        ERC20Upgradeable token0,
+        ERC20Upgradeable token1,
+        bool isLongToken0
+    ) external view returns (
+        uint256 price
+    );
+    function getLiquidationPrice(
+        ERC20Upgradeable token0,
+        ERC20Upgradeable token1,
+        uint256 positionId
+    ) external view returns (
+        uint256 price
     );
 
 }

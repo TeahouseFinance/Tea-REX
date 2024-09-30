@@ -22,7 +22,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     using Math for uint256;
     using SafeCast for uint256;
 
-
     ITradingCore public tradingCore;
     address public token0;
     address public token1;
@@ -167,6 +166,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             status: PositionStatus.Open,
             isLongToken0: _isLongToken0,
             isMarginAsset: isMarginAsset,
+            initialLeverage: leverage,
             liquidationAssetDebtRatio: _getLiquidationAssetDebtRatio(leverage),
             marginAmount: _marginAmount,
             interestRateModelType: _interestRateModelType,
@@ -213,7 +213,90 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         position.marginAmount = position.marginAmount + marginAmount;
     }
 
+
+    function getLiquidationPrice(
+        IAssetOracle _oracle,
+        uint256 _positionId,
+        uint256 _debtAmount
+    ) external view returns (uint256 price) {
+        Position memory position = positions[_positionId];
+        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
+
+        price = _getLiquidationPrice(position, _debtAmount, _oracle.decimals());
+    }
+
+    function _getLiquidationPrice(
+        Position memory _position,
+        uint256 _debtAmount,
+        uint8 _oracleDecimals
+    ) internal view returns (uint256 price) {
+        if (_position.isMarginAsset) {
+            price = (10 ** _oracleDecimals).mulDiv(
+                Percent.MULTIPLIER * _debtAmount,
+                Percent.MULTIPLIER * _position.assetAmount + liquidateLossRatioThreshold * _position.marginAmount
+            );
+        }
+        else {
+            price = (10 ** _oracleDecimals).mulDiv(
+                Percent.MULTIPLIER * _debtAmount - liquidateLossRatioThreshold * _position.marginAmount,
+                Percent.MULTIPLIER * _position.assetAmount
+            );
+        }
+    }
+
+    function liquidateAuctionPrice(IAssetOracle _oracle, bool _isLongToken0) external view returns (uint256 price) {
+        (
+            uint8 oracleDecimals,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint256 assetPrice,
+            uint256 debtPrice,
+
+        ) = _getTokensInfo(_oracle, _isLongToken0);
+
+        price = _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals);
+    }
+
+    function _liquidateAuctionPrice(
+        uint256 _assetPrice,
+        uint256 _debtPrice,
+        uint8 _oracleDecimals
+    ) internal view returns (
+        uint256 price
+    ) {
+        price = _getRelativePrice(_assetPrice, _debtPrice, _oracleDecimals).mulDiv(
+            Percent.MULTIPLIER,
+            Percent.MULTIPLIER - liquidationDiscount,
+            Math.Rounding.Ceil
+        );
+    }
+
+    function _debtToAssetAmount(
+        uint256 _debtAmount,
+        uint256 _price,
+        uint8 _oracleDecimals
+    ) internal pure returns (
+        uint256 assetAmount
+    ) {
+        assetAmount = _debtAmount.mulDiv(10 ** _oracleDecimals, _price);
+    }
+
+    function _assetToDebtAmount(
+        uint256 _assetAmount,
+        uint256 _price,
+        uint8 _oracleDecimals
+    ) internal pure returns (
+        uint256 debtAmount
+    ) {
+        debtAmount = _assetAmount.mulDiv(_price, 10 ** _oracleDecimals);
+    }
+
     function closePosition(
+        CloseMode _mode,
         IAssetOracle _oracle,
         uint256 _positionId,
         uint256 _decreasedAssetAmount,
@@ -240,6 +323,31 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 marginPrice
         ) = _getTokensInfo(_oracle, position.isLongToken0);
 
+        bool isNotLiquidation = true;
+        if (_mode == CloseMode.TakeProfit) {
+            if (position.takeProfit == 0) revert NoTakeProfit();
+            if (
+                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, position.takeProfit, oracleDecimals)
+            ) revert WorsePrice();
+        }
+        else if (_mode == CloseMode.StopLoss) {
+            if (position.stopLoss == 0) revert NoStopLoss();
+            uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
+            if (position.stopLoss < assetPriceInDebt) revert PassivelyCloseConditionNotMet();
+            if (
+                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, assetPriceInDebt, oracleDecimals)
+            ) revert WorsePrice();
+        }
+        else if (_mode == CloseMode.Liquidate) {
+            uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
+            if (assetPriceInDebt > _getLiquidationPrice(position, _debtAmount, oracleDecimals)) revert PassivelyCloseConditionNotMet();
+            if (
+                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals), oracleDecimals)
+            ) revert WorsePrice();
+            
+            isNotLiquidation = false;
+        }
+
         (owedAsset, owedDebt) = _afterFlatPosition(
             _positionId,
             position,
@@ -247,7 +355,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _decreasedDebtAmount,
             _tradingFee,
             _debtAmount,
-            true,
+            isNotLiquidation,
             oracleDecimals,
             assetDecimals,
             debtDecimals,
@@ -256,219 +364,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             debtPrice,
             marginPrice
         );
-    }
-
-    function takeProfit(
-        IAssetOracle _oracle,
-        uint256 _positionId,
-        uint256 _assetAmountToDecrease,
-        uint256 _tradingFee,
-        uint256 _debtAmount
-    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
-    ) {
-        Position memory position = positions[_positionId];
-        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
-        if (position.takeProfit == 0) revert NoTakeProfit();
-
-        (
-            uint8 oracleDecimals,
-            uint8 assetDecimals,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
-            ,
-            ,
-            ,
-            uint256 assetPrice,
-            uint256 debtPrice,
-            uint256 marginPrice
-        ) = _getTokensInfo(_oracle, position.isLongToken0);
-
-        (decreasedAssetAmount, decreasedDebtAmount, tradingFee) = _checkAndUpdateAmount(
-            position,
-            false,
-            oracleDecimals,
-            position.takeProfit,
-            _assetAmountToDecrease,
-            _debtAmount,
-            _tradingFee
-        );
-
-        (owedAsset, owedDebt) = _afterFlatPosition(
-            _positionId,
-            position,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            tradingFee,
-            _debtAmount,
-            true,
-            oracleDecimals,
-            assetDecimals,
-            debtDecimals,
-            marginDecimals,
-            assetPrice,
-            debtPrice,
-            marginPrice
-        );
-    }
-
-    function stopLoss(
-        IAssetOracle _oracle,
-        uint256 _positionId,
-        uint256 _assetAmountToDecrease,
-        uint256 _tradingFee,
-        uint256 _debtAmount
-    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
-    ) {
-        Position memory position = positions[_positionId];
-        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
-        if (position.stopLoss == 0) revert NoStopLoss();
-
-        (
-            uint8 oracleDecimals,
-            uint8 assetDecimals,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
-            ,
-            ,
-            ,
-            uint256 assetPrice,
-            uint256 debtPrice,
-            uint256 marginPrice
-        ) = _getTokensInfo(_oracle, position.isLongToken0);
-        uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
-        if (assetPriceInDebt > position.stopLoss) revert PassivelyCloseConditionNotMet();
-
-        (decreasedAssetAmount, decreasedDebtAmount, tradingFee) = _checkAndUpdateAmount(
-            position,
-            false,
-            oracleDecimals,
-            assetPriceInDebt,
-            _assetAmountToDecrease,
-            _debtAmount,
-            _tradingFee
-        );
-
-        (owedAsset, owedDebt) = _afterFlatPosition(
-            _positionId,
-            position,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            tradingFee,
-            _debtAmount,
-            true,
-            oracleDecimals,
-            assetDecimals,
-            debtDecimals,
-            marginDecimals,
-            assetPrice,
-            debtPrice,
-            marginPrice
-        );
-    }
-
-    function liquidate(
-        IAssetOracle _oracle,
-        uint256 _positionId,
-        uint256 _assetAmountToDecrease,
-        uint256 _tradingFee,
-        uint256 _debtAmount
-    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
-    ) {
-        Position memory position = positions[_positionId];
-        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
-
-        (
-            uint8 oracleDecimals,
-            uint8 assetDecimals,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
-            ,
-            ,
-            ,
-            uint256 assetPrice,
-            uint256 debtPrice,
-            uint256 marginPrice
-        ) = _getTokensInfo(_oracle, position.isLongToken0);
-
-        uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, _debtAmount, debtPrice);
-        uint256 assetValue = _getTokenValue(oracleDecimals, assetDecimals, position.assetAmount, assetPrice);
-        uint256 marginValue = _getTokenValue(oracleDecimals, marginDecimals, position.marginAmount, marginPrice);
-        uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
-        if (lossRatio < openPositionLossRatioThreshold) revert PassivelyCloseConditionNotMet();
-
-        uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
-        uint256 liquidatePrice = assetPriceInDebt.mulDiv(
-            Percent.MULTIPLIER,
-            Percent.MULTIPLIER - liquidationDiscount,
-            Math.Rounding.Ceil
-        );
-
-        (decreasedAssetAmount, decreasedDebtAmount, tradingFee) = _checkAndUpdateAmount(
-            position,
-            false,
-            oracleDecimals,
-            liquidatePrice,
-            _assetAmountToDecrease,
-            _debtAmount,
-            _tradingFee
-        );
-
-        (owedAsset, owedDebt) = _afterFlatPosition(
-            _positionId,
-            position,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            _tradingFee,
-            _debtAmount,
-            false,
-            oracleDecimals,
-            assetDecimals,
-            debtDecimals,
-            marginDecimals,
-            assetPrice,
-            debtPrice,
-            marginPrice
-        );
-    }
-
-    function _checkAndUpdateAmount(
-        Position memory _position,
-        bool _isLiquidation,
-        uint8 _oracleDecimals,
-        uint256 _assetPriceInDebt,
-        uint256 _assetAmountToDecrease,
-        uint256 _debtAmount,
-        uint256 _tradingFee
-    ) internal pure returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 tradingFee
-    ) {
-        uint256 maxDecreasedAssetAmount = _debtAmount.mulDiv(10 ** _oracleDecimals, _assetPriceInDebt);
-        if (maxDecreasedAssetAmount > _position.swappableAmount) {
-            if (!_isLiquidation) revert ShouldUseLiquidation(); 
-
-            maxDecreasedAssetAmount = _position.swappableAmount;
-        }
-        (decreasedAssetAmount, tradingFee) = _assetAmountToDecrease > maxDecreasedAssetAmount ? 
-            (maxDecreasedAssetAmount, _tradingFee.mulDiv(maxDecreasedAssetAmount, _assetAmountToDecrease, Math.Rounding.Ceil)) : 
-            (_assetAmountToDecrease, _tradingFee);
-        decreasedDebtAmount = decreasedAssetAmount.mulDiv(_assetPriceInDebt, decreasedAssetAmount, Math.Rounding.Ceil);
     }
 
     function _afterFlatPosition(

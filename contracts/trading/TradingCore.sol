@@ -41,8 +41,10 @@ contract TradingCore is
     FeeConfig public feeConfig;
     IFeePlugin public feePlugin;
     SwapRelayer public swapRelayer;
+    bool enableWhitelist;
     
     mapping(ERC20Upgradeable => mapping(ERC20Upgradeable => MarketNFT)) public pairMarket;
+    mapping(address => bool) public whitelistedOperator;
 
     constructor() {
         _disableInitializers();
@@ -79,6 +81,7 @@ contract TradingCore is
         router = _router;
         oracle = _oracle;
         swapRelayer = _swapRelayer;
+        enableWhitelist = true;
     }
 
     function pause() external override onlyOwner {
@@ -249,6 +252,82 @@ contract TradingCore is
         emit AddMargin(msg.sender, token0, token1, _positionId, requiredAmount);
     }
 
+    function _closePosition(
+        IMarketNFT.CloseMode _mode,
+        ERC20Upgradeable _token0,
+        ERC20Upgradeable _token1,
+        uint256 _positionId,
+        uint256 _assetAmountToDecrease,
+        uint256 _minDecreasedDebtAmount,
+        address _swapRouter,
+        bytes calldata _data
+    ) internal returns (
+        uint256 decreasedAssetAmount,
+        uint256 decreasedDebtAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    ) {
+        (
+            ERC20Upgradeable token0,
+            ERC20Upgradeable token1,
+            IRouter _router,
+            MarketNFT market,
+            IMarketNFT.Position memory position,
+            address positionOwner
+        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
+        if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
+
+        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
+        uint256 swappableAfterFee = _getSwappableAfterFee(
+            _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
+            _feeConfig,
+            _mode == IMarketNFT.CloseMode.Liquidate
+        );
+        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
+
+        (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
+        (decreasedAssetAmount, decreasedDebtAmount) = _swap(
+            asset,
+            debt,
+            _assetAmountToDecrease,
+            _minDecreasedDebtAmount,
+            _swapRouter,
+            _data
+        );
+    
+        (owedAsset, owedDebt) = market.closePosition(
+            _mode,
+            oracle,
+            _positionId,
+            decreasedAssetAmount,
+            decreasedDebtAmount,
+            _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, decreasedAssetAmount, _feeConfig),
+            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
+        );
+        _pay(asset, address(this), positionOwner, owedAsset);
+        _pay(debt, address(this), positionOwner, owedDebt);
+        _repay(
+            _router,
+            debt,
+            position.interestRateModelType,
+            position.borrowId,
+            decreasedDebtAmount
+        );
+
+        if (_mode == IMarketNFT.CloseMode.Close) {
+            emit ClosePosition(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+        }
+        else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
+            emit TakeProfit(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+        }
+        else if (_mode == IMarketNFT.CloseMode.StopLoss) {
+            emit StopLoss(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+        }
+        else if (_mode == IMarketNFT.CloseMode.Liquidate) {
+            emit Liquidate(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+        }
+    }
+
     function closePosition(
         ERC20Upgradeable _token0,
         ERC20Upgradeable _token1,
@@ -263,163 +342,68 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
-        (
-            ERC20Upgradeable token0,
-            ERC20Upgradeable token1,
-            IRouter _router,
-            MarketNFT market,
-            IMarketNFT.Position memory position,
-            address positionOwner
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
-        if (positionOwner != msg.sender) revert NotPositionOwner();
-
-        FeeConfig memory _feeConfig = _getFeeForAccount(msg.sender);
-        uint256 swappableAfterFee = _getSwappableAfterFee(position, _feeConfig, false);
-        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
-
-        (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
-        (decreasedAssetAmount, decreasedDebtAmount) = _swap(
-            asset,
-            debt,
+        return _closePosition(
+            IMarketNFT.CloseMode.Close,
+            _token0,
+            _token1,
+            _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
             _swapRouter,
             _data
         );
-    
-        (owedAsset, owedDebt) = market.closePosition(
-            oracle,
-            _positionId,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            _calculateAndCollectTradingFee(false, asset, decreasedAssetAmount, _feeConfig),
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
-        );
-        _pay(asset, address(this), positionOwner, owedAsset);
-        _pay(debt, address(this), positionOwner, owedDebt);
-        _repay(
-            _router,
-            debt,
-            position.interestRateModelType,
-            position.borrowId,
-            decreasedDebtAmount
-        );
-        
-        emit ClosePosition(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
     }
 
     function takeProfit(
         ERC20Upgradeable _token0,
         ERC20Upgradeable _token1,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease
-    ) external override nonReentrant returns (
+        uint256 _assetAmountToDecrease,
+        uint256 _minDecreasedDebtAmount,
+        address _swapRouter,
+        bytes calldata _data
+    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
     ) {
-        (
-            ERC20Upgradeable token0,
-            ERC20Upgradeable token1,
-            IRouter _router,
-            MarketNFT market,
-            IMarketNFT.Position memory position,
-            address positionOwner
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
-
-        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
-        uint256 swappableAfterFee = _getSwappableAfterFee(position, _feeConfig, false);
-        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
-
-        (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
-        (
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        ) = market.takeProfit(
-            oracle,
+        return _closePosition(
+            IMarketNFT.CloseMode.TakeProfit,
+            _token0,
+            _token1,
             _positionId,
             _assetAmountToDecrease,
-            _calculateTradingFee(false, decreasedAssetAmount, _feeConfig),
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
+            _minDecreasedDebtAmount,
+            _swapRouter,
+            _data
         );
-
-        _afterPassivelyModifyPosition(
-            asset,
-            debt,
-            _router,
-            _feeConfig,
-            position,
-            positionOwner,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        );
-
-        emit TakeProfit(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
     }
 
     function stopLoss(
         ERC20Upgradeable _token0,
         ERC20Upgradeable _token1,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease
-    ) external override nonReentrant returns (
+        uint256 _assetAmountToDecrease,
+        uint256 _minDecreasedDebtAmount,
+        address _swapRouter,
+        bytes calldata _data
+    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
     ) {
-        (
-            ERC20Upgradeable token0,
-            ERC20Upgradeable token1,
-            IRouter _router,
-            MarketNFT market,
-            IMarketNFT.Position memory position,
-            address positionOwner
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
-
-        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
-        uint256 swappableAfterFee = _getSwappableAfterFee(position, _feeConfig, false);
-        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
-
-        (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
-        (
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        ) = market.stopLoss(
-            oracle,
+        return _closePosition(
+            IMarketNFT.CloseMode.StopLoss,
+            _token0,
+            _token1,
             _positionId,
             _assetAmountToDecrease,
-            _calculateTradingFee(false, decreasedAssetAmount, _feeConfig),
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
+            _minDecreasedDebtAmount,
+            _swapRouter,
+            _data
         );
-
-        _afterPassivelyModifyPosition(
-            asset,
-            debt,
-            _router,
-            _feeConfig,
-            position,
-            positionOwner,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        );
-
-        emit StopLoss(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
     }
 
     function liquidate(
@@ -427,58 +411,52 @@ contract TradingCore is
         ERC20Upgradeable _token1,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
-        uint256 _maxDecreasedDebtAmount
-    ) external override nonReentrant returns (
+        uint256 _minDecreasedDebtAmount,
+        address _swapRouter,
+        bytes calldata _data
+    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 tradingFee
+        uint256 owedDebt
     ) {
-        (
-            ERC20Upgradeable token0,
-            ERC20Upgradeable token1,
-            IRouter _router,
-            MarketNFT market,
-            IMarketNFT.Position memory position,
-            address positionOwner
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
-
-        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
-        uint256 swappableAfterFee = _getSwappableAfterFee(position, _feeConfig, true);
-        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
-
-        (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
-        (
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        ) = market.liquidate(
-            oracle,
+        return _closePosition(
+            IMarketNFT.CloseMode.Liquidate,
+            _token0,
+            _token1,
             _positionId,
             _assetAmountToDecrease,
-            _calculateTradingFee(false, decreasedAssetAmount, _feeConfig),
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
+            _minDecreasedDebtAmount,
+            _swapRouter,
+            _data
         );
-        if (decreasedDebtAmount > _maxDecreasedDebtAmount) revert PriceConditionNotMet();
+    }
 
-        _afterPassivelyModifyPosition(
-            asset,
-            debt,
-            _router,
-            _feeConfig,
-            position,
-            positionOwner,
-            decreasedAssetAmount,
-            decreasedDebtAmount,
-            owedAsset,
-            owedDebt,
-            tradingFee
-        );
+    function liquidateAuctionPrice(
+        ERC20Upgradeable _token0,
+        ERC20Upgradeable _token1,
+        bool _isLongToken0
+    ) external view returns (
+        uint256 price
+    ) {
+        (, _token0, _token1) = _sortToken(_token0, _token1);
+        price = _getMarket(_token0, _token1).liquidateAuctionPrice(oracle, _isLongToken0);
+    }
 
-        emit Liquidate(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+    function getLiquidationPrice(
+        ERC20Upgradeable _token0,
+        ERC20Upgradeable _token1,
+        uint256 _positionId
+    ) external view returns (
+        uint256 price
+    ) {
+        (, _token0, _token1) = _sortToken(_token0, _token1);
+        MarketNFT market = _getMarket(_token0, _token1);
+        IMarketNFT.Position memory position = market.getPosition(_positionId);
+        ERC20Upgradeable debt = position.isLongToken0 ? _token1 : _token0;
+        uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
+        
+        price = market.getLiquidationPrice(oracle, _positionId, debtAmount);
     }
 
     function _sortToken(
@@ -548,15 +526,15 @@ contract TradingCore is
     }
 
     function _getSwappableAfterFee(
-        IMarketNFT.Position memory _position,
+        uint256 _amount,
         FeeConfig memory _feeConfig,
         bool isLiquidation
     ) internal pure returns (
         uint256 swappableAmount
     ) {
         swappableAmount = isLiquidation ? 
-            _position.swappableAmount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee + _feeConfig.liquidationFee) : 
-            _position.swappableAmount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee);
+            _amount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee + _feeConfig.liquidationFee) : 
+            _amount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee);
     }
 
     function _swap(
@@ -672,5 +650,25 @@ contract TradingCore is
 
     function _zeroAddressNotAllowed(address _address) internal pure {
         if (_address == address(0)) revert ZeroNotAllowed();
+    }
+
+    function setEnableWhitelist(bool _enableWhitelist) external onlyOwner {
+        enableWhitelist = _enableWhitelist;
+    }
+
+    function setWhitelistedOperator(address[] calldata _accounts, bool[] calldata _isWhitelisted) external onlyOwner {
+        uint256 length = _accounts.length;
+        for (uint256 i; i < length; i = i + 1) {
+            whitelistedOperator[_accounts[i]] = _isWhitelisted[i];
+        }
+    }
+
+    function _onlyWhitelistedOperator(address _account) internal view {
+        if (enableWhitelist && !whitelistedOperator[_account]) revert NotInWhitelist();
+    }
+
+    modifier onlyWhitelistedOperator(address _account) {
+        _onlyWhitelistedOperator(_account);
+        _;
     }
 }

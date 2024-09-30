@@ -23,7 +23,7 @@ interface IMarketNFT {
     error PassivelyCloseConditionNotMet();
     error NoTakeProfit();
     error NoStopLoss();
-    error ShouldUseLiquidation();
+    error WorsePrice();
 
     enum PositionStatus {
         Inactive,
@@ -31,10 +31,18 @@ interface IMarketNFT {
         Closed
     }
 
+    enum CloseMode {
+        Close,
+        StopLoss,
+        TakeProfit,
+        Liquidate
+    }
+
     struct Position {
         PositionStatus status;
         bool isLongToken0;
         bool isMarginAsset;
+        uint24 initialLeverage;
         uint24 liquidationAssetDebtRatio;
         uint256 marginAmount;
         IRouter.InterestRateModelType interestRateModelType;
@@ -72,6 +80,7 @@ interface IMarketNFT {
         uint256 requiredAmount
     );
     function closePosition(
+        CloseMode mode,
         IAssetOracle oracle,
         uint256 positionId,
         uint256 decreasedAssetAmount,
@@ -82,44 +91,11 @@ interface IMarketNFT {
         uint256 owedAsset,
         uint256 owedDebt
     );
-    function takeProfit(
-        IAssetOracle oracle,
-        uint256 positionId,
-        uint256 assetAmountToDecrease,
-        uint256 tradingFee,
-        uint256 debtAmount
-    ) external returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 newTradingFee
-    );
-    function stopLoss(
-        IAssetOracle oracle,
-        uint256 positionId,
-        uint256 assetAmountToDecrease,
-        uint256 tradingFee,
-        uint256 debtAmount
-    ) external returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 newTradingFee
-    );
-    function liquidate(
-        IAssetOracle oracle,
-        uint256 positionId,
-        uint256 assetAmountToDecrease,
-        uint256 tradingFee,
-        uint256 debtAmount
-    ) external returns (
-        uint256 decreasedAssetAmount,
-        uint256 decreasedDebtAmount,
-        uint256 owedAsset,
-        uint256 owedDebt,
-        uint256 newTradingFee
-    );
+    function liquidateAuctionPrice(IAssetOracle oracle, bool isLongToken0) external view returns (uint256 price);
+    function getLiquidationPrice(
+        IAssetOracle _oracle,
+        uint256 _positionId,
+        uint256 _debtAmount
+    ) external view returns (uint256 price);
 
 }
