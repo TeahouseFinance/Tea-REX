@@ -7,7 +7,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IInterestRateModel} from "../interfaces/lending/IInterestRateModel.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-contract VariableInterestRateModel {
+import "hardhat/console.sol";
+contract VariableInterestRateModel is IInterestRateModel{
     using Math for uint256;
 
     uint256 constant BASE_RATE = 10000;

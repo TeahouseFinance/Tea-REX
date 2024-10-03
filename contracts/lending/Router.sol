@@ -97,7 +97,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         uint256 _supplyCap,
         uint256 _borrowCap,
-        uint32 _reserveRatio
+        uint24 _reserveRatio
     ) external override nonReentrant onlyOwner returns (
         address proxyAddress
     ) {
@@ -169,7 +169,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         lendingPool.borrow(tradingCore, _underlyingAmount);
 
         return address(lendingPool);
-    }    
+    }
 
     function commitBorrow(
         ERC20Upgradeable _underlyingAsset,

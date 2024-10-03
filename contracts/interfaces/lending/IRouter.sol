@@ -46,7 +46,7 @@ interface IRouter {
         InterestRateModelType modelType,
         uint256 supplyCap,
         uint256 borrowCap,
-        uint32 reserveRatio
+        uint24 reserveRatio
     ) external returns (
         address proxyAddress
     );

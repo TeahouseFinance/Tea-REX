@@ -30,7 +30,7 @@ interface IPool {
     function unpause() external;
     function setSupplyCap(uint256 cap) external;
     function setBorrowCap(uint256 cap) external;
-    function setReserveRatio(uint256 ratio) external;
+    function setReserveRatio(uint24 ratio) external;
     function getInterestRateModel() external view returns (IInterestRateModel);
     function supply(address account, address supplyFor, uint256 amount) external returns (uint256 depositedUnderlying, uint256 mintedTeaToken);
     function withdraw(address account, address withdrawTo, uint256 amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);

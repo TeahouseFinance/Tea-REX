@@ -18,6 +18,7 @@ import {Constant} from "../libraries/Constant.sol";
 import {Percent} from "../libraries/Percent.sol";
 import {LendingUtils} from "../libraries/LendingUtils.sol";
 
+import "hardhat/console.sol";
 contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, PausableUpgradeable, ReentrancyGuard {
     using SafeERC20 for ERC20Upgradeable;
     using Math for uint256;
@@ -26,9 +27,9 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     IRouter public router;
     ERC20Upgradeable public underlyingAsset;
     IRouter.InterestRateModelType interestRateModelType;
+    uint24 public reserveRatio;
     uint256 public supplyCap;
     uint256 public borrowCap;
-    uint256 public reserveRatio;
     uint256 public lastCumulateInterest;
     uint256 public suppliedUnderlying;
     uint256 public borrowedUnderlying;
@@ -47,7 +48,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         IRouter.InterestRateModelType _interestRateModelType,
         uint256 _supplyCap,
         uint256 _borrowCap,
-        uint32 _reserveRatio
+        uint24 _reserveRatio
     ) public initializer {
         __Ownable_init(_owner);
         __ERC20_init(string.concat("TeaREX Supply ", _underlyingAsset.name()), string.concat("Tea", _underlyingAsset.symbol()));
@@ -91,11 +92,11 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         borrowCap = _cap == 0 ? Constant.UINT256_MAX : _cap;
     }
 
-    function setReserveRatio(uint256 _ratio) external override onlyOwner {
+    function setReserveRatio(uint24 _ratio) external override onlyOwner {
         _setReserveRatio(_ratio);
     }
 
-    function _setReserveRatio(uint256 _ratio) internal {
+    function _setReserveRatio(uint24 _ratio) internal {
         if (_ratio >= Percent.MULTIPLIER) revert InvalidPercentage();
 
         reserveRatio = _ratio;
