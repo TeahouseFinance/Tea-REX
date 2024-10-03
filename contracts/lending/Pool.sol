@@ -198,8 +198,15 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
     }
 
+    function _checkBorrowable(uint256 _borrowedUnderlying, uint256 _underlyingAmount) internal view {
+        uint256 borrowable = suppliedUnderlying.mulDiv(Percent.MULTIPLIER - reserveRatio, Percent.MULTIPLIER);
+        uint256 _totalBorrowed = _borrowedUnderlying + _underlyingAmount;
+        if (_totalBorrowed > borrowable || _totalBorrowed > borrowCap) revert ExceedsCap();
+    }
+
     function borrow(address _account, uint256 _underlyingAmount) external override nonReentrant onlyNotPaused onlyRouter {
         if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
+        _checkBorrowable(borrowedUnderlying, _underlyingAmount);
 
         underlyingAsset.safeTransfer(_account, _underlyingAmount);
     }
@@ -214,7 +221,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _collectInterestFeeAndCommit(router.getFeeConfig());
         uint256 _borrowedUnderlying = borrowedUnderlying;
         uint256 _borrowedTeaToken = borrowedTeaToken;
-        if (_borrowedUnderlying + _underlyingAmount > borrowCap) revert ExceedsCap(); 
+        _checkBorrowable(_borrowedUnderlying, _underlyingAmount);
 
         uint8 _decimals = decimals();
         uint256 rate = LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying);
