@@ -8,7 +8,7 @@ import {IInterestRateModel} from "../interfaces/lending/IInterestRateModel.sol";
 import {Percent} from "../libraries/Percent.sol";
 
 import "hardhat/console.sol";
-contract VariableInterestRateModel is IInterestRateModel{
+contract VariableInterestRateModel is IInterestRateModel {
     using Math for uint256;
 
     uint256 constant BASE_RATE = 10000;
@@ -18,11 +18,24 @@ contract VariableInterestRateModel is IInterestRateModel{
         return Percent.DECIMALS;
     }
 
-    function getSupplyRate(uint256 supplied, uint256 borrowed, uint24 reserveRatio) public pure returns (uint256 supplyRate) {
+    function getSupplyRate(
+        uint256 supplied,
+        uint256 borrowed,
+        uint24 reserveRatio
+    ) public pure override returns (
+        uint256 supplyRate
+    ) {
         supplyRate = getSupplyRate(supplied, borrowed, reserveRatio, 0);
     }
 
-    function getSupplyRate(uint256 supplied, uint256 borrwoed, uint24 reserveRatio, uint256 toSupply) public pure returns (uint256 supplyRate) {
+    function getSupplyRate(
+        uint256 supplied,
+        uint256 borrwoed,
+        uint24 reserveRatio,
+        uint256 toSupply
+    ) public pure override returns (
+        uint256 supplyRate
+    ) {
         if (supplied == 0) return 0;
 
         uint256 totalSupplied = supplied + toSupply;
@@ -32,11 +45,24 @@ contract VariableInterestRateModel is IInterestRateModel{
         );
     }
 
-    function getBorrowRate(uint256 supplied, uint256 borrowed, uint24 reserveRatio) public pure returns (uint256 borrowRate) {
+    function getBorrowRate(
+        uint256 supplied,
+        uint256 borrowed,
+        uint24 reserveRatio
+    ) public pure override returns (
+        uint256 borrowRate
+    ) {
         borrowRate = getBorrowRate(supplied, borrowed, reserveRatio, 0);
     }
 
-    function getBorrowRate(uint256 supplied, uint256 borrowed, uint24 reserveRatio, uint256 toBorrow) public pure returns (uint256 borrowRate) {
+    function getBorrowRate(
+        uint256 supplied,
+        uint256 borrowed,
+        uint24 reserveRatio,
+        uint256 toBorrow
+    ) public pure override returns (
+        uint256 borrowRate
+    ) {
         if (supplied == 0) return BASE_RATE;
 
         borrowRate = BASE_RATE + HIKED_RATE.mulDiv(
