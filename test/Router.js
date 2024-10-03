@@ -456,6 +456,7 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, tradingCore, owner } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
+            const poolContract = await hre.ethers.getContractAt("Pool", pool);
             const amount = feeConfig._borrowCap + 1n;
             await mockToken.approve(pool, amount);
             await routerAtProxy.supply(
@@ -465,11 +466,11 @@ describe("TeaRex Router", function () {
                 amount)
 
             await expect(routerAtProxy.connect(tradingCore).commitBorrow(underlyingAsset, interestRateModelType, amount))
-            .to.changeTokenBalances(
-                mockToken,
-                [pool, tradingCore],
-                [-feeConfig._borrowCap, feeConfig._borrowCap]
-            );
+            .to.be.revertedWithCustomError(poolContract, "ExceedsCap");
+
+            await expect(routerAtProxy.connect(tradingCore).borrow(underlyingAsset, interestRateModelType, amount))
+            .to.be.revertedWithCustomError(poolContract, "ExceedsCap");
+
         });
 
         it("Should revert if reserve < reserve ratio", async function () {
