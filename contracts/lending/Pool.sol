@@ -54,6 +54,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         __ERC20_init(string.concat("TeaREX Supply ", _underlyingAsset.name()), string.concat("Tea", _underlyingAsset.symbol()));
         __Pausable_init();
 
+        if (_borrowCap > _supplyCap) revert InvalidCap();
+
         router = IRouter(msg.sender);
         underlyingAsset = _underlyingAsset;
         DECIMALS = _underlyingAsset.decimals();

@@ -7,6 +7,7 @@ import {IInterestRateModel} from "./IInterestRateModel.sol";
 
 interface IPool {
 
+    error InvalidCap();
     error InvalidPercentage();
     error ZeroAmountNotAllowed();
     error ExceedsCap();
