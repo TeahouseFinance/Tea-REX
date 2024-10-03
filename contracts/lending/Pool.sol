@@ -200,8 +200,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
     function _checkBorrowable(uint256 _borrowedUnderlying, uint256 _underlyingAmount) internal view {
         uint256 borrowable = suppliedUnderlying.mulDiv(Percent.MULTIPLIER - reserveRatio, Percent.MULTIPLIER);
-        uint256 _totalBorrowed = _borrowedUnderlying + _underlyingAmount;
-        if (_totalBorrowed > borrowable || _totalBorrowed > borrowCap) revert ExceedsCap();
+        uint256 totalBorrowed = _borrowedUnderlying + _underlyingAmount;
+        if (totalBorrowed > borrowable || totalBorrowed > borrowCap) revert ExceedsCap();
     }
 
     function borrow(address _account, uint256 _underlyingAmount) external override nonReentrant onlyNotPaused onlyRouter {
