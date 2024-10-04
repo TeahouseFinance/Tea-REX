@@ -2,11 +2,9 @@ const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const hre = require("hardhat");
 const {
-  loadFixture,
-  time,
+  loadFixture
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const FEE_CAP = 300000;
 const interestRateModelType = 2;
 const feeConfig = {
@@ -19,12 +17,12 @@ const feeConfig = {
 describe("TeaRex Router", function () {
     async function deployRouterProxyFixture() {
         const [owner, tradingCore, feeTreasury, user] = await hre.ethers.getSigners();
-        console.log("Owner address: ", owner.address);
+        // console.log("Owner address: ", owner.address);
 
         const Router = await hre.ethers.getContractFactory("Router");
         const router = await Router.deploy();
         await router.waitForDeployment();
-        console.log("Router deployed to:", await router.getAddress());
+        // console.log("Router deployed to:", await router.getAddress());
         
         const routerInterface = Router.interface;
         const initializeData = routerInterface.encodeFunctionData("initialize", [owner.address, FEE_CAP]);
@@ -32,14 +30,13 @@ describe("TeaRex Router", function () {
         const RouterProxy = await hre.ethers.getContractFactory("ERC1967Proxy");
         const routerProxy = await RouterProxy.deploy(await router.getAddress(), initializeData);
         await routerProxy.waitForDeployment();
-        console.log("RouterProxy deployed to:", await routerProxy.getAddress());
-        // Get the Router interface at the proxy address
+        // console.log("RouterProxy deployed to:", await routerProxy.getAddress());
         const routerAtProxy = Router.attach(await routerProxy.getAddress());
         
         const interestRateModelSample = await hre.ethers.getContractFactory("VariableInterestRateModel");
         const interestRateModel = await interestRateModelSample.deploy();
         await interestRateModel.waitForDeployment();
-        console.log("InterestRateModel deployed to:", await interestRateModel.getAddress());
+        // console.log("InterestRateModel deployed to:", await interestRateModel.getAddress());
 
         return { owner, tradingCore, feeTreasury, user, router, interestRateModel, routerAtProxy };
     }
@@ -49,7 +46,7 @@ describe("TeaRex Router", function () {
         const initialSupply = 10_000_000;
         const mockToken = await MockERC20.deploy(initialSupply);
         await mockToken.waitForDeployment();
-        console.log("MockToken deployed to:", await mockToken.getAddress());
+        // console.log("MockToken deployed to:", await mockToken.getAddress());
 
         return { mockToken };
       }
