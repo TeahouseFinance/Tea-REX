@@ -54,14 +54,14 @@ contract TradingCore is
 
     function initialize(
         address _owner,
-        address marketImplementation,
+        address _beacon,
         IRouter _router,
         IAssetOracle _oracle,
         SwapRelayer _swapRelayer,
         FeeConfig calldata _feeConfig,
         address _feePlugin
     ) public initializer {
-        _zeroAddressNotAllowed(marketImplementation);
+        _zeroAddressNotAllowed(_beacon);
         _zeroAddressNotAllowed(address(_router));
         _zeroAddressNotAllowed(address(_oracle));
         _zeroAddressNotAllowed(address(_swapRelayer));
@@ -74,10 +74,7 @@ contract TradingCore is
         _setFeeConfig(_feeConfig);
         _setFeePlugin(_feePlugin);
 
-        // marketNFT from external if contract size exceeds 24kB  
-        // UpgradeableBeacon beacon = new UpgradeableBeacon(address(new MarketNFT()), _owner);
-        UpgradeableBeacon beacon = new UpgradeableBeacon(marketImplementation, _owner);
-        marketBeacon = address(beacon);
+        marketBeacon = _beacon;
         router = _router;
         oracle = _oracle;
         swapRelayer = _swapRelayer;

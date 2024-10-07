@@ -41,6 +41,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function initialize(
         address _owner,
+        address _beacon,
         uint32 _feeCap
     ) public initializer {
         __UUPSUpgradeable_init();
@@ -48,8 +49,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         __Pausable_init();
 
         FEE_CAP = _feeCap;
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(new Pool()), _owner);
-        poolBeacon = address(beacon);
+        poolBeacon = _beacon;
     }
 
     function pause() external override onlyOwner {
