@@ -1,6 +1,6 @@
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
-const hre = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 const {
   loadFixture
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
@@ -16,24 +16,26 @@ const feeConfig = {
 
 describe("TeaRex Router", function () {
     async function deployRouterProxyFixture() {
-        const [owner, tradingCore, feeTreasury, user] = await hre.ethers.getSigners();
+        const [owner, tradingCore, feeTreasury, user] = await ethers.getSigners();
         // console.log("Owner address: ", owner.address);
 
-        const Router = await hre.ethers.getContractFactory("Router");
+        const Router = await ethers.getContractFactory("Router");
         const router = await Router.deploy();
         await router.waitForDeployment();
         // console.log("Router deployed to:", await router.getAddress());
         
+        const Pool = await ethers.getContractFactory("Pool");
+        const poolBeacon = await upgrades.deployBeacon(Pool);
         const routerInterface = Router.interface;
-        const initializeData = routerInterface.encodeFunctionData("initialize", [owner.address, FEE_CAP]);
+        const initializeData = routerInterface.encodeFunctionData("initialize", [owner.address, poolBeacon.target, FEE_CAP]);
 
-        const RouterProxy = await hre.ethers.getContractFactory("ERC1967Proxy");
+        const RouterProxy = await ethers.getContractFactory("ERC1967Proxy");
         const routerProxy = await RouterProxy.deploy(await router.getAddress(), initializeData);
         await routerProxy.waitForDeployment();
         // console.log("RouterProxy deployed to:", await routerProxy.getAddress());
         const routerAtProxy = Router.attach(await routerProxy.getAddress());
         
-        const interestRateModelSample = await hre.ethers.getContractFactory("VariableInterestRateModel");
+        const interestRateModelSample = await ethers.getContractFactory("VariableInterestRateModel");
         const interestRateModel = await interestRateModelSample.deploy();
         await interestRateModel.waitForDeployment();
         // console.log("InterestRateModel deployed to:", await interestRateModel.getAddress());
@@ -42,7 +44,7 @@ describe("TeaRex Router", function () {
     }
 
     async function deployERC20Fixture() {
-        const MockERC20 = await hre.ethers.getContractFactory("MockToken");
+        const MockERC20 = await ethers.getContractFactory("MockToken");
         const initialSupply = 10_000_000;
         const mockToken = await MockERC20.deploy(initialSupply);
         await mockToken.waitForDeployment();
@@ -173,7 +175,7 @@ describe("TeaRex Router", function () {
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
             expect(pool).to.equal(poolProxyAddress);
 
-            const Pool = await hre.ethers.getContractFactory("Pool");
+            const Pool = await ethers.getContractFactory("Pool");
             const poolInstance = Pool.attach(poolProxyAddress);
 
             expect(await poolInstance.underlyingAsset()).to.equal(underlyingAsset);
@@ -264,7 +266,7 @@ describe("TeaRex Router", function () {
 
             await routerAtProxy.setEnableWhitelist(true);
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);            
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.transfer(user.address, amount);
             await mockToken.connect(user).approve(pool, amount);
             await expect(routerAtProxy.connect(user).supply(
@@ -279,8 +281,8 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress(); 
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const poolContract = await hre.ethers.getContractAt("Pool", pool);
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const poolContract = await ethers.getContractAt("Pool", pool);
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.transfer(user.address, amount);
             expect(await mockToken.balanceOf(user.address)).to.equal(amount);
 
@@ -313,7 +315,7 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.transfer(user.address, amount);
             await mockToken.connect(user).approve(pool, amount);
             await routerAtProxy.connect(user).supply(
@@ -339,10 +341,10 @@ describe("TeaRex Router", function () {
             const { mockToken, owner, tradingCore, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const poolContract = await hre.ethers.getContractAt("Pool", pool);
+            const poolContract = await ethers.getContractAt("Pool", pool);
 
-            const transferAmount = hre.ethers.parseUnits("2.5", await mockToken.decimals());
-            const supplyAmount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const transferAmount = ethers.parseUnits("2.5", await mockToken.decimals());
+            const supplyAmount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.transfer(user.address, transferAmount);
             await mockToken.connect(user).approve(pool, supplyAmount);
             await routerAtProxy.connect(user).supply(
@@ -358,7 +360,7 @@ describe("TeaRex Router", function () {
                 owner.address,
                 supplyAmount)
 
-            const borrowAmount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const borrowAmount = ethers.parseUnits("1", await mockToken.decimals());
             await routerAtProxy.connect(tradingCore).commitBorrow(mockToken.getAddress(), interestRateModelType, borrowAmount);
 
             const events = await poolContract.queryFilter("Borrowed");
@@ -375,7 +377,7 @@ describe("TeaRex Router", function () {
                 feeConfig._modelType, 
                 borrowId)).to.equal(borrowAmount);
             
-            const repayAmount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const repayAmount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.connect(user).approve(pool, repayAmount);
             expect(await routerAtProxy.connect(user).repay(
                 await mockToken.getAddress(),
@@ -397,7 +399,7 @@ describe("TeaRex Router", function () {
             const { mockToken, tradingCore, routerAtProxy, owner } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.approve(pool, amount);
             await routerAtProxy.supply(
                 underlyingAsset,
@@ -405,7 +407,7 @@ describe("TeaRex Router", function () {
                 owner.address,
                 amount)
             
-            const borrowAmount = hre.ethers.parseUnits("0.5", await mockToken.decimals());
+            const borrowAmount = ethers.parseUnits("0.5", await mockToken.decimals());
             expect(await routerAtProxy.connect(tradingCore).borrow(underlyingAsset, interestRateModelType, borrowAmount))
             .to.changeTokenBalances(
                 mockToken,
@@ -418,7 +420,7 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, owner } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.approve(pool, amount);
             await routerAtProxy.supply(
                 underlyingAsset,
@@ -426,7 +428,7 @@ describe("TeaRex Router", function () {
                 owner.address,
                 amount)
             
-            const borrowAmount = hre.ethers.parseUnits("0.5", await mockToken.decimals());
+            const borrowAmount = ethers.parseUnits("0.5", await mockToken.decimals());
             await expect(routerAtProxy.borrow(underlyingAsset, interestRateModelType, borrowAmount))
             .to.be.revertedWithCustomError(routerAtProxy, "CallerIsNotTradingCore");
         });
@@ -453,7 +455,7 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, tradingCore, owner } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const poolContract = await hre.ethers.getContractAt("Pool", pool);
+            const poolContract = await ethers.getContractAt("Pool", pool);
             const amount = feeConfig._borrowCap + 1n;
             await mockToken.approve(pool, amount);
             await routerAtProxy.supply(
@@ -474,7 +476,7 @@ describe("TeaRex Router", function () {
             const { mockToken, routerAtProxy, tradingCore, owner } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
-            const amount = hre.ethers.parseUnits("1", await mockToken.decimals());
+            const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.approve(pool, amount);
             await routerAtProxy.supply(
                 underlyingAsset,
@@ -482,7 +484,7 @@ describe("TeaRex Router", function () {
                 owner.address,
                 amount);
 
-            const borrowAmount = hre.ethers.parseUnits("0.99", await mockToken.decimals());
+            const borrowAmount = ethers.parseUnits("0.99", await mockToken.decimals());
             await expect(routerAtProxy.connect(tradingCore).borrow(
                 underlyingAsset, 
                 feeConfig._modelType, 
