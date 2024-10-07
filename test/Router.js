@@ -19,28 +19,19 @@ describe("TeaRex Router", function () {
         const [owner, tradingCore, feeTreasury, user] = await ethers.getSigners();
         // console.log("Owner address: ", owner.address);
 
-        const Router = await ethers.getContractFactory("Router");
-        const router = await Router.deploy();
-        await router.waitForDeployment();
-        // console.log("Router deployed to:", await router.getAddress());
-        
         const Pool = await ethers.getContractFactory("Pool");
         const poolBeacon = await upgrades.deployBeacon(Pool);
-        const routerInterface = Router.interface;
-        const initializeData = routerInterface.encodeFunctionData("initialize", [owner.address, poolBeacon.target, FEE_CAP]);
 
-        const RouterProxy = await ethers.getContractFactory("ERC1967Proxy");
-        const routerProxy = await RouterProxy.deploy(await router.getAddress(), initializeData);
-        await routerProxy.waitForDeployment();
-        // console.log("RouterProxy deployed to:", await routerProxy.getAddress());
-        const routerAtProxy = Router.attach(await routerProxy.getAddress());
+        const Router = await ethers.getContractFactory("Router");
+        const routerAtProxy = await upgrades.deployProxy(Router, [owner.address, poolBeacon.target, FEE_CAP]);
+        // console.log("Router deployed to:", await routerAtProxy.getAddress());   
         
         const interestRateModelSample = await ethers.getContractFactory("VariableInterestRateModel");
         const interestRateModel = await interestRateModelSample.deploy();
         await interestRateModel.waitForDeployment();
         // console.log("InterestRateModel deployed to:", await interestRateModel.getAddress());
 
-        return { owner, tradingCore, feeTreasury, user, router, interestRateModel, routerAtProxy };
+        return { owner, tradingCore, feeTreasury, user, interestRateModel, routerAtProxy };
     }
 
     async function deployERC20Fixture() {
@@ -54,7 +45,7 @@ describe("TeaRex Router", function () {
       }
 
     async function deployRouterProxyWithSetFixture() {
-        const { owner, tradingCore, feeTreasury, user, router, interestRateModel, routerAtProxy } = await deployRouterProxyFixture();
+        const { owner, tradingCore, feeTreasury, user, interestRateModel, routerAtProxy } = await deployRouterProxyFixture();
         const { mockToken } = await deployERC20Fixture(); 
         const borrow_fee = 10_000;
 
@@ -70,7 +61,7 @@ describe("TeaRex Router", function () {
             feeConfig._reserveRatio
         )
 
-        return { mockToken, owner, tradingCore, feeTreasury, user, router, interestRateModel, routerAtProxy };
+        return { mockToken, owner, tradingCore, feeTreasury, user, interestRateModel, routerAtProxy };
     }
 
     describe("Deployment", function () {
