@@ -20,15 +20,15 @@ interface ITradingCore {
     error AmountExceedsLimit();
     error NotInWhitelist();
 
-    event CreateMarket(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, address marketAddress);
+    event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20Upgradeable token0, ERC20Upgradeable token1);
     event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
     event CollectTradingFee(ERC20Upgradeable token, FeeConfig feeConfig, uint256 fee);
-    event OpenPosition(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId);
-    event AddMargin(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId, uint256 addedAmount);
-    event ClosePosition(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event TakeProfit(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event StopLoss(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event Liquidate(address indexed sender, ERC20Upgradeable indexed token0, ERC20Upgradeable indexed token1, uint256 positionId, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
+    event OpenPosition(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1);
+    event AddMargin(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1, uint256 addedAmount);
+    event ClosePosition(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
+    event TakeProfit(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
+    event StopLoss(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
+    event Liquidate(address indexed sender, IMarketNFT indexed market, uint256 indexed positionId, ERC20Upgradeable token0, ERC20Upgradeable token1, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
 
     struct FeeConfig {
         address treasury;

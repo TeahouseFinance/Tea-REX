@@ -158,7 +158,7 @@ contract TradingCore is
         ));
         pairMarket[_token0][_token1] = MarketNFT(marketAddress);
 
-        emit CreateMarket(msg.sender, _token0, _token1, marketAddress);
+        emit CreateMarket(msg.sender, IMarketNFT(marketAddress), _token0, _token1);
     }
 
     function openPosition(
@@ -219,7 +219,7 @@ contract TradingCore is
             _stopLoss
         );
 
-        emit OpenPosition(msg.sender, _token0, _token1, positionId);
+        emit OpenPosition(msg.sender, market, positionId, _token0, _token1);
     }
     
     function addMargin(
@@ -246,7 +246,7 @@ contract TradingCore is
         );
         (position.isMarginAsset ? asset : debt).safeTransferFrom(msg.sender, address(this), requiredAmount);
 
-        emit AddMargin(msg.sender, token0, token1, _positionId, requiredAmount);
+        emit AddMargin(msg.sender, market, _positionId, token0, token1, requiredAmount);
     }
 
     function _closePosition(
@@ -312,16 +312,16 @@ contract TradingCore is
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+            emit ClosePosition(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+            emit TakeProfit(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+            emit StopLoss(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(msg.sender, token0, token1, _positionId, decreasedAssetAmount, decreasedDebtAmount);
+            emit Liquidate(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
         }
     }
 
