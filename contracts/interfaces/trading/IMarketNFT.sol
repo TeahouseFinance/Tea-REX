@@ -88,6 +88,7 @@ interface IMarketNFT {
         uint256 tradingFee,
         uint256 debtAmount
     ) external returns (
+        bool isFullyClosed,
         uint256 owedAsset,
         uint256 owedDebt
     );

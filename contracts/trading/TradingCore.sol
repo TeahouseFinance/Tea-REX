@@ -219,7 +219,7 @@ contract TradingCore is
             _stopLoss
         );
 
-        emit OpenPosition(msg.sender, market, positionId, _token0, _token1);
+        emit OpenPosition(market, positionId);
     }
     
     function addMargin(
@@ -246,7 +246,7 @@ contract TradingCore is
         );
         (position.isMarginAsset ? asset : debt).safeTransferFrom(msg.sender, address(this), requiredAmount);
 
-        emit AddMargin(msg.sender, market, _positionId, token0, token1, requiredAmount);
+        emit AddMargin(market, _positionId, requiredAmount);
     }
 
     function _closePosition(
@@ -259,6 +259,7 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) internal returns (
+        bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
@@ -292,7 +293,7 @@ contract TradingCore is
             _data
         );
     
-        (owedAsset, owedDebt) = market.closePosition(
+        (isFullyClosed, owedAsset, owedDebt) = market.closePosition(
             _mode,
             oracle,
             _positionId,
@@ -312,16 +313,16 @@ contract TradingCore is
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
+            emit ClosePosition(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
+            emit TakeProfit(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
+            emit StopLoss(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(msg.sender, market, _positionId, token0, token1, decreasedAssetAmount, decreasedDebtAmount);
+            emit Liquidate(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
         }
     }
 
@@ -334,6 +335,7 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant returns (
+        bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
@@ -360,6 +362,7 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+        bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
@@ -386,6 +389,7 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+        bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
@@ -412,6 +416,7 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+        bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
         uint256 owedAsset,
@@ -427,6 +432,34 @@ contract TradingCore is
             _swapRouter,
             _data
         );
+    }
+
+    function getPositionTokens(
+        address _market,
+        uint256 _positionId
+    ) external override view returns (
+        ERC20Upgradeable asset,
+        ERC20Upgradeable debt
+    ) {
+        ERC20Upgradeable token0 = ERC20Upgradeable(MarketNFT(_market).token0());
+        ERC20Upgradeable token1 = ERC20Upgradeable(MarketNFT(_market).token1());
+
+        return _getPositionTokens(token0, token1, MarketNFT(_market).getPosition(_positionId));
+    }
+    
+    function debtOfPosition(
+        address _market,
+        uint256 _positionId
+    ) external override view returns (
+        ERC20Upgradeable debtUnderlying,
+        uint256 amount
+    ) {
+        ERC20Upgradeable token0 = ERC20Upgradeable(MarketNFT(_market).token0());
+        ERC20Upgradeable token1 = ERC20Upgradeable(MarketNFT(_market).token1());
+        IMarketNFT.Position memory position = MarketNFT(_market).getPosition(_positionId);
+
+        (, debtUnderlying) = _getPositionTokens(token0, token1, position);
+        amount = router.debtOfUnderlying(debtUnderlying, position.interestRateModelType, position.borrowId);
     }
 
     function liquidateAuctionPrice(

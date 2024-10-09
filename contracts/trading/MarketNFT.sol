@@ -304,6 +304,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _tradingFee,
         uint256 _debtAmount
     ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
+        bool isFullyClosed,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -348,7 +349,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             isNotLiquidation = false;
         }
 
-        (owedAsset, owedDebt) = _afterFlatPosition(
+        (isFullyClosed, owedAsset, owedDebt) = _afterFlatPosition(
             _positionId,
             position,
             _decreasedAssetAmount,
@@ -382,6 +383,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 debtPrice,
         uint256 marginPrice
     ) internal returns (
+        bool isFullyClosed,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -394,24 +396,23 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _position.assetAmount = _position.assetAmount - _decreasedAssetAmount;
         }
 
-        bool isAllRepaid;
         uint256 overRepaidDebt;
         uint256 newDebtAmount;
         if (_decreasedDebtAmount >= _debtAmount) {
-            isAllRepaid = true;
+            isFullyClosed = true;
             overRepaidDebt = _decreasedDebtAmount - _debtAmount;
             newDebtAmount = 0;
         }
         else {
             newDebtAmount = _debtAmount - _decreasedDebtAmount;
             if (!_position.isMarginAsset && _position.marginAmount >= newDebtAmount) {
-                isAllRepaid = true;
+                isFullyClosed = true;
                 _position.marginAmount = _position.marginAmount - newDebtAmount;
                 newDebtAmount = 0;
             }
         }
 
-        if (isAllRepaid) {
+        if (isFullyClosed) {
             (owedAsset, owedDebt) = _position.isMarginAsset ? 
                 (_position.assetAmount + _position.marginAmount, overRepaidDebt) : 
                 (_position.assetAmount, _position.marginAmount + overRepaidDebt);
