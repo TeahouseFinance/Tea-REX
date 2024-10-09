@@ -133,8 +133,14 @@ interface ITradingCore {
         uint256 owedAsset,
         uint256 owedDebt
     );
-    function getPositionTokens(address market, uint256 positionId) external returns (ERC20Upgradeable asset, ERC20Upgradeable debt);
-    function debtOfPosition(address market, uint256 positionId) external returns (ERC20Upgradeable debtUnderlying, uint256 amount);
+    function debtOfPosition(
+        address market,
+        uint256 positionId
+    ) external returns (
+        ERC20Upgradeable asset,
+        ERC20Upgradeable debt,
+        uint256 debtAmount
+    );
     function liquidateAuctionPrice(
         ERC20Upgradeable token0,
         ERC20Upgradeable token1,

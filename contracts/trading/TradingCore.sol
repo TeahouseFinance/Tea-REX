@@ -433,33 +433,21 @@ contract TradingCore is
             _data
         );
     }
-
-    function getPositionTokens(
-        address _market,
-        uint256 _positionId
-    ) external override view returns (
-        ERC20Upgradeable asset,
-        ERC20Upgradeable debt
-    ) {
-        ERC20Upgradeable token0 = ERC20Upgradeable(MarketNFT(_market).token0());
-        ERC20Upgradeable token1 = ERC20Upgradeable(MarketNFT(_market).token1());
-
-        return _getPositionTokens(token0, token1, MarketNFT(_market).getPosition(_positionId));
-    }
     
     function debtOfPosition(
         address _market,
         uint256 _positionId
     ) external override view returns (
-        ERC20Upgradeable debtUnderlying,
-        uint256 amount
+        ERC20Upgradeable asset,
+        ERC20Upgradeable debt,
+        uint256 debtAmount
     ) {
         ERC20Upgradeable token0 = ERC20Upgradeable(MarketNFT(_market).token0());
         ERC20Upgradeable token1 = ERC20Upgradeable(MarketNFT(_market).token1());
         IMarketNFT.Position memory position = MarketNFT(_market).getPosition(_positionId);
 
-        (, debtUnderlying) = _getPositionTokens(token0, token1, position);
-        amount = router.debtOfUnderlying(debtUnderlying, position.interestRateModelType, position.borrowId);
+        (asset, debt) = _getPositionTokens(token0, token1, position);
+        debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
     }
 
     function liquidateAuctionPrice(
