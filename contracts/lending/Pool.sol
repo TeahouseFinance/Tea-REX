@@ -368,11 +368,11 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         uint256 baseYear = ((Percent.MULTIPLIER + _rate) << 96) / Percent.MULTIPLIER;
         uint256 base = _inversePower96(baseYear, Constant.SEC_PER_YEAR);
         uint256 multiplier = _power96(base, _timeElapsed);
-        result = multiplier.mulDiv(_borrowed, 1 << 96);
+        result = multiplier.mulDiv(_borrowed, 1 << 96) - _borrowed;
     }
 
     /// @notice Calculate _base ** (1/_exp) where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
-    /// @notice This function assumes _base < (1 << 128), but does not verify to save gas.
+    /// @notice This function assumes _base < (1 << 97), but does not verify to save gas.
     /// @notice Caller is responsible for making sure that _base and result are within range.
     function _inversePower96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
         result = (1 << 96);
@@ -380,10 +380,21 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         unchecked {
             uint256 step = 0;
             do {
-                uint256 an = _power96(result, _exp) - _base;
-                uint256 slope = _power96(result, _exp - 1) * _exp;
-                step = (an << 96) / slope;
-                result = result - step;
+                uint256 power = _power96(result, _exp - 1);
+                uint256 power2 = (power * result) >> 96;
+
+                if (power2 > _base) {
+                    uint256 an = power2 - _base;
+                    uint256 slope = power * _exp;
+                    step = (an << 96) / slope;
+                    result = result - step;
+                }
+                else {
+                    uint256 an = _base - power2;
+                    uint256 slope = power * _exp;
+                    step = (an << 96) / slope;
+                    result = result + step;
+                }
             } while(step != 0);
         }
 
@@ -391,7 +402,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     }
 
     /// @notice Calculate _base ** _exp where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
-    /// @notice This function assumes _base < (1 << 128), but does not verify to save gas.
+    /// @notice This function assumes _base < (1 << 97), but does not verify to save gas.
     /// @notice Caller is responsible for making sure that _base and result are within range.
     function _power96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
         result = (1 << 96);
