@@ -362,6 +362,56 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
     }
 
+
+    /// calculate interests
+    function _calculateInterests(uint256 _borrowed, uint256 _rate, uint256 _timeElapsed) internal pure returns (uint256 result) {
+        uint256 baseYear = ((Percent.MULTIPLIER + _rate) << 96) / Percent.MULTIPLIER;
+        uint256 base = _inversePower96(baseYear, Constant.SEC_PER_YEAR);
+        uint256 multiplier = _power96(base, _timeElapsed);
+        result = multiplier.mulDiv(_borrowed, 1 << 96);
+    }
+
+    /// @notice Calculate _base ** (1/_exp) where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
+    /// @notice This function assumes _base < (1 << 128), but does not verify to save gas.
+    /// @notice Caller is responsible for making sure that _base and result are within range.
+    function _inversePower96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
+        result = (1 << 96);
+
+        unchecked {
+            uint256 step = 0;
+            do {
+                uint256 an = _power96(result, _exp) - _base;
+                uint256 slope = _power96(result, _exp - 1) * _exp;
+                step = (an << 96) / slope;
+                result = result - step;
+            } while(step != 0);
+        }
+
+        return result;
+    }
+
+    /// @notice Calculate _base ** _exp where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
+    /// @notice This function assumes _base < (1 << 128), but does not verify to save gas.
+    /// @notice Caller is responsible for making sure that _base and result are within range.
+    function _power96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
+        result = (1 << 96);
+
+        unchecked {
+            while(_exp > 0) {
+                if ((_exp & 1) == 1) {
+                    result *= _base;
+                    result >>= 96;
+                }
+
+                _exp >>= 1;
+                _base *= _base;
+                _base >>= 96;
+            }
+        }
+
+        return result;
+    }
+
     function _collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) internal returns (uint256 interest, uint256 fee) {
         (interest, fee) = _collectInterestAndFee(_feeConfig);
         lastCumulateInterest = block.timestamp;
