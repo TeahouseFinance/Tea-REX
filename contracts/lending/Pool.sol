@@ -375,7 +375,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     /// @notice This function assumes _base < (1 << 97), but does not verify to save gas.
     /// @notice Caller is responsible for making sure that _base and result are within range.
     function _inversePower96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
-        result = (1 << 96);
+        uint256 one = (1 << 96);
+        if (_base < one) {
+            result = one - (one - _base) / _exp;
+        }
+        else {
+            result = one + (_base - one) / _exp;
+        }
 
         unchecked {
             uint256 step = 0;
