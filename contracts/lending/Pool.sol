@@ -372,7 +372,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     }
 
     /// @notice Calculate _base ** (1/_exp) where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
-    /// @notice This function assumes _base < (1 << 97), but does not verify to save gas.
+    /// @notice This function assumes _base and result are less than (1 << 97), but does not verify to save gas.
     /// @notice Caller is responsible for making sure that _base and result are within range.
     function _inversePower96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
         uint256 one = (1 << 96);
@@ -384,10 +384,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         }
 
         unchecked {
-            uint256 step = 0;
+            uint256 step;
             do {
                 uint256 power = _power96(result, _exp - 1);
                 uint256 power2 = (power * result) >> 96;
+                // for _base < (1 << 97), power2 converges to e (~ 2.718281828) when _exp gets larger, so it won't overflow on the first round
+                // since step is smaller when _exp is large, the new result won't change much for later rounds
+                // thus power2 should always be in range no matter how large _exp is
 
                 if (power2 > _base) {
                     uint256 an = power2 - _base;
@@ -408,7 +411,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     }
 
     /// @notice Calculate _base ** _exp where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
-    /// @notice This function assumes _base < (1 << 97), but does not verify to save gas.
+    /// @notice This function assumes _base and result are less than (1 << 128), but does not verify to save gas.
     /// @notice Caller is responsible for making sure that _base and result are within range.
     function _power96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
         result = (1 << 96);
