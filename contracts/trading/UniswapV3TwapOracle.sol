@@ -14,6 +14,12 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 contract UniswapV3TwapOracle is IAssetOracle, Ownable {
     using FullMath for uint256;
 
+    error AssetNotInPool();
+    error ZeroTwapIntervalNotAllowed();  
+    error ConfigLengthMismatch();
+    error BaseAssetCannotBeReenabled();
+    error BaseAssetMismatch();
+
     struct PoolInfo {
         IUniswapV3Pool pool;
         uint32 twapInterval;
@@ -26,7 +32,7 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
     uint256 private constant POW_2_128 = 1 << 128;
     uint256 private constant POW_2_192 = 1 << 192;
     address immutable public baseAsset;
-    uint8 private constant DECIMALS = 18;
+    uint8 private constant DECIMALS = 36;
     mapping(address => PoolInfo[]) public poolInfoChain;
 
     constructor(address _owner, address _baseAsset) Ownable(_owner) {

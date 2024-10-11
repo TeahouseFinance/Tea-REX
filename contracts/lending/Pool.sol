@@ -351,17 +351,10 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             reserveRatio
         );
 
-        // TODO: power operation
-        interest = _borrowedUnderlying.mulDiv(
-            timeElapsed * rate,
-            Constant.SEC_PER_YEAR * Percent.MULTIPLIER
-        );
-        fee = _borrowedUnderlying.mulDiv(
-            timeElapsed * _feeConfig.borrowFee,
-            Constant.SEC_PER_YEAR * Percent.MULTIPLIER
-        );
+        // TODO: optimization?
+        interest = _calculateInterests(_borrowedUnderlying, rate, timeElapsed);
+        fee = _calculateInterests(_borrowedUnderlying, _feeConfig.borrowFee, timeElapsed);
     }
-
 
     /// calculate interests
     function _calculateInterests(uint256 _borrowed, uint256 _rate, uint256 _timeElapsed) internal pure returns (uint256 result) {

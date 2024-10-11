@@ -4,13 +4,7 @@ pragma solidity ^0.8.0;
 
 interface IAssetOracle {
 
-    error BaseAssetCannotBeReenabled();
-    error ConfigLengthMismatch();
-    error BaseAssetMismatch();
-    error AssetNotEnabled();
-    error BatchLengthMismatched();
-    error AssetNotInPool();
-    error ZeroTwapIntervalNotAllowed();    
+    error AssetNotEnabled();  
 
     /*
         sample: asset = USDT (decimals = 6), price (USDT/USDC) = 1.001, oracle decimals = 4, amount = 123000000
