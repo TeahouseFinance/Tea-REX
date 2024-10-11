@@ -362,6 +362,76 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
     }
 
+
+    /// calculate interests
+    function _calculateInterests(uint256 _borrowed, uint256 _rate, uint256 _timeElapsed) internal pure returns (uint256 result) {
+        uint256 baseYear = ((Percent.MULTIPLIER + _rate) << 96) / Percent.MULTIPLIER;
+        uint256 base = _inversePower96(baseYear, Constant.SEC_PER_YEAR);
+        uint256 multiplier = _power96(base, _timeElapsed);
+        result = multiplier.mulDiv(_borrowed, 1 << 96) - _borrowed;
+    }
+
+    /// @notice Calculate _base ** (1/_exp) where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
+    /// @notice This function assumes _base and result are less than (1 << 97), but does not verify to save gas.
+    /// @notice Caller is responsible for making sure that _base and result are within range.
+    function _inversePower96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
+        uint256 one = (1 << 96);
+        if (_base < one) {
+            result = one - (one - _base) / _exp;
+        }
+        else {
+            result = one + (_base - one) / _exp;
+        }
+
+        unchecked {
+            uint256 step;
+            do {
+                uint256 power = _power96(result, _exp - 1);
+                uint256 power2 = (power * result) >> 96;
+                // for _base < (1 << 97), power2 converges to e (~ 2.718281828) when _exp gets larger, so it won't overflow on the first round
+                // since step is smaller when _exp is large, the new result won't change much for later rounds
+                // thus power2 should always be in range no matter how large _exp is
+
+                if (power2 > _base) {
+                    uint256 an = power2 - _base;
+                    uint256 slope = power * _exp;
+                    step = (an << 96) / slope;
+                    result = result - step;
+                }
+                else {
+                    uint256 an = _base - power2;
+                    uint256 slope = power * _exp;
+                    step = (an << 96) / slope;
+                    result = result + step;
+                }
+            } while(step != 0);
+        }
+
+        return result;
+    }
+
+    /// @notice Calculate _base ** _exp where _base is a 96 bits fixed point number (i.e. 1 << 96 means 1).
+    /// @notice This function assumes _base and result are less than (1 << 128), but does not verify to save gas.
+    /// @notice Caller is responsible for making sure that _base and result are within range.
+    function _power96(uint256 _base, uint256 _exp) internal pure returns (uint256 result) {
+        result = (1 << 96);
+
+        unchecked {
+            while(_exp > 0) {
+                if ((_exp & 1) == 1) {
+                    result *= _base;
+                    result >>= 96;
+                }
+
+                _exp >>= 1;
+                _base *= _base;
+                _base >>= 96;
+            }
+        }
+
+        return result;
+    }
+
     function _collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) internal returns (uint256 interest, uint256 fee) {
         (interest, fee) = _collectInterestAndFee(_feeConfig);
         lastCumulateInterest = block.timestamp;
