@@ -139,8 +139,9 @@ contract TradingCore is
         IRouter _router = router;
         if (!_router.isAssetEnabled(_token0)) revert AssetNotEnabled();
         if (!_router.isAssetEnabled(_token1)) revert AssetNotEnabled();
-
         (, _token0, _token1) = _sortToken(_token0, _token1);
+        if (pairMarket[_token0][_token1] != MarketNFT(address(0))) revert MarketAlreadyCreated();
+
         marketAddress = address(new BeaconProxy(
             marketBeacon,
             abi.encodeWithSelector(
@@ -162,10 +163,9 @@ contract TradingCore is
     }
 
     function openPosition(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         IRouter.InterestRateModelType _interestRateModelType,
-        bool _isToken0Debt,
+        ERC20Upgradeable longTarget,
         uint256 _marginAmount,
         uint256 _borrowAmount,
         uint256 _minAssetAmount,
@@ -174,17 +174,16 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant returns (
-        IMarketNFT market,
         uint256 positionId
     ) {
-        bool orderChanged;
-        (orderChanged, _token0, _token1) = _sortToken(_token0, _token1);
-        market = _getMarket(_token0, _token1);
+        (ERC20Upgradeable token0, ERC20Upgradeable token1) = _getMarketPair(_market);
+        if (longTarget != token0 && longTarget != token1) revert InvalidAsset();
 
-        ERC20Upgradeable margin = market.isToken0Margin() ? _token0 : _token1;
-        (bool isLongToken0, ERC20Upgradeable asset, ERC20Upgradeable debt) = orderChanged && _isToken0Debt ? 
-            (true, _token0, _token1) :
-            (false, _token1, _token0);
+        MarketNFT market = MarketNFT(_market);
+        ERC20Upgradeable margin = market.isToken0Margin() ? token0 : token1;
+        (bool isLongToken0, ERC20Upgradeable asset, ERC20Upgradeable debt) = longTarget == token0 ? 
+            (true, token0, token1) :
+            (false, token1, token0);
         
         IRouter _router = router;
         address pool = _router.borrow(debt, _interestRateModelType, _borrowAmount);
@@ -223,11 +222,11 @@ contract TradingCore is
     }
     
     function addMargin(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint24 _newLiquidationAssetDebtRatio
     ) external override nonReentrant {
+
         (
             ERC20Upgradeable token0,
             ERC20Upgradeable token1,
@@ -235,7 +234,7 @@ contract TradingCore is
             MarketNFT market,
             IMarketNFT.Position memory position,
 
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
+        ) = _beforeModifyOpeningPosition(_market, _positionId);
 
         (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
         uint256 requiredAmount = market.addMargin(
@@ -251,8 +250,7 @@ contract TradingCore is
 
     function _closePosition(
         IMarketNFT.CloseMode _mode,
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
@@ -272,7 +270,7 @@ contract TradingCore is
             MarketNFT market,
             IMarketNFT.Position memory position,
             address positionOwner
-        ) = _beforeModifyOpeningPosition(_token0, _token1, _positionId);
+        ) = _beforeModifyOpeningPosition(_market, _positionId);
         if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
 
         FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
@@ -327,8 +325,7 @@ contract TradingCore is
     }
 
     function closePosition(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
@@ -343,8 +340,7 @@ contract TradingCore is
     ) {
         return _closePosition(
             IMarketNFT.CloseMode.Close,
-            _token0,
-            _token1,
+            _market,
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
@@ -354,8 +350,7 @@ contract TradingCore is
     }
 
     function takeProfit(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
@@ -370,8 +365,7 @@ contract TradingCore is
     ) {
         return _closePosition(
             IMarketNFT.CloseMode.TakeProfit,
-            _token0,
-            _token1,
+            _market,
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
@@ -381,8 +375,7 @@ contract TradingCore is
     }
 
     function stopLoss(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
@@ -397,8 +390,7 @@ contract TradingCore is
     ) {
         return _closePosition(
             IMarketNFT.CloseMode.StopLoss,
-            _token0,
-            _token1,
+            _market,
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
@@ -408,8 +400,7 @@ contract TradingCore is
     }
 
     function liquidate(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
@@ -424,8 +415,7 @@ contract TradingCore is
     ) {
         return _closePosition(
             IMarketNFT.CloseMode.Liquidate,
-            _token0,
-            _token1,
+            _market,
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
@@ -442,8 +432,7 @@ contract TradingCore is
         ERC20Upgradeable debt,
         uint256 debtAmount
     ) {
-        ERC20Upgradeable token0 = ERC20Upgradeable(MarketNFT(_market).token0());
-        ERC20Upgradeable token1 = ERC20Upgradeable(MarketNFT(_market).token1());
+        (ERC20Upgradeable token0, ERC20Upgradeable token1) = _getMarketPair(_market);
         IMarketNFT.Position memory position = MarketNFT(_market).getPosition(_positionId);
 
         (asset, debt) = _getPositionTokens(token0, token1, position);
@@ -451,27 +440,27 @@ contract TradingCore is
     }
 
     function liquidateAuctionPrice(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
-        bool _isLongToken0
+        address _market,
+        ERC20Upgradeable _longTarget
     ) external view returns (
         uint256 price
     ) {
-        (, _token0, _token1) = _sortToken(_token0, _token1);
-        price = _getMarket(_token0, _token1).liquidateAuctionPrice(oracle, _isLongToken0);
+        (ERC20Upgradeable token0, ERC20Upgradeable token1) = _getMarketPair(_market);
+        if (_longTarget != token0 && _longTarget != token1) revert InvalidAsset();
+
+        price = MarketNFT(_market).liquidateAuctionPrice(oracle, _longTarget == token0);
     }
 
     function getLiquidationPrice(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId
     ) external view returns (
         uint256 price
     ) {
-        (, _token0, _token1) = _sortToken(_token0, _token1);
-        MarketNFT market = _getMarket(_token0, _token1);
+        (ERC20Upgradeable token0, ERC20Upgradeable  token1) = _getMarketPair(_market);
+        MarketNFT market = MarketNFT(_market);
         IMarketNFT.Position memory position = market.getPosition(_positionId);
-        ERC20Upgradeable debt = position.isLongToken0 ? _token1 : _token0;
+        ERC20Upgradeable debt = position.isLongToken0 ? token1 : token0;
         uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
         
         price = market.getLiquidationPrice(oracle, _positionId, debtAmount);
@@ -491,14 +480,14 @@ contract TradingCore is
         (token0, token1) = orderChanged ? (_token1, _token0) : (_token0, _token1);
     }
 
-    function _getMarket(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1
+    function _getMarketPair(
+        address _market
     ) internal view returns (
-        MarketNFT market
+        ERC20Upgradeable token0,
+        ERC20Upgradeable token1
     ) {
-        market = pairMarket[_token0][_token1];
-        if (address(market) == address(0)) revert PairNotCreated();
+        token0 = ERC20Upgradeable(MarketNFT(_market).token0());
+        token1 = ERC20Upgradeable(MarketNFT(_market).token1());
     }
 
     function _getPositionTokens(
@@ -593,8 +582,7 @@ contract TradingCore is
     }
 
     function _beforeModifyOpeningPosition(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        address _market,
         uint256 _positionId
     ) internal returns (
         ERC20Upgradeable token0,
@@ -604,9 +592,9 @@ contract TradingCore is
         IMarketNFT.Position memory position,
         address positionOwner
     ) {
-        (, token0, token1) = _sortToken(_token0, _token1);
+        (token0, token1) = _getMarketPair(_market);
         _router = router;
-        market = _getMarket(token0, token1);
+        market = MarketNFT(_market);
         position = market.getPosition(_positionId);
         positionOwner = market.ownerOf(_positionId);
 

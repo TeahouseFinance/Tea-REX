@@ -86,80 +86,8 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
     }
 
     /// @inheritdoc IAssetOracle
-    function getValue(address _asset, uint256 _amount) external override view returns (uint256 value) {
-        return _getValue(_asset, _amount);
-    }
-
-    /// @inheritdoc IAssetOracle
-    function getBatchValue(
-        address[] calldata _assets,
-        uint256[] calldata _amounts
-    ) external override view returns (
-        uint256[] memory values
-    ) {
-        if (_assets.length != _amounts.length) revert BatchLengthMismatched();
-
-        values = new uint256[](_assets.length);
-        for (uint256 i; i < _assets.length; ) {
-            values[i] = _getValue(_assets[i], _amounts[i]);
-            unchecked { i = i + 1; }
-        }
-    }
-
-    /// @inheritdoc IAssetOracle
-    function getValueWithPrice(address _asset, uint256 _amount, uint256 _price) external override view returns (uint256 value) {
-        return _getValueWithPrice(_asset, _amount, _price);
-    }
-
-    /// @inheritdoc IAssetOracle
-    function getBatchValueWithPrice(
-        address[] calldata _assets,
-        uint256[] calldata _amounts,
-        uint256[] calldata _prices
-    ) external override view returns (
-        uint256[] memory values
-    ) {
-        if (_assets.length != _amounts.length) revert BatchLengthMismatched();
-        if (_assets.length != _prices.length) revert BatchLengthMismatched();
-
-        values = new uint256[](_assets.length);
-        for (uint256 i; i < _assets.length; ) {
-            values[i] = _getValueWithPrice(_assets[i], _amounts[i], _prices[i]);
-            unchecked { i = i + 1; }
-        }
-    }
-
-    /// @inheritdoc IAssetOracle
     function getPrice(address _asset) external override view returns (uint256 price) {
-        return _getTwap(poolInfoChain[_asset]);
-    }
-
-    /// @inheritdoc IAssetOracle
-    function getBatchPrice(address[] calldata _assets) external override view returns (uint256[] memory prices) {
-        prices = new uint256[](_assets.length);
-        for (uint256 i; i < _assets.length; ) {
-            prices[i] = _getTwap(poolInfoChain[_assets[i]]);
-            unchecked { i = i + 1; }
-        }
-    }
-
-    function _getValue(address _asset, uint256 _amount) internal view returns (uint256 value) {
         PoolInfo[] memory _poolInfoChain = poolInfoChain[_asset];
-        return _amount.mulDiv(
-            _getTwap(_poolInfoChain),
-            10 ** (_poolInfoChain[0].assetIsToken0 ? _poolInfoChain[0].decimals0 : _poolInfoChain[0].decimals1)
-        );
-    }
-
-    function _getValueWithPrice(address _asset, uint256 _amount, uint256 _price) internal view returns (uint256 value) {
-        PoolInfo[] memory _poolInfoChain = poolInfoChain[_asset];
-        return _amount.mulDiv(
-            _price,
-            10 ** (_poolInfoChain[0].assetIsToken0 ? _poolInfoChain[0].decimals0 : _poolInfoChain[0].decimals1)
-        );
-    }
-
-    function _getTwap(PoolInfo[] memory _poolInfoChain) internal view returns (uint256 price) {
         if (_poolInfoChain.length == 0) revert AssetNotEnabled();
 
         price = 10 ** DECIMALS;

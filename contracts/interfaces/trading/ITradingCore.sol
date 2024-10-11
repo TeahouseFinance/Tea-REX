@@ -12,6 +12,7 @@ interface ITradingCore {
     error ExceedsFeeCap();
     error ZeroNotAllowed();
     error AssetNotEnabled();
+    error MarketAlreadyCreated();
     error PairNotCreated();
     error NotPositionOwner();
     error PriceConditionNotMet();
@@ -19,6 +20,7 @@ interface ITradingCore {
     error SlippageTooLarge();
     error AmountExceedsLimit();
     error NotInWhitelist();
+    error InvalidAsset();
 
     event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20Upgradeable token0, ERC20Upgradeable token1);
     event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
@@ -52,10 +54,9 @@ interface ITradingCore {
         address marketAddress
     );
     function openPosition(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         IRouter.InterestRateModelType interestRateModelType,
-        bool isToken0Debt,
+        ERC20Upgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,
         uint256 minAssetAmount,
@@ -64,18 +65,15 @@ interface ITradingCore {
         address swapRouter,
         bytes calldata data
     ) external returns (
-        IMarketNFT market,
         uint256 positionId
     );
     function addMargin(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId,
         uint24 newLiquidationAssetDebtRatio
     ) external;
     function closePosition(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
@@ -89,8 +87,7 @@ interface ITradingCore {
         uint256 owedDebt
     );
     function takeProfit(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
@@ -104,8 +101,7 @@ interface ITradingCore {
         uint256 owedDebt
     );
     function stopLoss(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
@@ -119,8 +115,7 @@ interface ITradingCore {
         uint256 owedDebt
     );
     function liquidate(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
@@ -142,15 +137,13 @@ interface ITradingCore {
         uint256 debtAmount
     );
     function liquidateAuctionPrice(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
-        bool isLongToken0
+        address market,
+        ERC20Upgradeable longTarget
     ) external view returns (
         uint256 price
     );
     function getLiquidationPrice(
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        address market,
         uint256 positionId
     ) external view returns (
         uint256 price
