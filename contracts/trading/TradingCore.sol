@@ -18,6 +18,7 @@ import {IMarketNFT} from "../interfaces/trading/IMarketNFT.sol";
 import {IFeePlugin} from "../interfaces/trading/IFeePlugin.sol";
 import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
+import {ICalldataProcessor} from "../interfaces/trading/ICalldataProcessor.sol";
 import {MarketNFT} from "./MarketNFT.sol";
 import {SwapRelayer} from "./SwapRelayer.sol";
 import {Percent} from "../libraries/Percent.sol";
@@ -37,7 +38,6 @@ contract TradingCore is
 
     address public marketBeacon;
     IRouter public router;
-    IAssetOracle public oracle;
     FeeConfig public feeConfig;
     IFeePlugin public feePlugin;
     SwapRelayer public swapRelayer;
@@ -56,14 +56,12 @@ contract TradingCore is
         address _owner,
         address _beacon,
         IRouter _router,
-        IAssetOracle _oracle,
         SwapRelayer _swapRelayer,
         FeeConfig calldata _feeConfig,
         address _feePlugin
     ) public initializer {
         _zeroAddressNotAllowed(_beacon);
         _zeroAddressNotAllowed(address(_router));
-        _zeroAddressNotAllowed(address(_oracle));
         _zeroAddressNotAllowed(address(_swapRelayer));
         _zeroAddressNotAllowed(address(_feePlugin));
 
@@ -76,7 +74,6 @@ contract TradingCore is
 
         marketBeacon = _beacon;
         router = _router;
-        oracle = _oracle;
         swapRelayer = _swapRelayer;
         enableWhitelist = true;
     }
@@ -125,6 +122,7 @@ contract TradingCore is
     }
 
     function createMarket(
+        IAssetOracle _oracle,
         ERC20Upgradeable _token0,
         ERC20Upgradeable _token1,
         bool _isToken0Margin,
@@ -147,6 +145,7 @@ contract TradingCore is
             abi.encodeWithSelector(
                 MarketNFT.initialize.selector,
                 owner(),
+                _oracle,
                 _token0,
                 _token1,
                 _isToken0Margin,
@@ -207,7 +206,6 @@ contract TradingCore is
         margin.safeTransferFrom(msg.sender, address(this), _marginAmount);
         positionId = market.openPosition(
             msg.sender,
-            oracle,
             _interestRateModelType,
             borrowId, 
             isLongToken0,
@@ -238,7 +236,6 @@ contract TradingCore is
 
         (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
         uint256 requiredAmount = market.addMargin(
-            oracle,
             _positionId,
             _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId),
             _newLiquidationAssetDebtRatio
@@ -254,8 +251,9 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
         address _swapRouter,
-        bytes calldata _data
+        bytes memory _data
     ) internal returns (
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
@@ -280,8 +278,14 @@ contract TradingCore is
             _mode == IMarketNFT.CloseMode.Liquidate
         );
         _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
-
         (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
+        if (address(_calldataProcessor) != address(0)) {
+            _data = _calldataProcessor.processCalldata(
+                _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId),
+                _data
+            );
+        }
+        
         (decreasedAssetAmount, decreasedDebtAmount) = _swap(
             asset,
             debt,
@@ -293,7 +297,6 @@ contract TradingCore is
     
         (isFullyClosed, owedAsset, owedDebt) = market.closePosition(
             _mode,
-            oracle,
             _positionId,
             decreasedAssetAmount,
             decreasedDebtAmount,
@@ -329,6 +332,7 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant returns (
@@ -344,6 +348,7 @@ contract TradingCore is
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
+            _calldataProcessor,
             _swapRouter,
             _data
         );
@@ -354,6 +359,7 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
@@ -369,6 +375,7 @@ contract TradingCore is
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
+            _calldataProcessor,
             _swapRouter,
             _data
         );
@@ -379,6 +386,7 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
@@ -394,6 +402,7 @@ contract TradingCore is
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
+            _calldataProcessor,
             _swapRouter,
             _data
         );
@@ -404,6 +413,7 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _assetAmountToDecrease,
         uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
@@ -419,6 +429,7 @@ contract TradingCore is
             _positionId,
             _assetAmountToDecrease,
             _minDecreasedDebtAmount,
+            _calldataProcessor,
             _swapRouter,
             _data
         );
@@ -448,7 +459,7 @@ contract TradingCore is
         (ERC20Upgradeable token0, ERC20Upgradeable token1) = _getMarketPair(_market);
         if (_longTarget != token0 && _longTarget != token1) revert InvalidAsset();
 
-        price = MarketNFT(_market).liquidateAuctionPrice(oracle, _longTarget == token0);
+        price = MarketNFT(_market).liquidateAuctionPrice(_longTarget == token0);
     }
 
     function getLiquidationPrice(
@@ -463,7 +474,7 @@ contract TradingCore is
         ERC20Upgradeable debt = position.isLongToken0 ? token1 : token0;
         uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
         
-        price = market.getLiquidationPrice(oracle, _positionId, debtAmount);
+        price = market.getLiquidationPrice(_positionId, debtAmount);
     }
 
     function _sortToken(
@@ -550,7 +561,7 @@ contract TradingCore is
         uint256 _srcAmount,
         uint256 _minDstAmount,
         address _swapRouter,
-        bytes calldata _data
+        bytes memory _data
     ) internal returns (
         uint256 srcAmount,
         uint256 dstAmount 

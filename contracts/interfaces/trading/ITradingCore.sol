@@ -4,8 +4,11 @@ pragma solidity ^0.8.0;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
+import {IAssetOracle} from "./IAssetOracle.sol";
 import {IRouter} from "../lending/IRouter.sol";
 import {IMarketNFT} from "./IMarketNFT.sol";
+import {ICalldataProcessor} from "./ICalldataProcessor.sol";
+
 
 interface ITradingCore {
 
@@ -42,6 +45,7 @@ interface ITradingCore {
     function unpause() external;
     function isAllMarketPaused() external view returns (bool);
     function createMarket(
+        IAssetOracle _oracle,
         ERC20Upgradeable token0,
         ERC20Upgradeable token1,
         bool isToken0Margin,
@@ -77,6 +81,7 @@ interface ITradingCore {
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
+        ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -91,6 +96,7 @@ interface ITradingCore {
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
+        ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -105,6 +111,7 @@ interface ITradingCore {
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
+        ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -119,6 +126,7 @@ interface ITradingCore {
         uint256 positionId,
         uint256 assetAmountToDecrease,
         uint256 minDecreasedDebtAmount,
+        ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (

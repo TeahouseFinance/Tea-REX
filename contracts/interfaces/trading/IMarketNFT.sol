@@ -59,7 +59,6 @@ interface IMarketNFT {
     function getPosition(uint256 positionId) external view returns (Position memory position);
     function openPosition(
         address account,
-        IAssetOracle oracle,
         IRouter.InterestRateModelType interestRateModelType,
         uint256 borrowId,
         bool isLongToken0,
@@ -72,7 +71,6 @@ interface IMarketNFT {
         uint256 positionId
     );
     function addMargin(
-        IAssetOracle oracle,
         uint256 positionId,
         uint256 debtAmount,
         uint24 newLiquidationAssetDebtRatio
@@ -81,7 +79,6 @@ interface IMarketNFT {
     );
     function closePosition(
         CloseMode mode,
-        IAssetOracle oracle,
         uint256 positionId,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
@@ -92,9 +89,8 @@ interface IMarketNFT {
         uint256 owedAsset,
         uint256 owedDebt
     );
-    function liquidateAuctionPrice(IAssetOracle oracle, bool isLongToken0) external view returns (uint256 price);
+    function liquidateAuctionPrice(bool isLongToken0) external view returns (uint256 price);
     function getLiquidationPrice(
-        IAssetOracle _oracle,
         uint256 _positionId,
         uint256 _debtAmount
     ) external view returns (uint256 price);

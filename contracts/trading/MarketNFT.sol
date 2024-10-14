@@ -23,6 +23,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     using SafeCast for uint256;
 
     ITradingCore public tradingCore;
+    IAssetOracle oracle;
     address public token0;
     address public token1;
     uint8 public token0Decimals;
@@ -44,6 +45,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function initialize(
         address _owner,
+        IAssetOracle _oracle,
         ERC20Upgradeable _token0,
         ERC20Upgradeable _token1,
         bool _isToken0Margin,
@@ -58,6 +60,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         if (_liquidateLossRatioThreshold >= Percent.MULTIPLIER) revert InvalidThreshold();
         if (_liquidationDiscount >= _liquidateLossRatioThreshold) revert InvalidDiscountRate();
         if (_positionSizeCap == 0) revert ZeroCapNotAllowed();
+        if (!_oracle.isOracleEnabled(address(_token0))) revert IAssetOracle.AssetNotEnabled();
+        if (!_oracle.isOracleEnabled(address(_token1))) revert IAssetOracle.AssetNotEnabled();
 
         __Ownable_init(_owner);
         __ERC721_init(
@@ -68,6 +72,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         __Pausable_init();
 
         tradingCore = ITradingCore(msg.sender);
+        oracle = _oracle;
         token0 = address(_token0);
         token1 = address(_token1);
         token0Decimals = _token0.decimals();
@@ -112,7 +117,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function openPosition(
         address _account,
-        IAssetOracle _oracle,
         IRouter.InterestRateModelType _interestRateModelType,
         uint256 _borrowId, 
         bool _isLongToken0,
@@ -135,7 +139,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetPrice,
             uint256 debtPrice,
             uint256 marginPrice
-        ) = _getTokensInfo(_oracle, _isLongToken0);
+        ) = _getTokensInfo(_isLongToken0);
 
         uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
         if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
@@ -179,7 +183,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     }
 
     function addMargin(
-        IAssetOracle _oracle,
         uint256 _positionId,
         uint256 _debtAmount,
         uint24 _newLiquidationAssetDebtRatio
@@ -201,7 +204,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             ,
             uint256 debtPrice,
             uint256 marginPrice
-        ) = _getTokensInfo(_oracle, position.isLongToken0);
+        ) = _getTokensInfo(position.isLongToken0);
 
         uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, _debtAmount, debtPrice);
         uint256 marginAmount = uint256(Percent.MULTIPLIER - _newLiquidationAssetDebtRatio).mulDiv(
@@ -215,14 +218,13 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
 
     function getLiquidationPrice(
-        IAssetOracle _oracle,
         uint256 _positionId,
         uint256 _debtAmount
     ) external view returns (uint256 price) {
         Position memory position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
 
-        price = _getLiquidationPrice(position, _debtAmount, _oracle.decimals());
+        price = _getLiquidationPrice(position, _debtAmount, oracle.decimals());
     }
 
     function _getLiquidationPrice(
@@ -244,7 +246,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         }
     }
 
-    function liquidateAuctionPrice(IAssetOracle _oracle, bool _isLongToken0) external view returns (uint256 price) {
+    function liquidateAuctionPrice(bool _isLongToken0) external view returns (uint256 price) {
         (
             uint8 oracleDecimals,
             ,
@@ -256,7 +258,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetPrice,
             uint256 debtPrice,
 
-        ) = _getTokensInfo(_oracle, _isLongToken0);
+        ) = _getTokensInfo(_isLongToken0);
 
         price = _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals);
     }
@@ -297,7 +299,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function closePosition(
         CloseMode _mode,
-        IAssetOracle _oracle,
         uint256 _positionId,
         uint256 _decreasedAssetAmount,
         uint256 _decreasedDebtAmount,
@@ -322,7 +323,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetPrice,
             uint256 debtPrice,
             uint256 marginPrice
-        ) = _getTokensInfo(_oracle, position.isLongToken0);
+        ) = _getTokensInfo(position.isLongToken0);
 
         bool isNotLiquidation = true;
         if (_mode == CloseMode.TakeProfit) {
@@ -438,7 +439,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     }
 
     function _getTokensInfo(
-        IAssetOracle _oracle,
         bool _isLongToken0
     ) internal view returns (
         uint8 oracleDecimals,
@@ -452,6 +452,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 debtPrice,
         uint256 marginPrice
     ) {
+        IAssetOracle _oracle = oracle;
         oracleDecimals = _oracle.decimals();
         (asset, debt, assetDecimals, debtDecimals) = _isLongToken0 ? 
             (token0, token1, token0Decimals, token1Decimals) : 
