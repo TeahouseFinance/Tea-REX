@@ -336,6 +336,12 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         return debtInfo[_id].borrowedTeaToken.mulDiv(_borrowedTeaTokenToUnderlying(), 10 ** DECIMALS);
     }
 
+    function getLendingStatus() external override view returns (uint256, uint256, uint24) {
+        (uint256 interest, uint256 fee) = _collectInterestAndFee(router.getFeeConfig());
+
+        return (suppliedUnderlying + interest, borrowedUnderlying + interest + fee, reserveRatio);
+    }
+
     function collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) external override returns (uint256 interest, uint256 fee) {
         return _collectInterestFeeAndCommit(_feeConfig);
     }

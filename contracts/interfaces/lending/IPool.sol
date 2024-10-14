@@ -46,6 +46,7 @@ interface IPool {
     function debtOf(uint256 id) external view returns (uint256 teaTokenAmount);
     function borrowedTeaTokenToUnderlying() external view returns (uint256 rate);
     function debtOfUnderlying(uint256 id) external view returns (uint256 underlyingAmount);
+    function getLendingStatus() external view returns (uint256, uint256, uint24);
     function collectInterestFeeAndCommit(IRouter.FeeConfig memory feeConfig) external returns (uint256 interest, uint256 fee);
 
 }

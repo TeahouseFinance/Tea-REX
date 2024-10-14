@@ -52,6 +52,8 @@ interface IRouter {
     );
     function isAssetEnabled(ERC20Upgradeable asset) external view returns (bool);
     function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool);
+    function getSupplyRate(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
+    function getBorrowRate(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
     function supply(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,

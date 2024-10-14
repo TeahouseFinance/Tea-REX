@@ -55,7 +55,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint24 _liquidationDiscount,
         uint256 _positionSizeCap
     ) public initializer {
-        if (_maxLeverage > 100 * Percent.MULTIPLIER) revert InvalidLeverage();
         if (_openPositionLossRatioThreshold > _liquidateLossRatioThreshold) revert InvalidThreshold();
         if (_liquidateLossRatioThreshold >= Percent.MULTIPLIER) revert InvalidThreshold();
         if (_liquidationDiscount >= _liquidateLossRatioThreshold) revert InvalidDiscountRate();
