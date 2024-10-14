@@ -4,6 +4,6 @@ pragma solidity ^0.8.0;
 
 interface ICalldataProcessor {
     
-    function processCalldata(uint256 amount, bytes memory data) external view returns (bytes memory processedCalldata);
+    function processCalldata(uint256 amount, bytes calldata data) external view returns (bytes memory processedCalldata);
 
 }
