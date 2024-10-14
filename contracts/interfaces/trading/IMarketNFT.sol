@@ -89,6 +89,7 @@ interface IMarketNFT {
         uint256 owedAsset,
         uint256 owedDebt
     );
+    function getTokenPrices() external view returns (uint256 price0, uint256 price1);
     function liquidateAuctionPrice(bool isLongToken0) external view returns (uint256 price);
     function getLiquidationPrice(
         uint256 _positionId,
