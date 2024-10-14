@@ -438,6 +438,11 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         positions[_positionId] = _position;
     }
 
+    function getTokenPrices() external override view returns (uint256 price0, uint256 price1) {
+        price0 = oracle.getPrice(token0);
+        price1 = oracle.getPrice(token1);
+    }
+
     function _getTokensInfo(
         bool _isLongToken0
     ) internal view returns (
