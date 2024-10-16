@@ -46,6 +46,7 @@ contract TradingCore is
     mapping(ERC20Upgradeable => mapping(ERC20Upgradeable => MarketNFT)) public pairMarket;
     mapping(address => bool) public whitelistedOperator;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
@@ -57,18 +58,19 @@ contract TradingCore is
         address _beacon,
         IRouter _router,
         SwapRelayer _swapRelayer,
+        uint32 _feeCap,
         FeeConfig calldata _feeConfig,
         address _feePlugin
     ) public initializer {
         _zeroAddressNotAllowed(_beacon);
         _zeroAddressNotAllowed(address(_router));
         _zeroAddressNotAllowed(address(_swapRelayer));
-        _zeroAddressNotAllowed(address(_feePlugin));
 
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);
         __ReentrancyGuard_init();
 
+        FEE_CAP = _feeCap;
         _setFeeConfig(_feeConfig);
         _setFeePlugin(_feePlugin);
 

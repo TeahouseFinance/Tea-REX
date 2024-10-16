@@ -7,7 +7,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -18,7 +18,7 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgradeable, ERC721EnumerableUpgradeable, PausableUpgradeable, ReentrancyGuard {
+contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgradeable, ERC721EnumerableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using Math for uint256;
     using SafeCast for uint256;
 
@@ -39,6 +39,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     mapping(uint256 => Position) public positions;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
@@ -69,6 +70,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         );
         __ERC721Enumerable_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         tradingCore = ITradingCore(msg.sender);
         oracle = _oracle;
@@ -157,8 +159,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _isLongToken0,
             true,
             _assetAmount,
-            assetDecimals,
-            oracleDecimals,
             assetPrice
         );
 
@@ -430,8 +430,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _position.isLongToken0,
             false,
             _decreasedAssetAmount + _tradingFee,
-            assetDecimals,
-            oracleDecimals,
             assetPrice
         );
         positions[_positionId] = _position;
@@ -511,8 +509,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         bool _isAssetToken0,
         bool _isIncrease,
         uint256 _changeAmount,
-        uint8 _assetDecimals,
-        uint8 _oracleDecimals,
         uint256 _assetPrice
     ) internal {
         if (_isIncrease) {
@@ -526,7 +522,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
                 totalPositionAmount = totalToken1PositionAmount;
             }
             if (
-                totalPositionAmount.mulDiv(_assetPrice, 10 ** (_assetDecimals + _oracleDecimals)) > positionSizeCap
+                totalPositionAmount * _assetPrice > positionSizeCap
             ) revert ExceedsMaxTotalPositionSize();
         }
         else {
