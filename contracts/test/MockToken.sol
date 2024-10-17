@@ -7,11 +7,14 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockToken is ERC20 {
 
-    constructor(uint256 _initialSupply) ERC20("Mock", "Mock") {
+    uint8 private tokenDecimals;
+
+    constructor(uint256 _initialSupply, uint8 _decimals) ERC20("Mock", "Mock") {
         _mint(msg.sender, _initialSupply);
+        tokenDecimals = _decimals;
     }
 
     function decimals() public view virtual override returns (uint8) {
-        return 6;
+        return tokenDecimals;
     }
 }
