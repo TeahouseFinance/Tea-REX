@@ -21,32 +21,74 @@ interface IPool {
     event InterestAccumulated(uint256 timestamp, uint256 interest);
     event BorrowFeeAccumulated(uint256 timestamp, uint256 fee);
 
+
     struct DebtInfo {
         uint256 borrowedTeaToken;
         uint256 lastBorrowRate;
         uint256 lastBorrowRateWithoutFee;
     }
 
+    /// @notice Pause operations for this lending pool
     function pause() external;
+
+    /// @notice Unpause operations for this lending pool
     function unpause() external;
+
+    
     function setSupplyCap(uint256 cap) external;
+    
+    
     function setBorrowCap(uint256 cap) external;
+    
+    
     function setReserveRatio(uint24 ratio) external;
+    
+    
     function getInterestRateModel() external view returns (IInterestRateModel);
+    
+    
     function supply(address account, address supplyFor, uint256 amount) external returns (uint256 depositedUnderlying, uint256 mintedTeaToken);
+    
+    
     function withdraw(address account, address withdrawTo, uint256 amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);
+    
+    
     function getSupplyQuota() external view returns (uint256 quota);
+    
+
     function getWithdrawQuota() external view returns (uint256 quota);
+    
+    
     function borrow(address account, uint256 underlyingAmount) external;
+    
+    
     function commitBorrow(address account, uint256 underlyingAmount) external returns (uint256 id);
+    
+    
     function repay(address account, uint256 id, uint256 underlyingAmount) external returns (uint256 repaidUnderlyingAmount, uint256 unrepaidUnderlyingAmount);
+    
+    
     function suppliedTeaTokenToUnderlying() external view returns (uint256 rate);
+    
+    
     function balanceOf(address account) external view returns (uint256 teaTokenAmount);
+    
+    
     function balanceOfUnderlying(address account) external view returns (uint256 underlyingAmount);
+    
+    
     function debtOf(uint256 id) external view returns (uint256 teaTokenAmount);
+    
+    
     function borrowedTeaTokenToUnderlying() external view returns (uint256 rate);
+    
+    
     function debtOfUnderlying(uint256 id) external view returns (uint256 underlyingAmount);
+    
+    
     function getLendingStatus() external view returns (uint256, uint256, uint24);
+    
+    
     function collectInterestFeeAndCommit(IRouter.FeeConfig memory feeConfig) external returns (uint256 interest, uint256 fee);
 
 }

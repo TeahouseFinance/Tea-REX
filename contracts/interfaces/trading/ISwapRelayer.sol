@@ -14,15 +14,28 @@ interface ISwapRelayer {
 
     receive() external payable;
 
-    function setCheckWhitelist(bool _checkWhitelist) external;
-    function setWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external;
+    /// @notice Switch of router whitelist check
+    /// @param checkWhitelist Whether the whitelist mechanism is enabled
+    function setCheckWhitelist(bool checkWhitelist) external;
 
+    /// @notice Set up router whitelist
+    /// @param router Addresses of routers
+    /// @param isWhitelisted Setting for routers
+    function setWhitelist(address[] calldata router, bool[] calldata isWhitelisted) external;
+
+    /// @notice Swap for caller
+    /// @dev Source token should be transferred the swap relayer in advance
+    /// @param srcToken Source token of the swap
+    /// @param dstToken Destination token of the swap
+    /// @param amountIn Amount of source token to swap
+    /// @param swapRouter Swap router to be used
+    /// @param data Calldata for the assigned swap router
     function swap(
-        ERC20Upgradeable _srcToken,
-        ERC20Upgradeable _dstToken,
-        uint256 _amountIn,
-        address _swapRouter,
-        bytes calldata _data
+        ERC20Upgradeable srcToken,
+        ERC20Upgradeable dstToken,
+        uint256 amountIn,
+        address swapRouter,
+        bytes calldata data
     ) external;
 
 }

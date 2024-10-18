@@ -132,14 +132,15 @@ contract TradingCore is
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
-        uint256 _positionSizeCap
+        uint256 _longPositionSizeCap,
+        uint256 _shortPositionSizeCap
     ) external override nonReentrant onlyOwner returns (
         address marketAddress
     ) {
         IRouter _router = router;
         if (!_router.isAssetEnabled(_token0)) revert AssetNotEnabled();
         if (!_router.isAssetEnabled(_token1)) revert AssetNotEnabled();
-        (, _token0, _token1) = _sortToken(_token0, _token1);
+        if (_token0 >= _token1) revert WrongTokenOrder();
         if (pairMarket[_token0][_token1] != MarketNFT(address(0))) revert MarketAlreadyCreated();
 
         marketAddress = address(new BeaconProxy(
@@ -155,7 +156,8 @@ contract TradingCore is
                 _openPositionLossRatioThreshold,
                 _liquidateLossRatioThreshold,
                 _liquidationDiscount,
-                _positionSizeCap
+                _longPositionSizeCap,
+                _shortPositionSizeCap
             )
         ));
         pairMarket[_token0][_token1] = MarketNFT(marketAddress);
@@ -477,20 +479,6 @@ contract TradingCore is
         uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
         
         price = market.getLiquidationPrice(_positionId, debtAmount);
-    }
-
-    function _sortToken(
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1
-    ) internal pure returns (
-        bool orderChanged,
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1
-    ) {
-        if (_token0 == _token1) revert IdenticalAddress();
-
-        orderChanged = _token0 > _token1;
-        (token0, token1) = orderChanged ? (_token1, _token0) : (_token0, _token1);
     }
 
     function _getMarketPair(

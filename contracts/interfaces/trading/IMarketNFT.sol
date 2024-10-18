@@ -11,7 +11,7 @@ interface IMarketNFT {
 
     error InvalidLeverage();
     error InvalidThreshold();
-    error ZeroCapNotAllowed();
+    error ZeroNotAllowed();
     error InvalidDiscountRate();
     error InvalidTakeProfit();
     error InvalidStopLoss();
@@ -25,12 +25,21 @@ interface IMarketNFT {
     error NoStopLoss();
     error WorsePrice();
 
+    /// @notice Position status
+    /// @param Inactive Default inactive type
+    /// @param Open Opened position
+    /// @param Closed Closed position
     enum PositionStatus {
         Inactive,
         Open,
         Closed
     }
 
+    /// @notice Position close mode
+    /// @param Close Actively closed by position owner
+    /// @param StopLoss Passively closed when the stop loss price is hit
+    /// @param TakeProfit Passively closed when the take profit price is hit
+    /// @param Liquidate Passively closed when the liquidation condition is met
     enum CloseMode {
         Close,
         StopLoss,
@@ -38,6 +47,19 @@ interface IMarketNFT {
         Liquidate
     }
 
+    /// @notice Position related data
+    /// @param status Position status, refer to enum of PositionStatus
+    /// @param isLongToken0 Position trading direction, long token0/short token1 or not
+    /// @param isMarginAsset Whether margin is same as position asset, depending on the trading direction
+    /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value 
+    /// @param liquidationAssetDebtRatio Threshold of liquidation, a ratio of asset value / debt vaule , depending on the leverage
+    /// @param marginAmount Margin amount of the position
+    /// @param interestRateModelType Position lending mode, refer to enum of IRouter.InterestRateModelType
+    /// @param borrowId Position lending id
+    /// @param assetAmount Asset amount of the position
+    /// @param swappableAmount Swappable amount of the position when closing position, depending on the trading direction
+    /// @param takeProfit Take profit price
+    /// @param stopLoss Stop loss price
     struct Position {
         PositionStatus status;
         bool isLongToken0;
@@ -53,10 +75,43 @@ interface IMarketNFT {
         uint256 stopLoss;
     }
 
+    /// @notice Pause operations for this market
     function pause() external;
+
+    /// @notice Unpause operations for this market
     function unpause() external;
+
+
+    function setMaxLeverage(uint24 maxLeverage) external;
+
+    function setMarketRatioParams(
+        uint24 openPositionLossRatioThreshold,
+        uint24 liquidateLossRatioThreshold,
+        uint24 liquidationDiscount
+    ) external;
+
+    function setPositionSizeCap(uint256 token0PositionSizeCap, uint256 token1PositionSizeCap) external;
+    
+    /// @notice Return whether token0 is set as the margin
+    /// @return isToken0Margin whether token0 is the margin
     function isToken0Margin() external view returns (bool);
+    
+    /// @notice Get position by the given id
+    /// @param positionId Position id, same as ERC721 token id
+    /// @return position Position of the given id
     function getPosition(uint256 positionId) external view returns (Position memory position);
+    
+    /// @notice TODO
+    /// @param account Position owner
+    /// @param interestRateModelType Position lending mode
+    /// @param borrowId Position lending id
+    /// @param isLongToken0 Position trading direction, long token0/short token1 or not
+    /// @param marginAmount Margin amount of the position
+    /// @param debtAmount Debt amount of the position
+    /// @param assetAmount Asset amount of the position
+    /// @param takeProfit Take profit price
+    /// @param stopLoss Stop loss price
+    /// @return positionId Position id
     function openPosition(
         address account,
         IRouter.InterestRateModelType interestRateModelType,
@@ -70,6 +125,12 @@ interface IMarketNFT {
     ) external returns (
         uint256 positionId
     );
+    
+    /// @notice TODO
+    /// @param positionId Position id
+    /// @param debtAmount TODO
+    /// @param newLiquidationAssetDebtRatio TODO
+    /// @return requiredAmount TODO
     function addMargin(
         uint256 positionId,
         uint256 debtAmount,
@@ -77,6 +138,17 @@ interface IMarketNFT {
     ) external returns (
         uint256 requiredAmount
     );
+    
+    /// @notice TODO
+    /// @param mode TODO
+    /// @param positionId TODO
+    /// @param decreasedAssetAmount TODO
+    /// @param decreasedDebtAmount TODO
+    /// @param tradingFee TODO
+    /// @param debtAmount TODO
+    /// @return isFullyClosed TODO
+    /// @return owedAsset TODO
+    /// @return owedDebt TODO
     function closePosition(
         CloseMode mode,
         uint256 positionId,
@@ -89,11 +161,25 @@ interface IMarketNFT {
         uint256 owedAsset,
         uint256 owedDebt
     );
+    
+    /// @notice get token prices
+    /// @return decimals Oracle decimals
+    /// @return price0 Token0 price
+    /// @return price1 Token1 price
     function getTokenPrices() external view returns (uint8 decimals, uint256 price0, uint256 price1);
+    
+    /// @notice TODO
+    /// @param isLongToken0 TODO
+    /// @return price TODO
     function liquidateAuctionPrice(bool isLongToken0) external view returns (uint256 price);
+    
+    /// @notice Get liquidation price of the position
+    /// @param positionId Position id
+    /// @param debtAmount Position debt amount
+    /// @return price Liquidation price
     function getLiquidationPrice(
-        uint256 _positionId,
-        uint256 _debtAmount
+        uint256 positionId,
+        uint256 debtAmount
     ) external view returns (uint256 price);
 
 }

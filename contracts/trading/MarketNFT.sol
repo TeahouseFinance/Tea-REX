@@ -33,7 +33,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     uint24 public openPositionLossRatioThreshold;
     uint24 public liquidateLossRatioThreshold;
     uint24 public liquidationDiscount;
-    uint256 public positionSizeCap;
+    uint256 public token0PositionSizeCap;
+    uint256 public token1PositionSizeCap;
     uint256 public totalToken0PositionAmount;
     uint256 public totalToken1PositionAmount;
 
@@ -54,12 +55,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
-        uint256 _positionSizeCap
+        uint256 _token0PositionSizeCap,
+        uint256 _token1PositionSizeCap
     ) public initializer {
-        if (_openPositionLossRatioThreshold > _liquidateLossRatioThreshold) revert InvalidThreshold();
-        if (_liquidateLossRatioThreshold >= Percent.MULTIPLIER) revert InvalidThreshold();
-        if (_liquidationDiscount >= _liquidateLossRatioThreshold) revert InvalidDiscountRate();
-        if (_positionSizeCap == 0) revert ZeroCapNotAllowed();
         if (!_oracle.isOracleEnabled(address(_token0))) revert IAssetOracle.AssetNotEnabled();
         if (!_oracle.isOracleEnabled(address(_token1))) revert IAssetOracle.AssetNotEnabled();
 
@@ -79,11 +77,10 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         token0Decimals = _token0.decimals();
         token1Decimals = _token1.decimals();
         isToken0Margin = _isToken0Margin;
-        maxLeverage = _maxLeverage;
-        openPositionLossRatioThreshold = _openPositionLossRatioThreshold;
-        liquidateLossRatioThreshold = _liquidateLossRatioThreshold;
-        liquidationDiscount = _liquidationDiscount;
-        positionSizeCap = _positionSizeCap;
+
+        _setMaxLeverage(_maxLeverage);
+        _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
+        _setPositionSizeCap(_token0PositionSizeCap, _token1PositionSizeCap);
     }
 
     function _update(
@@ -110,6 +107,51 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function unpause() external override onlyOwner {
         _unpause();
+    }
+
+
+    function setMaxLeverage(uint24 _maxLeverage) external override onlyOwner {
+        _setMaxLeverage(_maxLeverage);
+    }
+
+    function _setMaxLeverage(uint24 _maxLeverage) internal {
+        if (_maxLeverage == 0) revert ZeroNotAllowed();
+        
+        maxLeverage = _maxLeverage;
+    }
+
+    function setMarketRatioParams(
+        uint24 _openPositionLossRatioThreshold,
+        uint24 _liquidateLossRatioThreshold,
+        uint24 _liquidationDiscount
+    ) external override onlyOwner {
+        _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
+    }
+
+    function _setMarketRatioParams(
+        uint24 _openPositionLossRatioThreshold,
+        uint24 _liquidateLossRatioThreshold,
+        uint24 _liquidationDiscount
+    ) internal {
+        if (_openPositionLossRatioThreshold > _liquidateLossRatioThreshold) revert InvalidThreshold();
+        if (_liquidateLossRatioThreshold >= Percent.MULTIPLIER) revert InvalidThreshold();
+        if (_liquidationDiscount >= _liquidateLossRatioThreshold) revert InvalidDiscountRate();
+
+        openPositionLossRatioThreshold = _openPositionLossRatioThreshold;
+        liquidateLossRatioThreshold = _liquidateLossRatioThreshold;
+        liquidationDiscount = _liquidationDiscount;
+    }
+
+    function setPositionSizeCap(uint256 _token0PositionSizeCap, uint256 _token1PositionSizeCap) external override onlyOwner {
+        _setPositionSizeCap(_token0PositionSizeCap, _token1PositionSizeCap);
+    }
+
+    function _setPositionSizeCap(uint256 _token0PositionSizeCap, uint256 _token1PositionSizeCap) internal {
+        if (_token0PositionSizeCap == 0) revert ZeroNotAllowed();
+        if (_token1PositionSizeCap == 0) revert ZeroNotAllowed();
+        
+        token0PositionSizeCap = _token0PositionSizeCap;
+        token1PositionSizeCap = _token1PositionSizeCap;
     }
 
     function getPosition(uint256 _positionId) external view override returns (Position memory position) {
@@ -152,7 +194,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         
         uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
         if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
-        uint24 leverage = debtValue.mulDiv(Percent.MULTIPLIER, assetValue).toUint24();
+        uint24 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint24();
         if (leverage > maxLeverage) revert InvalidLeverage();
 
         _updateMarketStatus(
@@ -512,18 +554,14 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _assetPrice
     ) internal {
         if (_isIncrease) {
-            uint256 totalPositionAmount;
             if (_isAssetToken0) {
                 totalToken0PositionAmount = totalToken0PositionAmount + _changeAmount;
-                totalPositionAmount = totalToken0PositionAmount;
+                if (totalToken0PositionAmount * _assetPrice > token0PositionSizeCap) revert ExceedsMaxTotalPositionSize();
             }
             else {
                 totalToken1PositionAmount = totalToken1PositionAmount + _changeAmount;
-                totalPositionAmount = totalToken1PositionAmount;
+                if (totalToken1PositionAmount * _assetPrice > token1PositionSizeCap) revert ExceedsMaxTotalPositionSize();
             }
-            if (
-                totalPositionAmount * _assetPrice > positionSizeCap
-            ) revert ExceedsMaxTotalPositionSize();
         }
         else {
             if (_isAssetToken0) {

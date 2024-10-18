@@ -14,6 +14,7 @@ interface ITradingCore {
 
     error ExceedsFeeCap();
     error ZeroNotAllowed();
+    error WrongTokenOrder();
     error AssetNotEnabled();
     error MarketAlreadyCreated();
     error PairNotCreated();
@@ -53,7 +54,8 @@ interface ITradingCore {
         uint24 openPositionLossRatioThreshold,
         uint24 liquidateLossRatioThreshold,
         uint24 liquidationDiscount,
-        uint256 positionSizeCap
+        uint256 longPositionSizeCap,
+        uint256 shortPositionSizeCap
     ) external returns (
         address marketAddress
     );

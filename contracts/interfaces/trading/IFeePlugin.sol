@@ -6,6 +6,10 @@ import {ITradingCore} from "./ITradingCore.sol";
 
 interface IFeePlugin {
 
-    function getFeeForAccount(address _account, ITradingCore.FeeConfig memory _baseFeeConfig) external view returns (ITradingCore.FeeConfig memory);
+    /// @notice Get fee config for the account
+    /// @param account Query account
+    /// @param baseFeeConfig Base fee config
+    /// @return accountFeeConfig Fee config for the account
+    function getFeeForAccount(address account, ITradingCore.FeeConfig memory baseFeeConfig) external view returns (ITradingCore.FeeConfig memory);
 
 }

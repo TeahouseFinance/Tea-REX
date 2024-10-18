@@ -30,7 +30,7 @@ contract VariableInterestRateModel is IInterestRateModel {
 
     function getSupplyRate(
         uint256 supplied,
-        uint256 borrwoed,
+        uint256 borrowed,
         uint24 reserveRatio,
         uint256 toSupply
     ) public pure override returns (
@@ -39,8 +39,8 @@ contract VariableInterestRateModel is IInterestRateModel {
         if (supplied == 0) return 0;
 
         uint256 totalSupplied = supplied + toSupply;
-        supplyRate = borrwoed.mulDiv(
-            getBorrowRate(totalSupplied, borrwoed, reserveRatio),
+        supplyRate = borrowed.mulDiv(
+            getBorrowRate(totalSupplied, borrowed, reserveRatio),
             totalSupplied
         );
     }

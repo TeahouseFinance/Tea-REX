@@ -21,6 +21,11 @@ interface IRouter {
     event InterestRateModelSet(address indexed sender, InterestRateModelType indexed modelType, address indexed model);
     event LendingPoolCreated(address indexed poolAddress, address indexed underlyingAsset, InterestRateModelType indexed modelType);
 
+    /// @notice Type of the interest rate model
+    /// @param Null Empty type
+    /// @param Static Static rate interest rate model
+    /// @param Variable Variable rate interest rate model
+    /// @param End End of ERC20 type, not a real type
     enum InterestRateModelType {
         Null,
         Static,
@@ -28,19 +33,39 @@ interface IRouter {
         End
     }
 
+    /// @notice Fee config structure
+    /// @param treasury Borrowed fee goes to this address
+    /// @param borrowFee Additional borrow fee (APY) for lending positions
     struct FeeConfig {
         address treasury;
         uint32 borrowFee;
     }
 
+    /// @notice Pause operations for this router and all lending pools
     function pause() external;
+
+    /// @notice Unpause operations for this router and all lending pools
     function unpause() external;
+
+
     function isAllPoolPaused() external view returns (bool isPaused);
+
+
     function setTradingCore(address tradingCore) external;
+
+
     function setFeeConfig(address treasury, uint32 borrowFee) external;
+
+
     function getFeeConfig() external view returns (FeeConfig memory feeConfig);
+
+
     function setInterestRateModel(InterestRateModelType modelType, address model) external;
+
+
     function getInterestRateModel(InterestRateModelType modelType) external view returns (address model);
+
+
     function createLendingPool(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -50,10 +75,20 @@ interface IRouter {
     ) external returns (
         address proxyAddress
     );
+
+
     function isAssetEnabled(ERC20Upgradeable asset) external view returns (bool);
+
+
     function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool);
+
+
     function getSupplyRate(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
+
+
     function getBorrowRate(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
+    
+    
     function supply(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -63,6 +98,8 @@ interface IRouter {
         uint256 depositedUnderlying,
         uint256 mintedTeaToken
     );
+    
+    
     function withdraw(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -72,6 +109,8 @@ interface IRouter {
         uint256 withdrawnUnderlying,
         uint256 burntTeaToken
     );
+    
+    
     function borrow(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -79,6 +118,8 @@ interface IRouter {
     ) external returns (
         address pool
     );
+    
+    
     function commitBorrow(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -86,6 +127,8 @@ interface IRouter {
     ) external returns (
         uint256 id
     );
+    
+    
     function repay(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -96,6 +139,8 @@ interface IRouter {
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     );
+    
+    
     function balanceOf(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -103,6 +148,8 @@ interface IRouter {
     ) external view returns (
         uint256 teaTokenAmount
     );
+    
+    
     function balanceOfUnderlying(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -110,6 +157,8 @@ interface IRouter {
     ) external view returns (
         uint256 underlyingAmount
     );
+    
+    
     function debtOf(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -117,6 +166,8 @@ interface IRouter {
     ) external view returns (
         uint256 teaTokenAmount
     );
+    
+    
     function debtOfUnderlying(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
@@ -124,6 +175,8 @@ interface IRouter {
     ) external view returns (
         uint256 underlyingAmount
     );
+    
+    
     function collectInterestFeeAndCommit(
         ERC20Upgradeable _underlyingAsset,
         InterestRateModelType _modelType
