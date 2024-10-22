@@ -26,8 +26,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     IAssetOracle oracle;
     address public token0;
     address public token1;
-    uint8 public token0Decimals;
-    uint8 public token1Decimals;
     bool public isToken0Margin;
     uint24 public maxLeverage;
     uint24 public openPositionLossRatioThreshold;
@@ -74,8 +72,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         oracle = _oracle;
         token0 = address(_token0);
         token1 = address(_token1);
-        token0Decimals = _token0.decimals();
-        token1Decimals = _token1.decimals();
         isToken0Margin = _isToken0Margin;
 
         _setMaxLeverage(_maxLeverage);
@@ -173,9 +169,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) {
         (
             uint8 oracleDecimals,
-            uint8 assetDecimals,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
             address asset,       
             ,
             address margin,
@@ -188,9 +181,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
         if (_stopLoss != 0 && _stopLoss >= assetPriceInDebt) revert InvalidStopLoss();
 
-        uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, _debtAmount, debtPrice);
-        uint256 assetValue = _getTokenValue(oracleDecimals, assetDecimals, _assetAmount, assetPrice);
-        uint256 marginValue = _getTokenValue(oracleDecimals, marginDecimals, _marginAmount, marginPrice);
+        uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
+        uint256 assetValue = _getTokenValue(oracleDecimals, _assetAmount, assetPrice);
+        uint256 marginValue = _getTokenValue(oracleDecimals, _marginAmount, marginPrice);
         
         uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
         if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
@@ -238,9 +231,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         (
             uint8 oracleDecimals,
             ,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
-            ,       
             ,
             ,
             ,
@@ -248,10 +238,10 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 marginPrice
         ) = _getTokensInfo(position.isLongToken0);
 
-        uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, _debtAmount, debtPrice);
-        uint256 marginAmount = uint256(Percent.MULTIPLIER - _newLiquidationAssetDebtRatio).mulDiv(
-            debtValue * 10 ** (oracleDecimals + marginDecimals),
-            liquidateLossRatioThreshold * marginPrice,
+        uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
+        uint256 marginAmount = debtValue.mulDiv(
+            _newLiquidationAssetDebtRatio,
+            marginPrice * (Percent.MULTIPLIER - _newLiquidationAssetDebtRatio),
             Math.Rounding.Ceil
         );
         requiredAmount = marginAmount - position.marginAmount;
@@ -291,9 +281,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function liquidateAuctionPrice(bool _isLongToken0) external view returns (uint256 price) {
         (
             uint8 oracleDecimals,
-            ,
-            ,
-            ,
             ,
             ,
             ,
@@ -356,9 +343,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
         (
             uint8 oracleDecimals,
-            uint8 assetDecimals,
-            uint8 debtDecimals,
-            uint8 marginDecimals,
             ,
             ,
             ,
@@ -401,9 +385,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _debtAmount,
             isNotLiquidation,
             oracleDecimals,
-            assetDecimals,
-            debtDecimals,
-            marginDecimals,
             assetPrice,
             debtPrice,
             marginPrice
@@ -419,9 +400,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _debtAmount,
         bool _ensureNotLiquidated,
         uint8 oracleDecimals,
-        uint8 assetDecimals,
-        uint8 debtDecimals,
-        uint8 marginDecimals,
         uint256 assetPrice,
         uint256 debtPrice,
         uint256 marginPrice
@@ -462,9 +440,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _position.status = PositionStatus.Closed;
         }
         else if (_ensureNotLiquidated) {
-            uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, newDebtAmount, debtPrice);
-            uint256 assetValue = _getTokenValue(oracleDecimals, assetDecimals, _position.assetAmount, assetPrice);
-            uint256 marginValue = _getTokenValue(oracleDecimals, marginDecimals, _position.marginAmount, marginPrice);
+            uint256 debtValue = _getTokenValue(oracleDecimals, newDebtAmount, debtPrice);
+            uint256 assetValue = _getTokenValue(oracleDecimals, _position.assetAmount, assetPrice);
+            uint256 marginValue = _getTokenValue(oracleDecimals, _position.marginAmount, marginPrice);
             uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
             if (lossRatio > liquidateLossRatioThreshold) revert HighLossRatio();
         }
@@ -489,9 +467,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         bool _isLongToken0
     ) internal view returns (
         uint8 oracleDecimals,
-        uint8 assetDecimals,
-        uint8 debtDecimals,
-        uint8 marginDecimals,
         address asset,       
         address debt,
         address margin,
@@ -501,27 +476,22 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) {
         IAssetOracle _oracle = oracle;
         oracleDecimals = _oracle.decimals();
-        (asset, debt, assetDecimals, debtDecimals) = _isLongToken0 ? 
-            (token0, token1, token0Decimals, token1Decimals) : 
-            (token1, token0, token1Decimals, token0Decimals);
+        (asset, debt) = _isLongToken0 ? (token0, token1) : (token1, token0);
             
         debtPrice = _oracle.getPrice(debt);
         assetPrice = _oracle.getPrice(asset);
 
-        (margin, marginPrice, marginDecimals) = _isLongToken0 == isToken0Margin ? 
-            (asset, assetPrice, assetDecimals) : 
-            (debt, debtPrice, debtDecimals);
+        (margin, marginPrice) = _isLongToken0 == isToken0Margin ? (asset, assetPrice) : (debt, debtPrice);
     }
 
     function _getTokenValue(
         uint8 _oracleDecimals,
-        uint8 _tokenDecimals,
         uint256 _tokenAmount,
         uint256 _tokenPrice
     ) internal pure returns (
         uint256 value
     ) {
-        value = _tokenAmount.mulDiv(_tokenPrice, 10 ** (_oracleDecimals + _tokenDecimals));
+        value = _tokenAmount.mulDiv(_tokenPrice, 10 ** _oracleDecimals );
     }
 
     function _getRelativePrice(
