@@ -201,7 +201,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _isLongToken0,
             true,
             _assetAmount,
-            assetPrice
+            assetPrice,
+            oracleDecimals
         );
 
         positionId = totalSupply() + 1;
@@ -472,7 +473,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _position.isLongToken0,
             false,
             _decreasedAssetAmount + _tradingFee,
-            assetPrice
+            assetPrice,
+            oracleDecimals
         );
         positions[_positionId] = _position;
     }
@@ -551,16 +553,17 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         bool _isAssetToken0,
         bool _isIncrease,
         uint256 _changeAmount,
-        uint256 _assetPrice
+        uint256 _assetPrice,
+        uint8 _oracleDecimals
     ) internal {
         if (_isIncrease) {
             if (_isAssetToken0) {
                 totalToken0PositionAmount = totalToken0PositionAmount + _changeAmount;
-                if (totalToken0PositionAmount * _assetPrice > token0PositionSizeCap) revert ExceedsMaxTotalPositionSize();
+                if (totalToken0PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token0PositionSizeCap) revert ExceedsMaxTotalPositionSize();
             }
             else {
                 totalToken1PositionAmount = totalToken1PositionAmount + _changeAmount;
-                if (totalToken1PositionAmount * _assetPrice > token1PositionSizeCap) revert ExceedsMaxTotalPositionSize();
+                if (totalToken1PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token1PositionSizeCap) revert ExceedsMaxTotalPositionSize();
             }
         }
         else {
