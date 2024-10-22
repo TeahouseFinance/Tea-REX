@@ -481,6 +481,16 @@ contract TradingCore is
         price = market.getLiquidationPrice(_positionId, debtAmount);
     }
 
+    function calculateTradingFee(
+        address _account,
+        bool _isLiquidation,
+        uint256 _amount
+    ) external override view returns (
+        uint256 tradingFee
+    ) {
+        tradingFee = _calculateTradingFee(_isLiquidation, _amount, _getFeeForAccount(_account));
+    }
+
     function _getMarketPair(
         address _market
     ) internal view returns (

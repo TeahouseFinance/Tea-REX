@@ -158,5 +158,12 @@ interface ITradingCore {
     ) external view returns (
         uint256 price
     );
+    function calculateTradingFee(
+        address account,
+        bool isLiquidation,
+        uint256 amount
+    ) external view returns (
+        uint256 tradingFee
+    );
 
 }
