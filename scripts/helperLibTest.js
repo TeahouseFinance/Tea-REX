@@ -99,7 +99,8 @@ async function deployContracts() {
         50000,      // open position loss ratio < 5%
         50000,      // 5%
         20000,      // 2%
-        ethers.parseEther("100000", 6)
+        ethers.parseEther("100000", 6),
+        ethers.parseEther("100000", 18)
     );
 }
 
