@@ -23,7 +23,7 @@ import {MarketNFT} from "./MarketNFT.sol";
 import {SwapRelayer} from "./SwapRelayer.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract TradingCore is
     ITradingCore,

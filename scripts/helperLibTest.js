@@ -1,5 +1,6 @@
 // tester script for HelperLib.js
 
+const helpers = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { ethers, upgrades } = require("hardhat");
 
 
@@ -111,9 +112,9 @@ async function deployContracts() {
         token0,
         token1,
         token0margin,
-        100000,     // 10X
+        10000000,   // 10X
         50000,      // open position loss ratio < 5%
-        50000,      // 5%
+        500000,     // allow max 50% loss on margin
         20000,      // 2%
         ethers.parseEther("1000000", 6),
         ethers.parseEther("100000", 18)
@@ -142,7 +143,6 @@ async function main() {
     const marginAmount = ethers.parseUnits("1000", 6);
     const borrowAmount = marginAmount * 5n;
     const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
-    console.log(receivedAmount);
     const swapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [
         baseToken.target,
         targetToken.target,
@@ -151,6 +151,7 @@ async function main() {
         0n
     ]);
     await baseToken.connect(user).approve(tradingCore, marginAmount);
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
     await tradingCore.connect(user).openPosition(
         market,
         2,
@@ -163,16 +164,51 @@ async function main() {
         oracleSwap,
         swapData
     );
+    const tokensAfterOpen = await baseToken.balanceOf(user);
+    console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
 
-    // get tokenId
-    const tokenId = await market.tokenOfOwnerByIndex(user, 0);
-    console.log("Position TokenID:", tokenId);
-    const positionInfo = await market.getPosition(tokenId);
+    // get positionId
+    const positionId = await market.tokenOfOwnerByIndex(user, 0);
+    console.log("Position TokenID:", positionId);
+    const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
-    const debtOfPosition = await tradingCore.debtOfPosition(market, tokenId);
-    console.log("Debt of position:", debtOfPosition);
-    const liquidationPrice = await tradingCore.getLiquidationPrice(market, tokenId);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position:", debtOfPosition[2]);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
+
+    // wait for some time
+    await helpers.time.increase(86400);
+    
+    const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+
+    // adjust price
+    const newPrice = 2600n;
+    await mockOracle.setTokenPrice(targetToken, newPrice * 10n ** 36n * 10n ** 6n / 10n ** 18n);
+
+    // close position
+    const debtAmount = debtOfPosition2[2];
+    const assetAmount = positionInfo[8];
+    const swapData2 = oracleSwap.interface.encodeFunctionData("swapExactOutput", [
+        targetToken.target,
+        baseToken.target,
+        debtAmount,
+        tradingCore.target,
+        assetAmount
+    ]);    
+    const tokensBeforeClose = await baseToken.balanceOf(user);    
+    await tradingCore.connect(user).closePosition(
+        market,
+        positionId,
+        assetAmount,
+        0,
+        oracleSwapProcessor,
+        oracleSwap,
+        swapData2
+    );
+    const tokensAfterClose = await baseToken.balanceOf(user);
+    console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
 }
 
 
