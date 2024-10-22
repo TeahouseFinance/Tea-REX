@@ -4,6 +4,7 @@ const { ethers, upgrades } = require("hardhat");
 
 
 const ZERO_ADDRESS = '0x' + '0'.repeat(40);
+const UINT256_MAX = '0x' + 'f'.repeat(64);
 
 async function deployContracts() {
     const [ owner, treasury, manager, user ] = await ethers.getSigners();
@@ -12,6 +13,9 @@ async function deployContracts() {
     const MockToken = await ethers.getContractFactory("MockToken");
     const baseToken = await MockToken.deploy(ethers.parseUnits("100000000", 6), 6);
     const targetToken = await MockToken.deploy(ethers.parseUnits("100000000", 18), 18);
+
+    await baseToken.transfer(user, ethers.parseUnits("100000", 6));
+    await targetToken.transfer(user, ethers.parseUnits("10000", 18));
 
     // deploy lending pool
     const VariableInterestRateModel = await ethers.getContractFactory("VariableInterestRateModel");
@@ -32,6 +36,9 @@ async function deployContracts() {
 
     const OracleSwapProcessor = await ethers.getContractFactory("OracleSwapProcessor");
     const oracleSwapProcessor = await OracleSwapProcessor.deploy();
+
+    const OracleSwap = await ethers.getContractFactory("OracleSwap");
+    const oracleSwap = await OracleSwap.deploy(owner, 2000);    // price spread at 0.2%
 
     const MockOracle = await ethers.getContractFactory("MockOracle");
     const mockOracle = await MockOracle.deploy(owner, 36, baseToken);
@@ -69,7 +76,7 @@ async function deployContracts() {
     const targetPrice = 2500n;
     await mockOracle.setTokenPrice(targetToken, targetPrice * 10n ** 36n * 10n ** 6n / 10n ** 18n);
 
-    // set up lending pool
+    // set up lending pools
     await router.createLendingPool(
         baseToken,
         2,
@@ -85,6 +92,15 @@ async function deployContracts() {
         ethers.parseUnits("200000", 18),
         50000   // 5%
     );
+
+    // supply to the lending pools
+    const baseSupplyAmount = ethers.parseUnits("10000000", 6);
+    await baseToken.approve(await router.pool(baseToken, 2), baseSupplyAmount)
+    await router.supply(baseToken, 2, owner, baseSupplyAmount);
+
+    const targetSupplyAmount = ethers.parseUnits("1000000", 18)
+    await targetToken.approve(await router.pool(targetToken, 2), targetSupplyAmount);
+    await router.supply(targetToken, 2, owner, targetSupplyAmount);
 
     // set up market
     const token0margin = baseToken.target < targetToken.target;
@@ -102,11 +118,49 @@ async function deployContracts() {
         ethers.parseEther("100000", 6),
         ethers.parseEther("100000", 18)
     );
+
+    const marketAddress = await tradingCore.pairMarket(token0, token1);
+    const market = await ethers.getContractAt("MarketNFT", marketAddress);
+
+    // setup oracleSwap
+    await oracleSwap.setToken(baseToken, mockOracle);
+    await oracleSwap.setToken(targetToken, mockOracle);
+
+    await baseToken.transfer(oracleSwap, ethers.parseUnits("1000000", 6));
+    await targetToken.transfer(oracleSwap, ethers.parseUnits("1000000", 18));
+
+    await swapRelayer.setWhitelist([ oracleSwap.target ], [ true ]);
+
+    return { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap };
 }
 
 async function main() {
 
-    await deployContracts();
+    const { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
+
+    // open position to long targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const borrowAmount = marginAmount * 5n;
+    const swapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [
+        baseToken.target,
+        targetToken.target,
+        borrowAmount,
+        tradingCore.target,
+        0n
+    ]);
+    await baseToken.connect(user).approve(tradingCore, marginAmount);
+    await tradingCore.connect(user).openPosition(
+        market,
+        2,
+        targetToken,
+        marginAmount,
+        borrowAmount,
+        0,
+        UINT256_MAX,
+        0,
+        oracleSwap,
+        swapData
+    );
 }
 
 
