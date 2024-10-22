@@ -18,6 +18,8 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {Percent} from "../libraries/Percent.sol";
 
+import "hardhat/console.sol";
+
 contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgradeable, ERC721EnumerableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using Math for uint256;
     using SafeCast for uint256;
@@ -191,6 +193,10 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 debtValue = _getTokenValue(oracleDecimals, debtDecimals, _debtAmount, debtPrice);
         uint256 assetValue = _getTokenValue(oracleDecimals, assetDecimals, _assetAmount, assetPrice);
         uint256 marginValue = _getTokenValue(oracleDecimals, marginDecimals, _marginAmount, marginPrice);
+
+        console.log(debtValue);
+        console.log(assetValue);
+        console.log(marginValue);
         
         uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
         if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();

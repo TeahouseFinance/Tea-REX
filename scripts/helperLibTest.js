@@ -115,7 +115,7 @@ async function deployContracts() {
         50000,      // open position loss ratio < 5%
         50000,      // 5%
         20000,      // 2%
-        ethers.parseEther("100000", 6),
+        ethers.parseEther("1000000", 6),
         ethers.parseEther("100000", 18)
     );
 
@@ -141,10 +141,12 @@ async function main() {
     // open position to long targetToken
     const marginAmount = ethers.parseUnits("1000", 6);
     const borrowAmount = marginAmount * 5n;
+    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+    console.log(receivedAmount);
     const swapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [
         baseToken.target,
         targetToken.target,
-        borrowAmount,
+        receivedAmount,
         tradingCore.target,
         0n
     ]);
@@ -161,6 +163,16 @@ async function main() {
         oracleSwap,
         swapData
     );
+
+    // get tokenId
+    const tokenId = await market.tokenOfOwnerByIndex(user, 0);
+    console.log("Position TokenID:", tokenId);
+    const positionInfo = await market.getPosition(tokenId);
+    console.log(positionInfo);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, tokenId);
+    console.log("Debt of position:", debtOfPosition);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, tokenId);
+    console.log("Liquidation price:", liquidationPrice);
 }
 
 
