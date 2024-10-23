@@ -197,7 +197,8 @@ async function main() {
         tradingCore.target,
         assetAmount
     ]);    
-    const tokensBeforeClose = await baseToken.balanceOf(user);    
+    const tokensBeforeClose = await baseToken.balanceOf(user);
+    const targetBeforeClose = await targetToken.balanceOf(user);
     await tradingCore.connect(user).closePosition(
         market,
         positionId,
@@ -208,7 +209,9 @@ async function main() {
         swapData2
     );
     const tokensAfterClose = await baseToken.balanceOf(user);
+    const targetAfterClose = await targetToken.balanceOf(user);
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
+    console.log("target token received after close:", targetAfterClose - targetBeforeClose);
 }
 
 
