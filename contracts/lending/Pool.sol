@@ -354,8 +354,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             DECIMALS,
             totalSupply(),
             suppliedUnderlying + interest,
-            borrowedUnderlying + interest + fee,
-            borrowedTeaToken
+            borrowedTeaToken,
+            borrowedUnderlying + interest + fee
         );
     }
 
