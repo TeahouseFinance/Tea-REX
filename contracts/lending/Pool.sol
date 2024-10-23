@@ -308,7 +308,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             10 ** _decimals
         );
         repaidUnderlyingAmount = _teaTokenAmount.mulDiv(10 ** _decimals, rate);
-        unrepaidUnderlyingAmount = _debtInfo.borrowedTeaToken.mulDiv(rate, 10 ** _decimals) - repaidUnderlyingAmount;
+        unrepaidUnderlyingAmount = (_debtInfo.borrowedTeaToken- _teaTokenAmount).mulDiv(rate, 10 ** _decimals) - repaidUnderlyingAmount;
         ERC20Upgradeable _underlyingAsset = underlyingAsset;
         _underlyingAsset.safeTransferFrom(_account, address(this), repaidUnderlyingAmount);
         _underlyingAsset.safeTransfer(feeConfig.treasury, borrowFee);
