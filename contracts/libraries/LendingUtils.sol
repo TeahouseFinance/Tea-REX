@@ -45,8 +45,8 @@ library LendingUtils {
         uint8 _decimals,
         uint256 _suppliedTeaToken,
         uint256 _suppliedUnderlying,
-        uint256 _borrowedUnderlying,
-        uint256 _borrowedTeaToken
+        uint256 _borrowedTeaToken,
+        uint256 _borrowedUnderlying
     ) internal pure returns (uint256) {
         return _borrowedUnderlying != 0 ?
             _borrowedUnderlying.mulDiv(10 ** _decimals, _borrowedTeaToken) :

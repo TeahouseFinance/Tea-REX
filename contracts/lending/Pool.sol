@@ -226,14 +226,28 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _checkBorrowable(_borrowedUnderlying, _underlyingAmount);
 
         uint8 _decimals = decimals();
-        uint256 rate = LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying);
-        uint256 rateWithoutFee = LendingUtils.borrowedUnderlyingWithoutFeeToTeaToken(
+        uint256 _suppliedTeaToken = totalSupply();
+        uint256 _suppliedUnderlying = suppliedUnderlying;
+        uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
             _decimals,
+            _suppliedTeaToken,
+            _suppliedUnderlying,
+            _borrowedTeaToken,
+            _borrowedUnderlying
+        );
+        uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
+            _decimals,
+            _suppliedTeaToken,
+            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
         );
-        uint256 borrowedTeaTokenAmount = _underlyingAmount.mulDiv(rate, 10 ** _decimals, Math.Rounding.Ceil);
+        uint256 borrowedTeaTokenAmount = _underlyingAmount.mulDiv(
+            LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying),
+            10 ** _decimals,
+            Math.Rounding.Ceil
+        );
         id = idCounter;
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
@@ -260,18 +274,31 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _collectInterestFeeAndCommit(feeConfig);
 
         uint8 _decimals = decimals();
+        uint256 _suppliedTeaToken = totalSupply();
+        uint256 _suppliedUnderlying = suppliedUnderlying;
         uint256 _borrowedTeaToken = borrowedTeaToken;
         uint256 _borrowedUnderlying = borrowedUnderlying;
-        uint256 rate = LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying);
-        uint256 rateWithoutFee = LendingUtils.borrowedUnderlyingWithoutFeeToTeaToken(
+        uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
             _decimals,
+            _suppliedTeaToken,
+            _suppliedUnderlying,
+            _borrowedTeaToken,
+            _borrowedUnderlying
+        );
+        uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
+            _decimals,
+            _suppliedTeaToken,
+            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
         );
 
         DebtInfo memory _debtInfo = debtInfo[_id];
-        uint256 _teaTokenAmount = _underlyingAmount.mulDiv(rate, 10 ** _decimals);
+        uint256 _teaTokenAmount = _underlyingAmount.mulDiv(
+            LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying),
+            10 ** _decimals
+        );
         if (_teaTokenAmount >= _debtInfo.borrowedTeaToken) {
             _teaTokenAmount = _debtInfo.borrowedTeaToken;
         }

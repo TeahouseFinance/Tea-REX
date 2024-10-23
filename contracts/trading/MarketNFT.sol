@@ -410,13 +410,13 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 owedAsset,
         uint256 owedDebt
     ) {
-        _position.swappableAmount = _position.swappableAmount - _decreasedAssetAmount;
+        _position.swappableAmount = _position.swappableAmount - _decreasedAssetAmount - _tradingFee;
         if (_decreasedAssetAmount > _position.assetAmount) {
             _position.marginAmount = _position.swappableAmount;
             _position.assetAmount = 0;
         }
         else {
-            _position.assetAmount = _position.assetAmount - _decreasedAssetAmount;
+            _position.assetAmount = _position.assetAmount - _decreasedAssetAmount - _tradingFee;
         }
 
         uint256 overRepaidDebt;

@@ -301,12 +301,13 @@ contract TradingCore is
             _data
         );
     
+        uint256 tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, decreasedAssetAmount, _feeConfig);
         (isFullyClosed, owedAsset, owedDebt) = market.closePosition(
             _mode,
             _positionId,
             decreasedAssetAmount,
             decreasedDebtAmount,
-            _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, decreasedAssetAmount, _feeConfig),
+            tradingFee,
             _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
         );
         _pay(asset, address(this), positionOwner, owedAsset);
@@ -590,7 +591,7 @@ contract TradingCore is
     ) internal {
         address pool = address(_router.getLendingPool(_underlyingAsset, _modelType));
         _underlyingAsset.approve(pool, _underlyingAmount);
-        _router.repay(_underlyingAsset, _modelType, msg.sender, _id, _underlyingAmount);
+        _router.repay(_underlyingAsset, _modelType, address(this), _id, _underlyingAmount);
         _underlyingAsset.approve(pool, 0);
     }
 
