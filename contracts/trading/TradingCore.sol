@@ -230,7 +230,6 @@ contract TradingCore is
         uint256 _positionId,
         uint24 _newLiquidationAssetDebtRatio
     ) external override nonReentrant {
-
         (
             ERC20Upgradeable token0,
             ERC20Upgradeable token1,
@@ -482,6 +481,25 @@ contract TradingCore is
         uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
         
         price = market.getLiquidationPrice(_positionId, debtAmount);
+    }
+
+    function getClosePositionSwappableAfterFee(
+        address _market,
+        uint256 _positionId,
+        IMarketNFT.CloseMode _mode
+    ) external view override returns (
+        uint256 swappableAfterFee
+    ) {
+        MarketNFT market = MarketNFT(_market);
+        IMarketNFT.Position memory position = market.getPosition(_positionId);
+        address positionOwner = market.ownerOf(_positionId);
+        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
+
+        swappableAfterFee = _getSwappableAfterFee(
+            _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
+            _feeConfig,
+            _mode == IMarketNFT.CloseMode.Liquidate
+        ); 
     }
 
     function calculateTradingFee(

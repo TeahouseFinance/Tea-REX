@@ -158,6 +158,13 @@ interface ITradingCore {
     ) external view returns (
         uint256 price
     );
+    function getClosePositionSwappableAfterFee(
+        address market,
+        uint256 positionId,
+        IMarketNFT.CloseMode mode
+    ) external view returns (
+        uint256 swappableAfterFee
+    );
     function calculateTradingFee(
         address account,
         bool isLiquidation,
