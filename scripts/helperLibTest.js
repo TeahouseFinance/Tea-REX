@@ -228,7 +228,7 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
 }
 
 async function testLongPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap) {
-    console.log("Test open position with profit:");
+    console.log("Test long position with profit:");
 
     // adjust price
     const price = 2500n;
@@ -274,7 +274,7 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
 }
 
 async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap) {
-    console.log("Test open position with loss:");
+    console.log("Test long position with loss:");
 
     // adjust price
     const price = 2500n;
@@ -289,7 +289,7 @@ async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, m
     console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
 
     // get positionId
-    const positionId = await market.tokenOfOwnerByIndex(user, 0);
+    const positionId = await market.tokenOfOwnerByIndex(user, 1);
     console.log("Position TokenID:", positionId);
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
