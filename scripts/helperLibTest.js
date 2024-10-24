@@ -195,12 +195,13 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
 
     const positionInfo = await market.getPosition(positionId);
     const assetAmount = positionInfo[8];
-    const receivedAmount = assetAmount - (await tradingCore.calculateTradingFee(user, false, assetAmount));
 
     const longPosition = positionInfo[1] ^ isToken0Margin;
     if (longPosition) {
         // for long positions, sell all assets
-        const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, receivedAmount);
+        const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 0); // for normal close position
+        console.log(swappableAmount);
+        const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, swappableAmount);
         await tradingCore.connect(user).closePosition(
             market,
             positionId,
