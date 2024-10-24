@@ -135,23 +135,42 @@ async function deployContracts() {
     return { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap };
 }
 
-async function main() {
+// generate swapData for OracleSwap
+function oracleSwapper(swapContract, swapProcessor) {
+    return function(input, receiver, fromToken, toToken, amount) {
+        if (input) {
+            const swapData = swapContract.interface.encodeFunctionData("swapExactInput", [
+                fromToken,
+                toToken,
+                amount,
+                receiver,
+                0n
+            ]);
 
-    const { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
+            return { swapContract, swapProcessor, swapData };
+        }
+        else {
+            const swapData = swapContract.interface.encodeFunctionData("swapExactOutput", [
+                fromToken,
+                toToken,
+                amount,
+                receiver,
+                UINT256_MAX
+            ]);
 
-    // open position to long targetToken
-    const marginAmount = ethers.parseUnits("1000", 6);
-    const borrowAmount = marginAmount * 5n;
+            return { swapContract, swapProcessor, swapData };
+        }
+    }
+}
+
+// open position to long targetToken
+async function openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
     const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
-    const swapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [
-        baseToken.target,
-        targetToken.target,
-        receivedAmount,
-        tradingCore.target,
-        0n
-    ]);
+    const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, baseToken.target, targetToken.target, receivedAmount);
     await baseToken.connect(user).approve(tradingCore, marginAmount);
-    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    const token0 = baseToken.target < targetToken.target ? baseToken : targetToken;
+    const token1 = baseToken.target < targetToken.target ? targetToken : baseToken;
+    const market = await tradingCore.pairMarket(token0, token1);
     await tradingCore.connect(user).openPosition(
         market,
         2,
@@ -161,9 +180,61 @@ async function main() {
         0,
         UINT256_MAX,
         0,
-        oracleSwap,
+        swapContract,
         swapData
     );
+}
+
+// close position
+async function closePosition(tradingCore, user, market, positionId, swapFunction) {
+    const token0 = await market.token0();
+    const token1 = await market.token1();
+    const isToken0Margin = await market.isToken0Margin();
+    const baseToken = isToken0Margin ? token0 : token1;
+    const targetToken = isToken0Margin ? token1 : token0;
+
+    const positionInfo = await market.getPosition(positionId);
+    const assetAmount = positionInfo[8];
+    const receivedAmount = assetAmount - (await tradingCore.calculateTradingFee(user, false, assetAmount));
+
+    const longPosition = positionInfo[1] ^ isToken0Margin;
+    if (longPosition) {
+        // for long positions, sell all assets
+        const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, receivedAmount);
+        await tradingCore.connect(user).closePosition(
+            market,
+            positionId,
+            assetAmount,
+            0,
+            ZERO_ADDRESS,
+            swapContract,
+            swapData
+        );
+    }
+    else {
+        // for short positions, repay all debts
+        const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition[2]);
+        await tradingCore.connect(user).closePosition(
+            market,
+            positionId,
+            assetAmount,
+            0,
+            swapProcessor,
+            swapContract,
+            swapData
+        );
+    }
+}
+
+async function main() {
+    const { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
+
+    // open position to long targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const borrowAmount = marginAmount * 5n;
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    await openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterOpen = await baseToken.balanceOf(user);
     console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
 
@@ -188,26 +259,9 @@ async function main() {
     await mockOracle.setTokenPrice(targetToken, newPrice * 10n ** 36n * 10n ** 6n / 10n ** 18n);
 
     // close position
-    const debtAmount = debtOfPosition2[2];
-    const assetAmount = positionInfo[8];
-    const swapData2 = oracleSwap.interface.encodeFunctionData("swapExactOutput", [
-        targetToken.target,
-        baseToken.target,
-        debtAmount,
-        tradingCore.target,
-        assetAmount
-    ]);    
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
-    await tradingCore.connect(user).closePosition(
-        market,
-        positionId,
-        assetAmount,
-        0,
-        oracleSwapProcessor,
-        oracleSwap,
-        swapData2
-    );
+    await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
