@@ -542,7 +542,8 @@ contract TradingCore is
     ) {
         fee = _amount.mulDiv(
             _isLiquidation ? _feeConfig.tradingFee + _feeConfig.liquidationFee : _feeConfig.tradingFee,
-            Percent.MULTIPLIER
+            Percent.MULTIPLIER,
+            Math.Rounding.Ceil
         );
     }
 
