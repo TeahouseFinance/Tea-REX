@@ -86,7 +86,7 @@ library LendingUtils {
         uint256 _borrowedUnderlying,
         uint256 _unpaidBorrowFeeUnderlying
     ) internal pure returns (uint256 rate) {
-        return _borrowedUnderlying != 0 ?
+        return _borrowedUnderlying- _unpaidBorrowFeeUnderlying != 0 ?
             _borrowedTeaToken.mulDiv(10 ** _decimals, _borrowedUnderlying - _unpaidBorrowFeeUnderlying) :   
             10 ** _decimals;
     }
