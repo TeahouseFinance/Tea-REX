@@ -26,7 +26,7 @@ library LendingUtils {
         uint256 _suppliedTeaToken,
         uint256 _suppliedUnderlying
     ) internal pure returns (uint256) {
-        return _suppliedUnderlying != 0 ?
+        return _suppliedTeaToken != 0 ?
             _suppliedUnderlying.mulDiv(10 ** _decimals, _suppliedTeaToken) :
             10 ** _decimals;
     }
@@ -48,9 +48,9 @@ library LendingUtils {
         uint256 _borrowedTeaToken,
         uint256 _borrowedUnderlying
     ) internal pure returns (uint256) {
-        return _borrowedUnderlying != 0 ?
+        return _borrowedTeaToken != 0 ?
             _borrowedUnderlying.mulDiv(10 ** _decimals, _borrowedTeaToken) :
-            _suppliedUnderlying != 0 ?
+            _suppliedTeaToken != 0 ?
                 _suppliedUnderlying.mulDiv(10 ** _decimals, _suppliedTeaToken) :
                 10 ** _decimals;
     }
@@ -73,9 +73,9 @@ library LendingUtils {
         uint256 _borrowedUnderlying,
         uint256 _unpaidBorrowFeeUnderlying
     ) internal pure returns (uint256 rate) {
-        return _borrowedUnderlying != 0 ?
+        return _borrowedTeaToken != 0 ?
             (_borrowedUnderlying - _unpaidBorrowFeeUnderlying).mulDiv(10 ** _decimals, _borrowedTeaToken) :
-            _suppliedUnderlying != 0 ?
+            _suppliedTeaToken != 0 ?
                 _suppliedUnderlying.mulDiv(10 ** _decimals, _suppliedTeaToken) :
                 10 ** _decimals;
     }
