@@ -301,13 +301,15 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         );
         if (_teaTokenAmount >= _debtInfo.borrowedTeaToken) {
             _teaTokenAmount = _debtInfo.borrowedTeaToken;
+            repaidUnderlyingAmount = _teaTokenAmount.mulDiv(rate, 10 ** _decimals);
         }
-
+        else {
+            repaidUnderlyingAmount = _underlyingAmount;
+        }
         uint256 borrowFee = _teaTokenAmount.mulDiv(
             rate + _debtInfo.lastBorrowRate - rateWithoutFee - _debtInfo.lastBorrowRateWithoutFee,
             10 ** _decimals
         );
-        repaidUnderlyingAmount = _teaTokenAmount.mulDiv(rate, 10 ** _decimals);
         unrepaidUnderlyingAmount = _debtInfo.borrowedTeaToken.mulDiv(rate, 10 ** _decimals) - repaidUnderlyingAmount;
         ERC20Upgradeable _underlyingAsset = underlyingAsset;
         _underlyingAsset.safeTransferFrom(_account, address(this), repaidUnderlyingAmount);
