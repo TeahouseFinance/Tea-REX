@@ -18,7 +18,8 @@ import {Constant} from "../libraries/Constant.sol";
 import {Percent} from "../libraries/Percent.sol";
 import {LendingUtils} from "../libraries/LendingUtils.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
+
 contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for ERC20Upgradeable;
     using Math for uint256;
@@ -60,7 +61,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
         router = IRouter(msg.sender);
         underlyingAsset = _underlyingAsset;
-        DECIMALS = 36;
+        DECIMALS = _underlyingAsset.decimals() + 18;
 
         interestRateModelType = _interestRateModelType;
         _setSupplyCap(_supplyCap);
