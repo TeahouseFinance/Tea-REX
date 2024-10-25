@@ -39,7 +39,7 @@ async function deployContracts() {
     const oracleSwapProcessor = await OracleSwapProcessor.deploy();
 
     const OracleSwap = await ethers.getContractFactory("OracleSwap");
-    const oracleSwap = await OracleSwap.deploy(owner, 2000);    // price spread at 0.2%
+    const oracleSwap = await OracleSwap.deploy(owner, 1000);    // price spread at 0.1%
 
     const MockOracle = await ethers.getContractFactory("MockOracle");
     const mockOracle = await MockOracle.deploy(owner, 36, baseToken);
