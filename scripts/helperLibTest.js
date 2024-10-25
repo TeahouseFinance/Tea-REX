@@ -185,6 +185,29 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
     );
 }
 
+
+// open position to short targetToken
+async function openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
+    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+    const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken.target, baseToken.target, receivedAmount);
+    await baseToken.connect(user).approve(tradingCore, marginAmount);
+    const token0 = baseToken.target < targetToken.target ? baseToken : targetToken;
+    const token1 = baseToken.target < targetToken.target ? targetToken : baseToken;
+    const market = await tradingCore.pairMarket(token0, token1);
+    await tradingCore.connect(user).openPosition(
+        market,
+        2,
+        baseToken,
+        marginAmount,
+        borrowAmount,
+        0,
+        UINT256_MAX,
+        0,
+        swapContract,
+        swapData
+    );
+}
+
 // close position
 async function closePosition(tradingCore, user, market, positionId, swapFunction) {
     const token0 = await market.token0();
@@ -243,7 +266,8 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
     console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
 
     // get positionId
-    const positionId = await market.tokenOfOwnerByIndex(user, 0);
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
     console.log("Position TokenID:", positionId);
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
@@ -289,7 +313,8 @@ async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, m
     console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
 
     // get positionId
-    const positionId = await market.tokenOfOwnerByIndex(user, 1);
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
     console.log("Position TokenID:", positionId);
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
@@ -319,12 +344,107 @@ async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, m
     console.log("");
 }
 
+async function testShortPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap) {
+    console.log("Test short position with profit:");
+
+    // adjust price
+    const price = 2500n;
+    await mockOracle.setTokenPrice(targetToken, price * 10n ** 36n * 10n ** 6n / 10n ** 18n);
+
+    // open position to long targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const borrowAmount = marginAmount * 5n * 10n ** 18n / (price * 10n ** 6n);
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterOpen = await baseToken.balanceOf(user);
+    console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
+
+    // get positionId
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
+    console.log("Position TokenID:", positionId);
+    const positionInfo = await market.getPosition(positionId);
+    console.log(positionInfo);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position:", debtOfPosition[2]);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
+    console.log("Liquidation price:", liquidationPrice);
+
+    // wait for some time
+    await helpers.time.increase(86400);
+    
+    const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+
+    // adjust price
+    const newPrice = 2400n;
+    await mockOracle.setTokenPrice(targetToken, newPrice * 10n ** 36n * 10n ** 6n / 10n ** 18n);
+
+    // close position
+    const tokensBeforeClose = await baseToken.balanceOf(user);
+    const targetBeforeClose = await targetToken.balanceOf(user);
+    await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterClose = await baseToken.balanceOf(user);
+    const targetAfterClose = await targetToken.balanceOf(user);
+    console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
+    console.log("target token received after close:", targetAfterClose - targetBeforeClose);
+    console.log("");
+}
+
+async function testShortPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap) {
+    console.log("Test short position with loss:");
+
+    // adjust price
+    const price = 2500n;
+    await mockOracle.setTokenPrice(targetToken, price * 10n ** 36n * 10n ** 6n / 10n ** 18n);
+
+    // open position to long targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const borrowAmount = marginAmount * 5n * 10n ** 18n / (price * 10n ** 6n);
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterOpen = await baseToken.balanceOf(user);
+    console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
+
+    // get positionId
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
+    console.log("Position TokenID:", positionId);
+    const positionInfo = await market.getPosition(positionId);
+    console.log(positionInfo);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position:", debtOfPosition[2]);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
+    console.log("Liquidation price:", liquidationPrice);
+
+    // wait for some time
+    await helpers.time.increase(86400);
+    
+    const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+
+    // adjust price
+    const newPrice = 2600n;
+    await mockOracle.setTokenPrice(targetToken, newPrice * 10n ** 36n * 10n ** 6n / 10n ** 18n);
+
+    // close position
+    const tokensBeforeClose = await baseToken.balanceOf(user);
+    const targetBeforeClose = await targetToken.balanceOf(user);
+    await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterClose = await baseToken.balanceOf(user);
+    const targetAfterClose = await targetToken.balanceOf(user);
+    console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
+    console.log("target token received after close:", targetAfterClose - targetBeforeClose);
+    console.log("");
+}
 
 async function main() {
     const { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
 
     await testLongPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
     await testLongPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testShortPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testShortPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
 }
 
 
