@@ -293,17 +293,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
         );
-        console.log(_suppliedTeaToken, _suppliedUnderlying, _borrowedTeaToken, _borrowedUnderlying);
-        console.log(rate, rateWithoutFee);
 
         DebtInfo memory _debtInfo = debtInfo[_id];
         uint256 _teaTokenAmount = _underlyingAmount.mulDiv(
             LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying),
             10 ** _decimals
         );
-        console.log(_underlyingAmount, _teaTokenAmount, _debtInfo.borrowedTeaToken);
         if (_teaTokenAmount >= _debtInfo.borrowedTeaToken) {
-            // console.log(11111111111111111111111111);
             _teaTokenAmount = _debtInfo.borrowedTeaToken;
             repaidUnderlyingAmount = _teaTokenAmount.mulDiv(rate, 10 ** _decimals);
         }
@@ -323,12 +319,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         borrowedUnderlying = _borrowedUnderlying - repaidUnderlyingAmount;
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;
         unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
-
-        console.log(12111113);
-        console.log(borrowedUnderlying);
-        console.log(borrowedTeaToken);
-        console.log(unpaidBorrowFeeUnderlying);
-
 
         emit Repaid(_account, _id, _teaTokenAmount, repaidUnderlyingAmount);
     }
