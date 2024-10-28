@@ -76,7 +76,7 @@ interface ITradingCore {
     function addMargin(
         address market,
         uint256 positionId,
-        uint24 newLiquidationAssetDebtRatio
+        uint256 addedAmount
     ) external;
     function closePosition(
         address market,

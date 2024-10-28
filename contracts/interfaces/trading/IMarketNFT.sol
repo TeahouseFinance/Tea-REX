@@ -18,7 +18,6 @@ interface IMarketNFT {
     error HighLossRatio();
     error ExceedsMaxTotalPositionSize();
     error InvalidPositionStatus();
-    error InvalidAssetDebtRatio();
     error CallerIsNotTradingCore();
     error PassivelyCloseConditionNotMet();
     error NoTakeProfit();
@@ -52,7 +51,6 @@ interface IMarketNFT {
     /// @param isLongToken0 Position trading direction, long token0/short token1 or not
     /// @param isMarginAsset Whether margin is same as position asset, depending on the trading direction
     /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value 
-    /// @param liquidationAssetDebtRatio Threshold of liquidation, a ratio of asset value / debt vaule , depending on the leverage
     /// @param marginAmount Margin amount of the position
     /// @param interestRateModelType Position lending mode, refer to enum of IRouter.InterestRateModelType
     /// @param borrowId Position lending id
@@ -65,7 +63,6 @@ interface IMarketNFT {
         bool isLongToken0;
         bool isMarginAsset;
         uint24 initialLeverage;
-        uint24 liquidationAssetDebtRatio;
         uint256 marginAmount;
         IRouter.InterestRateModelType interestRateModelType;
         uint256 borrowId;
@@ -128,16 +125,8 @@ interface IMarketNFT {
     
     /// @notice TODO
     /// @param positionId Position id
-    /// @param debtAmount TODO
-    /// @param newLiquidationAssetDebtRatio TODO
-    /// @return requiredAmount TODO
-    function addMargin(
-        uint256 positionId,
-        uint256 debtAmount,
-        uint24 newLiquidationAssetDebtRatio
-    ) external returns (
-        uint256 requiredAmount
-    );
+    /// @param addedAmount TODO
+    function addMargin(uint256 positionId, uint256 addedAmount) external;
     
     /// @notice TODO
     /// @param mode TODO

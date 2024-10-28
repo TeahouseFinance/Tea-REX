@@ -228,26 +228,22 @@ contract TradingCore is
     function addMargin(
         address _market,
         uint256 _positionId,
-        uint24 _newLiquidationAssetDebtRatio
+        uint256 _addedAmount
     ) external override nonReentrant {
         (
             ERC20Upgradeable token0,
             ERC20Upgradeable token1,
-            IRouter _router,
+            ,
             MarketNFT market,
             IMarketNFT.Position memory position,
 
         ) = _beforeModifyOpeningPosition(_market, _positionId);
 
         (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
-        uint256 requiredAmount = market.addMargin(
-            _positionId,
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId),
-            _newLiquidationAssetDebtRatio
-        );
-        (position.isMarginAsset ? asset : debt).safeTransferFrom(msg.sender, address(this), requiredAmount);
+        market.addMargin(_positionId, _addedAmount);
+        (position.isMarginAsset ? asset : debt).safeTransferFrom(msg.sender, address(this), _addedAmount);
 
-        emit AddMargin(market, _positionId, requiredAmount);
+        emit AddMargin(market, _positionId, _addedAmount);
     }
 
     function _closePosition(

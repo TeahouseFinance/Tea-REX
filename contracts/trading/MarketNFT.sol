@@ -208,7 +208,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             isLongToken0: _isLongToken0,
             isMarginAsset: isMarginAsset,
             initialLeverage: leverage,
-            liquidationAssetDebtRatio: _getLiquidationAssetDebtRatio(leverage),
             marginAmount: _marginAmount,
             interestRateModelType: _interestRateModelType,
             borrowId: _borrowId,
@@ -221,33 +220,12 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function addMargin(
         uint256 _positionId,
-        uint256 _debtAmount,
-        uint24 _newLiquidationAssetDebtRatio
-    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
-        uint256 requiredAmount
-    ) {
+        uint256 _addedAmount
+    ) external override nonReentrant onlyNotPaused onlyTradingCore {
         Position storage position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
-        if(_newLiquidationAssetDebtRatio >= position.liquidationAssetDebtRatio) revert InvalidAssetDebtRatio();
 
-        (
-            uint8 oracleDecimals,
-            ,
-            ,
-            ,
-            ,
-            uint256 debtPrice,
-            uint256 marginPrice
-        ) = _getTokensInfo(position.isLongToken0);
-
-        uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
-        uint256 marginAmount = debtValue.mulDiv(
-            _newLiquidationAssetDebtRatio,
-            marginPrice * (Percent.MULTIPLIER - _newLiquidationAssetDebtRatio),
-            Math.Rounding.Ceil
-        );
-        requiredAmount = marginAmount - position.marginAmount;
-        position.marginAmount = position.marginAmount + marginAmount;
+        position.marginAmount = position.marginAmount + _addedAmount;
     }
 
 
@@ -516,10 +494,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
                 _marginValue
             );
         }
-    }
-
-    function _getLiquidationAssetDebtRatio(uint24 _leverage) internal view returns (uint24 liquidationAssetDebtRatio) {
-        liquidationAssetDebtRatio = Percent.MULTIPLIER - liquidateLossRatioThreshold / _leverage;
     }
 
     function _updateMarketStatus(

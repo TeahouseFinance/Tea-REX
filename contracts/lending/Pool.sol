@@ -18,7 +18,7 @@ import {Constant} from "../libraries/Constant.sol";
 import {Percent} from "../libraries/Percent.sol";
 import {LendingUtils} from "../libraries/LendingUtils.sol";
 
-//import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for ERC20Upgradeable;
@@ -320,6 +320,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         borrowedUnderlying = _borrowedUnderlying - repaidUnderlyingAmount;
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;
         unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
+
+        if (borrowedTeaToken < 2 && borrowedUnderlying < 2) {
+            // reset
+            borrowedTeaToken = 0;
+            borrowedUnderlying = 0;
+            unpaidBorrowFeeUnderlying = 0;
+        }
 
         emit Repaid(_account, _id, _teaTokenAmount, repaidUnderlyingAmount);
     }
