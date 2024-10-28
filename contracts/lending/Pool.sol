@@ -227,19 +227,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _checkBorrowable(_borrowedUnderlying, _underlyingAmount);
 
         uint8 _decimals = decimals();
-        uint256 _suppliedTeaToken = totalSupply();
-        uint256 _suppliedUnderlying = suppliedUnderlying;
         uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
             _decimals,
-            _suppliedTeaToken,
-            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying
         );
         uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
             _decimals,
-            _suppliedTeaToken,
-            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
@@ -275,21 +269,15 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         _collectInterestFeeAndCommit(feeConfig);
 
         uint8 _decimals = decimals();
-        uint256 _suppliedTeaToken = totalSupply();
-        uint256 _suppliedUnderlying = suppliedUnderlying;
         uint256 _borrowedTeaToken = borrowedTeaToken;
         uint256 _borrowedUnderlying = borrowedUnderlying;
         uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
             _decimals,
-            _suppliedTeaToken,
-            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying
         );
         uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
             _decimals,
-            _suppliedTeaToken,
-            _suppliedUnderlying,
             _borrowedTeaToken,
             _borrowedUnderlying,
             unpaidBorrowFeeUnderlying
@@ -321,7 +309,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;
         unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
 
-        if (borrowedTeaToken < 2 && borrowedUnderlying < 2) {
+        if (borrowedTeaToken * borrowedUnderlying == 0 && borrowedTeaToken < 2 && borrowedUnderlying < 2) {
             // reset
             borrowedTeaToken = 0;
             borrowedUnderlying = 0;
@@ -362,8 +350,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
         return LendingUtils.borrowedTeaTokenToUnderlying(
             DECIMALS,
-            totalSupply(),
-            suppliedUnderlying + interest,
             borrowedTeaToken,
             borrowedUnderlying + interest + fee
         );

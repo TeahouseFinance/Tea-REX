@@ -43,16 +43,11 @@ library LendingUtils {
 
     function borrowedTeaTokenToUnderlying(
         uint8 _decimals,
-        uint256 _suppliedTeaToken,
-        uint256 _suppliedUnderlying,
         uint256 _borrowedTeaToken,
         uint256 _borrowedUnderlying
     ) internal pure returns (uint256) {
         return _borrowedTeaToken != 0 ?
-            _borrowedUnderlying.mulDiv(10 ** _decimals, _borrowedTeaToken) :
-            _suppliedTeaToken != 0 ?
-                _suppliedUnderlying.mulDiv(10 ** _decimals, _suppliedTeaToken) :
-                10 ** _decimals;
+            _borrowedUnderlying.mulDiv(10 ** _decimals, _borrowedTeaToken) : 10 ** _decimals;
     }
 
     function borrowedUnderlyingToTeaToken(
@@ -67,17 +62,12 @@ library LendingUtils {
 
     function borrowedTeaTokenToUnderlyingWithoutFee(
         uint8 _decimals,
-        uint256 _suppliedTeaToken,
-        uint256 _suppliedUnderlying,
         uint256 _borrowedTeaToken,
         uint256 _borrowedUnderlying,
         uint256 _unpaidBorrowFeeUnderlying
     ) internal pure returns (uint256 rate) {
         return _borrowedTeaToken != 0 ?
-            (_borrowedUnderlying - _unpaidBorrowFeeUnderlying).mulDiv(10 ** _decimals, _borrowedTeaToken) :
-            _suppliedTeaToken != 0 ?
-                _suppliedUnderlying.mulDiv(10 ** _decimals, _suppliedTeaToken) :
-                10 ** _decimals;
+            (_borrowedUnderlying - _unpaidBorrowFeeUnderlying).mulDiv(10 ** _decimals, _borrowedTeaToken) : 10 ** _decimals;
     }
 
     function borrowedUnderlyingWithoutFeeToTeaToken(
