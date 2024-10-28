@@ -302,8 +302,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 price
     ) {
         price = _getRelativePrice(_assetPrice, _debtPrice, _oracleDecimals).mulDiv(
-            Percent.MULTIPLIER,
             Percent.MULTIPLIER - liquidationDiscount,
+            Percent.MULTIPLIER,
             Math.Rounding.Ceil
         );
     }
@@ -410,6 +410,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        uint256 positionAssetAmount = _position.assetAmount;
         _position.swappableAmount = _position.swappableAmount - _decreasedAssetAmount - _tradingFee;
         if (_decreasedAssetAmount > _position.assetAmount) {
             _position.marginAmount = _position.swappableAmount;
@@ -452,7 +453,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _updateMarketStatus(
             _position.isLongToken0,
             false,
-            _decreasedAssetAmount + _tradingFee,
+            _decreasedAssetAmount + _tradingFee > positionAssetAmount ? positionAssetAmount : _decreasedAssetAmount + _tradingFee,
             assetPrice,
             oracleDecimals
         );
