@@ -217,9 +217,9 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
     const targetToken = isToken0Margin ? token1 : token0;
 
     const positionInfo = await market.getPosition(positionId);
-    const assetAmount = positionInfo[8];
+    const assetAmount = positionInfo.assetAmount;
 
-    const longPosition = positionInfo[1] ^ isToken0Margin;
+    const longPosition = positionInfo.isLongToken0 ^ isToken0Margin;
     if (longPosition) {
         // for long positions, sell all assets
         const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 0); // for normal closing position
@@ -237,8 +237,8 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
     else {
         // for short positions, repay all debts
         const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition[2]);
-        const assets = assetAmount + positionInfo[5];
+        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
+        const assets = assetAmount + positionInfo.marginAmount;
         await tradingCore.connect(user).closePosition(
             market,
             positionId,
@@ -260,9 +260,9 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
     const targetToken = isToken0Margin ? token1 : token0;
 
     const positionInfo = await market.getPosition(positionId);
-    const assetAmount = positionInfo[8];
+    const assetAmount = positionInfo.assetAmount;
 
-    const longPosition = positionInfo[1] ^ isToken0Margin;
+    const longPosition = positionInfo.isLongToken0 ^ isToken0Margin;
     if (longPosition) {
         // for long positions, sell all assets
         const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
@@ -280,7 +280,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
     else {
         // for short positions, repay all debts
         const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition[2]);
+        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
         await tradingCore.connect(manager).liquidate(
             market,
             positionId,
@@ -316,7 +316,7 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -324,7 +324,7 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2600n;
@@ -337,6 +337,9 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
 
     const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price after add margin:", liquidationPrice2);
+
+    const positionInfo2 = await market.getPosition(positionId);
+    console.log(positionInfo2);
 
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
@@ -371,7 +374,7 @@ async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, m
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -379,7 +382,7 @@ async function testLongPositionLoss(tradingCore, user, baseToken, targetToken, m
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2400n;
@@ -418,7 +421,7 @@ async function testShortPositionProfit(tradingCore, user, baseToken, targetToken
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -426,7 +429,7 @@ async function testShortPositionProfit(tradingCore, user, baseToken, targetToken
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2400n;
@@ -465,7 +468,7 @@ async function testShortPositionLoss(tradingCore, user, baseToken, targetToken, 
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -473,7 +476,7 @@ async function testShortPositionLoss(tradingCore, user, baseToken, targetToken, 
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2600n;
@@ -512,7 +515,7 @@ async function testLongPositionLiquidate(tradingCore, manager, user, baseToken, 
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -520,7 +523,7 @@ async function testLongPositionLiquidate(tradingCore, manager, user, baseToken, 
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2200n;
@@ -559,7 +562,7 @@ async function testShortPositionLiquidate(tradingCore, manager, user, baseToken,
     const positionInfo = await market.getPosition(positionId);
     console.log(positionInfo);
     const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position:", debtOfPosition[2]);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
     const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
     console.log("Liquidation price:", liquidationPrice);
 
@@ -567,7 +570,7 @@ async function testShortPositionLiquidate(tradingCore, manager, user, baseToken,
     await helpers.time.increase(86400);
     
     const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
-    console.log("Debt of position (after a day):", debtOfPosition2[2]);
+    console.log("Debt of position (after a day):", debtOfPosition2.debtAmount);
 
     // adjust price
     const newPrice = 2800n;
