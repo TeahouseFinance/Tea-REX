@@ -2,7 +2,7 @@ const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 const {
-  loadFixture
+  loadFixture, time
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
 const FEE_CAP = 300000;
@@ -286,14 +286,15 @@ describe("TeaRex Router", function () {
             )).to.emit(routerAtProxy, "Supplied")
             .withArgs(user.address, user.address, underlyingAsset, anyValue);
 
-            expect(await poolContract.balanceOf(user.address)).to.equal(amount);
+            const teaTokenAmount = amount * 1000000000000000000n;
+            expect(await poolContract.balanceOf(user.address)).to.equal(teaTokenAmount);
             expect(await mockToken.balanceOf(user.address)).to.equal(0);
             expect(await mockToken.balanceOf(pool)).to.equal(amount);
             expect(await routerAtProxy.balanceOf(
                 underlyingAsset, 
                 feeConfig._modelType,
                 user.address
-            )).to.equal(amount);
+            )).to.equal(teaTokenAmount);
 
             expect(await routerAtProxy.balanceOfUnderlying(
                 underlyingAsset, 
@@ -320,7 +321,7 @@ describe("TeaRex Router", function () {
                 underlyingAsset,
                 feeConfig._modelType,
                 user.address,
-                2 * Number(amount)  
+                amount*1000000000000000000n
             )).to.changeTokenBalances(
                 mockToken, 
                 [pool, user], 
@@ -360,13 +361,20 @@ describe("TeaRex Router", function () {
             
             expect(await routerAtProxy.debtOf(
                 underlyingAsset, 
-                feeConfig._modelType, 
-                borrowId)).to.equal(borrowAmount);
+                feeConfig._modelType,
+                borrowId)).to.equal(borrowAmount*1000000000000000000n);
 
             expect(await routerAtProxy.debtOfUnderlying(
                 underlyingAsset, 
                 feeConfig._modelType, 
                 borrowId)).to.equal(borrowAmount);
+            
+            await time.increase(86400);
+
+            const newDebt = await routerAtProxy.debtOfUnderlying(
+                underlyingAsset, 
+                feeConfig._modelType, 
+                borrowId);
             
             const repayAmount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.connect(user).approve(pool, repayAmount);
@@ -375,13 +383,14 @@ describe("TeaRex Router", function () {
                 interestRateModelType,
                 user.address,
                 borrowId,
-                repayAmount
+                repayAmount,
+                false
             )).to.emit(routerAtProxy, "Repaid");
 
             expect(await routerAtProxy.debtOfUnderlying(
                 underlyingAsset, 
                 feeConfig._modelType, 
-                borrowId)).to.equal(borrowAmount - repayAmount);
+                borrowId)).to.equal(newDebt - repayAmount);
         });
     });
 
@@ -457,10 +466,6 @@ describe("TeaRex Router", function () {
 
             await expect(routerAtProxy.connect(tradingCore).commitBorrow(underlyingAsset, interestRateModelType, amount))
             .to.be.revertedWithCustomError(poolContract, "ExceedsCap");
-
-            await expect(routerAtProxy.connect(tradingCore).borrow(underlyingAsset, interestRateModelType, amount))
-            .to.be.revertedWithCustomError(poolContract, "ExceedsCap");
-
         });
 
         it("Should revert if reserve < reserve ratio", async function () {
@@ -476,9 +481,9 @@ describe("TeaRex Router", function () {
                 amount);
 
             const borrowAmount = ethers.parseUnits("0.99", await mockToken.decimals());
-            await expect(routerAtProxy.connect(tradingCore).borrow(
+            await expect(routerAtProxy.connect(tradingCore).commitBorrow(
                 underlyingAsset, 
-                feeConfig._modelType, 
+                feeConfig._modelType,
                 borrowAmount)
             ).to.be.reverted;
         });
