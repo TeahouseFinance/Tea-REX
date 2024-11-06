@@ -353,7 +353,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     function balanceOfUnderlying(address _account) external view override returns (uint256) {
         (, , uint256 newSuppliedConversionRate, ) = _collectInterestAndFee();
 
-        return balanceOf(_account).mulDiv(newSuppliedConversionRate, RATE_MULTIPLIER);
+        return _toUnderlying(balanceOf(_account), newSuppliedConversionRate, false);
     }
 
     function debtOf(uint256 _id) external view override returns (uint256) {
@@ -362,8 +362,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
     function debtOfUnderlying(uint256 _id) external view override returns (uint256) {
         (, , , uint256 newBorrowedConversionRate) = _collectInterestAndFee();
-        
-        return debtInfo[_id].borrowedTeaToken.mulDiv(newBorrowedConversionRate, RATE_MULTIPLIER);
+
+        return _toUnderlying(debtInfo[_id].borrowedTeaToken, newBorrowedConversionRate, true);
     }
 
     function getConversionRates() external override view returns (uint256, uint256) {
