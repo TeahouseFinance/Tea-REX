@@ -16,6 +16,7 @@ interface IPool {
 
     event Supplied(address indexed account, address indexed supplyFor, uint256 depositedUnderlying, uint256 mintedTeaToken);
     event Withdrew(address indexed account, address indexed WithdrawTo, uint256 withdrawnUnderlying, uint256 burntTeaToken);
+    event FeeClaimed(address indexed account, uint256 claimedFee);
     event Borrowed(address indexed account, uint256 indexed id, uint256 underlyingAmount, uint256 borrowedTeaTokenAmount);
     event Repaid(address indexed account, uint256 indexed id, uint256 teaTokenAmount, uint256 repaidUnderlyingAmount);
     event InterestAccumulated(uint256 timestamp, uint256 interest);
@@ -23,9 +24,9 @@ interface IPool {
 
 
     struct DebtInfo {
+        bool isClosed;
         uint256 borrowedTeaToken;
-        uint256 lastBorrowRate;
-        uint256 lastBorrowRateWithoutFee;
+        uint256 lastBorrowedConversionRate;
     }
 
     /// @notice Pause operations for this lending pool
@@ -52,23 +53,26 @@ interface IPool {
     
     function withdraw(address account, address withdrawTo, uint256 amount) external returns (uint256 withdrawnUnderlying, uint256 burntTeaToken);
     
+
+    function claimFee() external returns (uint256 claimedFee, uint256 unclaimedFee);
+
     
     function getSupplyQuota() external view returns (uint256 quota);
     
 
     function getWithdrawQuota() external view returns (uint256 quota);
     
+
+    function getUnclaimedFee() external view returns (uint256 unclaimedFee, uint256 claimableFee);
+
     
-    function borrow(address account, uint256 underlyingAmount) external;
-    
-    
-    function commitBorrow(address account, uint256 underlyingAmount) external returns (uint256 id);
-    
-    
-    function repay(address account, uint256 id, uint256 underlyingAmount) external returns (uint256 repaidUnderlyingAmount, uint256 unrepaidUnderlyingAmount);
+    function borrow(address account, uint256 amountToBorrow) external;
     
     
-    function suppliedTeaTokenToUnderlying() external view returns (uint256 rate);
+    function commitBorrow(address account, uint256 amountToBorrow) external returns (uint256 id);
+    
+    
+    function repay(address account, uint256 id, uint256 amount, bool forceClose) external returns (uint256 repaidUnderlyingAmount, uint256 unrepaidUnderlyingAmount);
     
     
     function balanceOf(address account) external view returns (uint256 teaTokenAmount);
@@ -80,15 +84,15 @@ interface IPool {
     function debtOf(uint256 id) external view returns (uint256 teaTokenAmount);
     
     
-    function borrowedTeaTokenToUnderlying() external view returns (uint256 rate);
-    
-    
     function debtOfUnderlying(uint256 id) external view returns (uint256 underlyingAmount);
     
+
+    function getConversionRates() external view returns (uint256 suppiedConversionRate, uint256 borrowedConversionRate);
+
     
-    function getLendingStatus() external view returns (uint256, uint256, uint24);
+    function getLendingStatus() external view returns (uint256 suppliedUnderlying, uint256 borrowedUnderlying, uint256 unclaimedFee, uint24 reserveRatio);
     
     
-    function collectInterestFeeAndCommit(IRouter.FeeConfig memory feeConfig) external returns (uint256 interest, uint256 fee);
+    function collectInterestFeeAndCommit() external returns (uint256 interest, uint256 fee);
 
 }

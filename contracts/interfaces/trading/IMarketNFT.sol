@@ -136,6 +136,7 @@ interface IMarketNFT {
     /// @param tradingFee TODO
     /// @param debtAmount TODO
     /// @return isFullyClosed TODO
+    /// @return decreasedMarginAmount TODO
     /// @return owedAsset TODO
     /// @return owedDebt TODO
     function closePosition(
@@ -147,6 +148,7 @@ interface IMarketNFT {
         uint256 debtAmount
     ) external returns (
         bool isFullyClosed,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );

@@ -259,6 +259,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -297,7 +298,7 @@ contract TradingCore is
         );
     
         uint256 tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, decreasedAssetAmount, _feeConfig);
-        (isFullyClosed, owedAsset, owedDebt) = market.closePosition(
+        (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = market.closePosition(
             _mode,
             _positionId,
             decreasedAssetAmount,
@@ -312,20 +313,21 @@ contract TradingCore is
             debt,
             position.interestRateModelType,
             position.borrowId,
-            decreasedDebtAmount
+            decreasedDebtAmount,
+            market.getPosition(_positionId).assetAmount == 0
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
+            emit ClosePosition(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
+            emit TakeProfit(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
+            emit StopLoss(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount);
+            emit Liquidate(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
         }
     }
 
@@ -341,6 +343,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -368,6 +371,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -395,6 +399,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -422,6 +427,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -602,11 +608,12 @@ contract TradingCore is
         ERC20Upgradeable _underlyingAsset,
         IRouter.InterestRateModelType _modelType,
         uint256 _id,
-        uint256 _underlyingAmount
+        uint256 _underlyingAmount,
+        bool _forceClose
     ) internal {
         address pool = address(_router.getLendingPool(_underlyingAsset, _modelType));
         _underlyingAsset.approve(pool, _underlyingAmount);
-        _router.repay(_underlyingAsset, _modelType, address(this), _id, _underlyingAmount);
+        _router.repay(_underlyingAsset, _modelType, address(this), _id, _underlyingAmount, _forceClose);
         _underlyingAsset.approve(pool, 0);
     }
 
@@ -642,33 +649,6 @@ contract TradingCore is
         }
 
         return _assetAmountToDecrease;
-    }
-
-    function _afterPassivelyModifyPosition(
-        ERC20Upgradeable _asset,
-        ERC20Upgradeable _debt,
-        IRouter _router,
-        FeeConfig memory _feeConfig,
-        IMarketNFT.Position memory _position,
-        address _positionOwner,
-        uint256 _decreasedAssetAmount,
-        uint256 _decreasedDebtAmount,
-        uint256 _owedAsset,
-        uint256 _owedDebt,
-        uint256 _tradingFee
-    ) internal {
-        _collectTradingFee(_asset, _tradingFee, _feeConfig);
-        _pay(_debt, msg.sender, address(this), _decreasedDebtAmount);
-        _pay(_asset, address(this), msg.sender, _decreasedAssetAmount);
-        _pay(_asset, address(this), _positionOwner, _owedAsset);
-        _pay(_debt, address(this), _positionOwner, _owedDebt);
-        _repay(
-            _router,
-            _debt,
-            _position.interestRateModelType,
-            _position.borrowId,
-            _decreasedDebtAmount
-        );
     }
 
     function _pay(ERC20Upgradeable _token, address _from, address _to, uint256 _amount) internal {

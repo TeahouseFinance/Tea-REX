@@ -114,7 +114,7 @@ interface IRouter {
     function borrow(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
-        uint256 underlyingAmount
+        uint256 amountToBorrow
     ) external returns (
         address pool
     );
@@ -123,7 +123,7 @@ interface IRouter {
     function commitBorrow(
         ERC20Upgradeable underlyingAsset,
         InterestRateModelType modelType,
-        uint256 underlyingAmount
+        uint256 amountToBorrow
     ) external returns (
         uint256 id
     );
@@ -134,7 +134,8 @@ interface IRouter {
         InterestRateModelType modelType,
         address account,
         uint256 id,
-        uint256 underlyingAmount
+        uint256 amount,
+        bool forceClose
     ) external returns (
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount

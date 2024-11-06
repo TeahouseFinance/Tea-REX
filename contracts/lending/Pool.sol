@@ -16,7 +16,6 @@ import {IInterestRateModel} from "../interfaces/lending/IInterestRateModel.sol";
 import {ITradingCore} from "../interfaces/trading/ITradingCore.sol";
 import {Constant} from "../libraries/Constant.sol";
 import {Percent} from "../libraries/Percent.sol";
-import {LendingUtils} from "../libraries/LendingUtils.sol";
 
 // import "hardhat/console.sol";
 
@@ -25,17 +24,20 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     using Math for uint256;
     
     uint8 public DECIMALS;
+    uint8 public DECIMALS_OFFSET;
+    uint256 public DECIMALS_MULTIPLIER;
+    uint256 public RATE_MULTIPLIER;
     IRouter public router;
     ERC20Upgradeable public underlyingAsset;
     IRouter.InterestRateModelType interestRateModelType;
     uint24 public reserveRatio;
     uint256 public supplyCap;
     uint256 public borrowCap;
-    uint256 public lastCumulateInterest;
-    uint256 public suppliedUnderlying;
-    uint256 public borrowedUnderlying;
-    uint256 public unpaidBorrowFeeUnderlying;
     uint256 public borrowedTeaToken;
+    uint256 private suppliedConversionRate;
+    uint256 private borrowedConversionRate;
+    uint256 private pendingFee;
+    uint256 public lastAccumulateTimestamp;
     uint256 private idCounter;
     mapping(uint256 => DebtInfo) public debtInfo;
 
@@ -61,9 +63,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
         router = IRouter(msg.sender);
         underlyingAsset = _underlyingAsset;
-        DECIMALS = _underlyingAsset.decimals() + 18;
-
         interestRateModelType = _interestRateModelType;
+        DECIMALS_OFFSET = 18;
+        DECIMALS_MULTIPLIER = 10 ** DECIMALS_OFFSET;
+        RATE_MULTIPLIER = 10 ** 18;
+        suppliedConversionRate = RATE_MULTIPLIER;
+        borrowedConversionRate = RATE_MULTIPLIER;
+        DECIMALS = _underlyingAsset.decimals() + DECIMALS_OFFSET;
+        
         _setSupplyCap(_supplyCap);
         _setBorrowCap(_borrowCap);
         _setReserveRatio(_reserveRatio);
@@ -119,6 +126,31 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         return IInterestRateModel(router.getInterestRateModel(interestRateModelType));
     }
 
+    function _toUnderlying(
+        uint256 _teaTokenAmount,
+        uint256 _conversionRate,
+        bool _isRoudingUp
+    ) internal view returns (
+        uint256 underlyingAmount
+    ) {
+        underlyingAmount = _isRoudingUp ? 
+            _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER) : 
+            _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
+
+    }
+
+    function _toTeaToken(
+        uint256 _underlyingAmount,
+        uint256 _conversionRate,
+        bool _isRoudingUp
+    ) internal view returns (
+        uint256 teaTokenAmount
+    ) {
+        teaTokenAmount = _isRoudingUp ? 
+            _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate) : 
+            _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate, Math.Rounding.Ceil);
+    }
+
     function supply(
         address _account,
         address _supplyFor,
@@ -129,21 +161,30 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     ) {
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
-        _collectInterestFeeAndCommit(router.getFeeConfig());
-        uint256 _suppliedUnderlying = suppliedUnderlying;
-        uint256 quota = LendingUtils.getSupplyQuota(supplyCap, _suppliedUnderlying);
+        (, , uint256 newSuppliedConversionRate, ) = _collectInterestFeeAndCommit();
+        uint256 suppliedUnderlying = _toUnderlying(totalSupply(), newSuppliedConversionRate, false);
+        uint256 quota = _getSupplyQuota(suppliedUnderlying);
         if (quota == 0) revert ExceedsCap();
+        
         depositedUnderlying = quota > _amount ? _amount : quota;
-        suppliedUnderlying = suppliedUnderlying + depositedUnderlying;
-        uint8 _decimals = decimals();
-        mintedTeaToken = LendingUtils.suppliedUnderlyingToTeaToken(_decimals, totalSupply(), _suppliedUnderlying).mulDiv(
-            depositedUnderlying,
-            10 ** _decimals
-        );
+        mintedTeaToken = _toTeaToken(depositedUnderlying, newSuppliedConversionRate, false);
+
         underlyingAsset.safeTransferFrom(_account, address(this), depositedUnderlying);
         _mint(_supplyFor, mintedTeaToken);
 
         emit Supplied(_account, _supplyFor, depositedUnderlying, mintedTeaToken);
+    }
+
+    function getSupplyQuota() external view override returns (uint256) {
+        (, , uint256 newSuppliedConversionRate, ) = _collectInterestAndFee();
+
+        return _getSupplyQuota(_toUnderlying(totalSupply(), newSuppliedConversionRate, false));
+    }
+
+    function _getSupplyQuota(uint256 _suppliedUnderlying) internal view returns (uint256) {
+        uint256 _cap = supplyCap;
+
+        return _suppliedUnderlying >= _cap ? 0 : _cap - _suppliedUnderlying;
     }
 
     function withdraw(
@@ -156,177 +197,153 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     ) {
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
-        _collectInterestFeeAndCommit(router.getFeeConfig());
-        uint256 _suppliedUnderlying = suppliedUnderlying;
-        uint256 quota = LendingUtils.getWithdrawQuota(_suppliedUnderlying, unpaidBorrowFeeUnderlying, borrowedUnderlying);
+        (, , uint256 newSuppliedConversionRate, ) = _collectInterestFeeAndCommit();
+        ERC20Upgradeable _underlyingAsset = underlyingAsset;
+        uint256 quota = _getPoolUnderlyingBalance(_underlyingAsset);
         if (quota == 0) revert NoUnborrowedUnderlying();
-        uint8 _decimals = decimals();
-        withdrawnUnderlying = LendingUtils.suppliedTeaTokenToUnderlying(_decimals, totalSupply(), _suppliedUnderlying).mulDiv(
-            _amount,
-            10 ** _decimals
-        );
+
+        withdrawnUnderlying = _toUnderlying(_amount, newSuppliedConversionRate, false);
         if (withdrawnUnderlying <= quota) {
             burntTeaToken = _amount;
         }
         else {
-            burntTeaToken = _amount.mulDiv(
-                quota,
-                withdrawnUnderlying,
-                Math.Rounding.Ceil
-            );
             withdrawnUnderlying = quota;
+            burntTeaToken = _toTeaToken(quota, newSuppliedConversionRate, true);
         }
+
         if (burntTeaToken == 0) revert ZeroAmountNotAllowed();
-        suppliedUnderlying = _suppliedUnderlying - withdrawnUnderlying;
         _burn(_account, burntTeaToken);
-        underlyingAsset.safeTransfer(_withdrawTo, withdrawnUnderlying);
+        _underlyingAsset.safeTransfer(_withdrawTo, withdrawnUnderlying);
 
         emit Withdrew(_account, _withdrawTo, withdrawnUnderlying, burntTeaToken);
     }
 
-    function getSupplyQuota() external view override returns (uint256) {
-        (uint256 interest, ) = _collectInterestAndFee(router.getFeeConfig());
-
-        return LendingUtils.getSupplyQuota(supplyCap, suppliedUnderlying + interest);
-    }
-
     function getWithdrawQuota() external view override returns (uint256) {
-        _collectInterestAndFee(router.getFeeConfig());
-
-        // unpaid interest and fee do not affect quota, so no parameter update action happens here.
-        return LendingUtils.getWithdrawQuota(
-            suppliedUnderlying,
-            unpaidBorrowFeeUnderlying,
-            borrowedUnderlying
-        );
+        return _getPoolUnderlyingBalance(underlyingAsset);
     }
 
-    function _checkBorrowable(uint256 _borrowedUnderlying, uint256 _underlyingAmount) internal view {
-        uint256 borrowable = suppliedUnderlying.mulDiv(Percent.MULTIPLIER - reserveRatio, Percent.MULTIPLIER);
-        uint256 totalBorrowed = _borrowedUnderlying + _underlyingAmount;
-        if (totalBorrowed > borrowable || totalBorrowed > borrowCap) revert ExceedsCap();
+    function _getPoolUnderlyingBalance(ERC20Upgradeable _underlyingAsset) internal view returns (uint256) {
+        return _underlyingAsset.balanceOf(address(this));
     }
 
-    function borrow(address _account, uint256 _underlyingAmount) external override nonReentrant onlyNotPaused onlyRouter {
-        if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
-        _checkBorrowable(borrowedUnderlying, _underlyingAmount);
+    function claimFee() external override nonReentrant onlyNotPaused returns (uint256 claimedFee, uint256 unclaimedFee) {
+        _collectInterestFeeAndCommit();
 
-        underlyingAsset.safeTransfer(_account, _underlyingAmount);
+        ERC20Upgradeable _underlyingAsset = underlyingAsset;
+        uint256 balance = _underlyingAsset.balanceOf(address(this));
+        unclaimedFee = pendingFee;
+        claimedFee = balance > unclaimedFee ? unclaimedFee : balance;
+
+        if (claimedFee > 0) {
+            unclaimedFee = unclaimedFee - claimedFee;
+            pendingFee = unclaimedFee;
+            address treasury = router.getFeeConfig().treasury;
+            _underlyingAsset.safeTransfer(treasury, claimedFee);
+
+            emit FeeClaimed(treasury, claimedFee);
+        }
+    }
+
+    function getUnclaimedFee() external override view returns (uint256 unclaimedFee, uint256 claimableFee) {
+        uint256 balance = _getPoolUnderlyingBalance(underlyingAsset);
+        (, uint256 fee, , ) = _collectInterestAndFee();
+
+        unclaimedFee = pendingFee + fee;
+        claimableFee = balance > unclaimedFee ? unclaimedFee : balance;
+    }
+
+    function _checkBorrowable(
+        uint256 _suppliedUnderlying,
+        uint256 _borrowedUnderlying,
+        uint256 _amountToBorrow
+    ) internal view {
+        uint256 borrowable = _suppliedUnderlying.mulDiv(Percent.MULTIPLIER - reserveRatio, Percent.MULTIPLIER);
+        uint256 totalBorrowed = _borrowedUnderlying + _amountToBorrow;
+        if (
+            totalBorrowed > borrowable || totalBorrowed > borrowCap || _amountToBorrow > _getPoolUnderlyingBalance(underlyingAsset)
+        ) revert ExceedsCap();
+    }
+
+    function borrow(address _account, uint256 _amountToBorrow) external override nonReentrant onlyNotPaused onlyRouter {
+        if (_amountToBorrow == 0) revert ZeroAmountNotAllowed();
+
+        underlyingAsset.safeTransfer(_account, _amountToBorrow);
     }
 
     function commitBorrow(
         address _account,
-        uint256 _underlyingAmount
+        uint256 _amountToBorrow
     ) external override nonReentrant onlyNotPaused onlyRouter returns (
         uint256 id
     ) {
-        if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
-        _collectInterestFeeAndCommit(router.getFeeConfig());
-        uint256 _borrowedUnderlying = borrowedUnderlying;
+        if (_amountToBorrow == 0) revert ZeroAmountNotAllowed();
+        (, , uint256 newSuppliedConversionRate, uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
-        _checkBorrowable(_borrowedUnderlying, _underlyingAmount);
+        uint256 suppliedUnderlying = _toUnderlying(totalSupply(), newSuppliedConversionRate, false);
+        uint256 borrowedUnderlying = _toUnderlying(_borrowedTeaToken, newBorrowedConversionRate, false);
+        _checkBorrowable(suppliedUnderlying, borrowedUnderlying, _amountToBorrow);
 
-        uint8 _decimals = decimals();
-        uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
-            _decimals,
-            _borrowedTeaToken,
-            _borrowedUnderlying
-        );
-        uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
-            _decimals,
-            _borrowedTeaToken,
-            _borrowedUnderlying,
-            unpaidBorrowFeeUnderlying
-        );
-        uint256 borrowedTeaTokenAmount = _underlyingAmount.mulDiv(
-            LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying),
-            10 ** _decimals,
-            Math.Rounding.Ceil
-        );
+        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, false);
         id = idCounter;
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
+            isClosed: false,
             borrowedTeaToken: borrowedTeaTokenAmount,
-            lastBorrowRate: rate,
-            lastBorrowRateWithoutFee: rateWithoutFee
+            lastBorrowedConversionRate: newBorrowedConversionRate
         });
-        borrowedUnderlying = borrowedUnderlying + _underlyingAmount;
         borrowedTeaToken = borrowedTeaToken + borrowedTeaTokenAmount;
 
-        emit Borrowed(_account, id, _underlyingAmount, borrowedTeaTokenAmount);
+        emit Borrowed(_account, id, _amountToBorrow, borrowedTeaTokenAmount);
     }
 
     function repay(
         address _account,
         uint256 _id,
-        uint256 _underlyingAmount
+        uint256 _amount,
+        bool _forceClose
     ) external override nonReentrant onlyNotPaused returns (
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     ) {
-        if (_underlyingAmount == 0) revert ZeroAmountNotAllowed();
-        IRouter.FeeConfig memory feeConfig = router.getFeeConfig();
-        _collectInterestFeeAndCommit(feeConfig);
+        if (_amount == 0) revert ZeroAmountNotAllowed();
 
-        uint8 _decimals = decimals();
+        (, , uint256 newSuppliedConversionRate, uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
-        uint256 _borrowedUnderlying = borrowedUnderlying;
-        uint256 rate = LendingUtils.borrowedTeaTokenToUnderlying(
-            _decimals,
-            _borrowedTeaToken,
-            _borrowedUnderlying
-        );
-        uint256 rateWithoutFee = LendingUtils.borrowedTeaTokenToUnderlyingWithoutFee(
-            _decimals,
-            _borrowedTeaToken,
-            _borrowedUnderlying,
-            unpaidBorrowFeeUnderlying
-        );
 
         DebtInfo memory _debtInfo = debtInfo[_id];
-        uint256 _teaTokenAmount = _underlyingAmount.mulDiv(
-            LendingUtils.borrowedUnderlyingToTeaToken(_decimals, _borrowedTeaToken, _borrowedUnderlying),
-            10 ** _decimals
-        );
-        if (_teaTokenAmount >= _debtInfo.borrowedTeaToken) {
+        uint256 _teaTokenAmount = _toTeaToken(_amount, newBorrowedConversionRate, false);
+        if (_teaTokenAmount > _debtInfo.borrowedTeaToken) {
             _teaTokenAmount = _debtInfo.borrowedTeaToken;
-            repaidUnderlyingAmount = _teaTokenAmount.mulDiv(rate, 10 ** _decimals);
+            repaidUnderlyingAmount = _toUnderlying(_teaTokenAmount, newBorrowedConversionRate, true);
         }
         else {
-            repaidUnderlyingAmount = _underlyingAmount;
+            repaidUnderlyingAmount = _amount;
         }
-        uint256 borrowFee = _teaTokenAmount.mulDiv(
-            rate + _debtInfo.lastBorrowRate - rateWithoutFee - _debtInfo.lastBorrowRateWithoutFee,
-            10 ** _decimals
-        );
-        unrepaidUnderlyingAmount = _debtInfo.borrowedTeaToken.mulDiv(rate, 10 ** _decimals) - repaidUnderlyingAmount;
+        unrepaidUnderlyingAmount = _toUnderlying(_debtInfo.borrowedTeaToken, newBorrowedConversionRate, true) - repaidUnderlyingAmount;
+        
         ERC20Upgradeable _underlyingAsset = underlyingAsset;
         _underlyingAsset.safeTransferFrom(_account, address(this), repaidUnderlyingAmount);
-        _underlyingAsset.safeTransfer(feeConfig.treasury, borrowFee);
-        debtInfo[_id].borrowedTeaToken = debtInfo[_id].borrowedTeaToken - _teaTokenAmount;
 
-        borrowedUnderlying = _borrowedUnderlying - repaidUnderlyingAmount;
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;
-        unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying - borrowFee;
-
-        if (borrowedTeaToken * borrowedUnderlying == 0 && borrowedTeaToken < 2 && borrowedUnderlying < 2) {
-            // reset
-            borrowedTeaToken = 0;
-            borrowedUnderlying = 0;
-            unpaidBorrowFeeUnderlying = 0;
+        _debtInfo.borrowedTeaToken = _debtInfo.borrowedTeaToken - _teaTokenAmount;
+        if (_debtInfo.borrowedTeaToken == 0) {
+            _debtInfo.isClosed = true;
         }
+        else if (_forceClose) {
+            _debtInfo.isClosed = true;
+            uint256 loss = _toUnderlying(borrowedTeaToken, newBorrowedConversionRate, false);
+            uint256 _pendingFee = pendingFee;
+            if (loss > _pendingFee) {
+                newSuppliedConversionRate = _calculateSuppliedRate(false, loss - _pendingFee);
+                pendingFee = 0;
+            }
+            else {
+                pendingFee = _pendingFee - loss;
+            }
+        }
+        debtInfo[_id] = _debtInfo;
 
         emit Repaid(_account, _id, _teaTokenAmount, repaidUnderlyingAmount);
-    }
-
-    function suppliedTeaTokenToUnderlying() external view override returns (uint256) {
-        return _suppliedTeaTokenToUnderlying();
-    }
-    
-    function _suppliedTeaTokenToUnderlying() internal view returns (uint256) {
-        (uint256 interest, ) = _collectInterestAndFee(router.getFeeConfig());
-
-        return LendingUtils.suppliedTeaTokenToUnderlying(DECIMALS, totalSupply(), suppliedUnderlying + interest);
     }
 
     function balanceOf(address _account) public view override(IPool, ERC20Upgradeable) returns (uint256) {
@@ -334,55 +351,101 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     }
 
     function balanceOfUnderlying(address _account) external view override returns (uint256) {
-        return balanceOf(_account).mulDiv(_suppliedTeaTokenToUnderlying(), 10 ** DECIMALS);
+        (, , uint256 newSuppliedConversionRate, ) = _collectInterestAndFee();
+
+        return balanceOf(_account).mulDiv(newSuppliedConversionRate, RATE_MULTIPLIER);
     }
 
     function debtOf(uint256 _id) external view override returns (uint256) {
         return debtInfo[_id].borrowedTeaToken;
     }
 
-    function borrowedTeaTokenToUnderlying() external view override returns (uint256) {
-        return _borrowedTeaTokenToUnderlying();
-    }
-
-    function _borrowedTeaTokenToUnderlying() internal view returns (uint256) {
-        (uint256 interest, uint256 fee) = _collectInterestAndFee(router.getFeeConfig());
-
-        return LendingUtils.borrowedTeaTokenToUnderlying(
-            DECIMALS,
-            borrowedTeaToken,
-            borrowedUnderlying + interest + fee
-        );
-    }
-
     function debtOfUnderlying(uint256 _id) external view override returns (uint256) {
-        return debtInfo[_id].borrowedTeaToken.mulDiv(_borrowedTeaTokenToUnderlying(), 10 ** DECIMALS);
-    }
-
-    function getLendingStatus() external override view returns (uint256, uint256, uint24) {
-        (uint256 interest, uint256 fee) = _collectInterestAndFee(router.getFeeConfig());
-
-        return (suppliedUnderlying + interest, borrowedUnderlying + interest + fee, reserveRatio);
-    }
-
-    function collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) external override returns (uint256 interest, uint256 fee) {
-        return _collectInterestFeeAndCommit(_feeConfig);
-    }
-
-    function _collectInterestAndFee(IRouter.FeeConfig memory _feeConfig) internal view returns (uint256 interest, uint256 fee) {
-        uint256 timeElapsed = block.timestamp - lastCumulateInterest;
-        uint256 _borrowedUnderlying = borrowedUnderlying;
-        if (_borrowedUnderlying == 0) return (interest, fee);
+        (, , , uint256 newBorrowedConversionRate) = _collectInterestAndFee();
         
-        uint256 rate = IInterestRateModel(router.getInterestRateModel(interestRateModelType)).getBorrowRate(
+        return debtInfo[_id].borrowedTeaToken.mulDiv(newBorrowedConversionRate, RATE_MULTIPLIER);
+    }
+
+    function getConversionRates() external override view returns (uint256, uint256) {
+        (, , uint256 newSuppiedConversionRate, uint256 newBorrowedConversionRate) = _collectInterestAndFee();
+
+        return (newSuppiedConversionRate, newBorrowedConversionRate);
+    }
+
+    function getLendingStatus() external override view returns (uint256, uint256, uint256, uint24) {
+        (
+            ,
+            uint256 fee,
+            uint256 newSuppliedConversionRate,
+            uint256 newBorrowedConversionRate
+        ) = _collectInterestAndFee();
+
+        uint256 suppliedUnderlying = totalSupply().mulDiv(newSuppliedConversionRate, RATE_MULTIPLIER);
+        uint256 borrowedUnderlying = borrowedTeaToken.mulDiv(newBorrowedConversionRate, RATE_MULTIPLIER);
+        uint256 unclaimedFee = pendingFee + fee;
+
+        return (suppliedUnderlying, borrowedUnderlying, unclaimedFee, reserveRatio);
+    }
+
+    function _calculateSuppliedRate(bool _isIncrease, uint256 _amountDelta) internal view returns (uint256 rate) {
+        rate = suppliedConversionRate;
+
+        if (_amountDelta > 0) {
+            uint256 rateDelta = _amountDelta / totalSupply();
+            _isIncrease ? rate + rateDelta : rate - rateDelta;
+        }
+    }
+
+    function collectInterestFeeAndCommit() external override returns (uint256 interest, uint256 fee) {
+        (interest, fee, , ) = _collectInterestFeeAndCommit();
+    }
+
+    function _collectInterestFeeAndCommit() internal returns (
+        uint256 interest,
+        uint256 fee,
+        uint256 newSuppliedConversionRate,
+        uint256 newBorrowedConversionRate
+    ) {
+        (interest, fee, newSuppliedConversionRate, newBorrowedConversionRate) = _collectInterestAndFee();
+
+        lastAccumulateTimestamp = block.timestamp;
+        suppliedConversionRate = newSuppliedConversionRate;
+        borrowedConversionRate = newBorrowedConversionRate;
+        
+        if (fee > 0) {
+            pendingFee = pendingFee + fee;
+            emit BorrowFeeAccumulated(block.timestamp, fee);
+        }
+        if (interest > 0) emit InterestAccumulated(block.timestamp, interest);
+    }
+
+    function _collectInterestAndFee() internal view returns (
+        uint256 interest,
+        uint256 fee,
+        uint256 newSuppliedConversionRate,
+        uint256 newBorrowedConversionRate
+    ) {
+        uint256 timeElapsed = block.timestamp - lastAccumulateTimestamp;
+        uint256 _borrowedTeaToken = borrowedTeaToken;
+        if (_borrowedTeaToken == 0) return (interest, fee, newSuppliedConversionRate, newBorrowedConversionRate);
+        
+        uint256 suppliedTeaToken = totalSupply();
+        uint256 suppliedUnderlying = suppliedTeaToken.mulDiv(suppliedConversionRate, RATE_MULTIPLIER);
+        uint256 borrowedUnderlying = _borrowedTeaToken.mulDiv(borrowedConversionRate, RATE_MULTIPLIER);
+        uint256 _borrowedConversionRate = borrowedConversionRate;
+
+        uint256 interestRate = IInterestRateModel(router.getInterestRateModel(interestRateModelType)).getBorrowRate(
             suppliedUnderlying,
-            _borrowedUnderlying,
+            borrowedUnderlying,
             reserveRatio
         );
 
-        // TODO: optimization?
-        interest = _calculateInterests(_borrowedUnderlying, rate, timeElapsed);
-        fee = _calculateInterests(_borrowedUnderlying, _feeConfig.borrowFee, timeElapsed);
+        uint256 rateDeltaInterest = _calculateInterests(_borrowedConversionRate, interestRate, timeElapsed);
+        uint256 rateDeltaFee = _calculateInterests(_borrowedConversionRate, router.getFeeConfig().borrowFee, timeElapsed);
+        interest = _borrowedTeaToken.mulDiv(rateDeltaInterest, RATE_MULTIPLIER);
+        fee = _borrowedTeaToken.mulDiv(rateDeltaFee, RATE_MULTIPLIER);
+        newSuppliedConversionRate = _calculateSuppliedRate(true, interest);
+        newBorrowedConversionRate = _borrowedConversionRate + rateDeltaInterest + rateDeltaFee;
     }
 
     /// calculate interests
@@ -452,17 +515,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         }
 
         return result;
-    }
-
-    function _collectInterestFeeAndCommit(IRouter.FeeConfig memory _feeConfig) internal returns (uint256 interest, uint256 fee) {
-        (interest, fee) = _collectInterestAndFee(_feeConfig);
-        lastCumulateInterest = block.timestamp;
-        suppliedUnderlying = suppliedUnderlying + interest;
-        borrowedUnderlying = borrowedUnderlying + interest + fee;
-        unpaidBorrowFeeUnderlying = unpaidBorrowFeeUnderlying + fee;
-
-        if (interest > 0) emit InterestAccumulated(block.timestamp, interest);
-        if (fee > 0) emit BorrowFeeAccumulated(block.timestamp, fee);
     }
 
     modifier onlyNotPaused() {

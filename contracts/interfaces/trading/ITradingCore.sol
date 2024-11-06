@@ -31,10 +31,10 @@ interface ITradingCore {
     event CollectTradingFee(ERC20Upgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event AddMargin(IMarketNFT indexed market, uint256 indexed positionId, uint256 addedAmount);
-    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
-    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount);
+    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
 
     struct FeeConfig {
         address treasury;
@@ -90,6 +90,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -105,6 +106,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -120,6 +122,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -135,6 +138,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 decreasedAssetAmount,
         uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );

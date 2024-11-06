@@ -143,6 +143,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         (
             uint256 supplied,
             uint256 borrowed,
+            ,
             uint24 reserveRatio
         ) = pool[_underlyingAsset][_modelType].getLendingStatus();
         
@@ -158,6 +159,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         (
             uint256 supplied,
             uint256 borrowed,
+            ,
             uint24 reserveRatio
         ) = pool[_underlyingAsset][_modelType].getLendingStatus();
         
@@ -191,14 +193,14 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     function borrow(
         ERC20Upgradeable _underlyingAsset,
         InterestRateModelType _modelType,
-        uint256 _underlyingAmount
+        uint256 _amountToBorrow
     ) external override nonReentrant returns (
         address
     ) {
         if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
 
         IPool lendingPool = _getLendingPool(_underlyingAsset, _modelType);
-        lendingPool.borrow(tradingCore, _underlyingAmount);
+        lendingPool.borrow(tradingCore, _amountToBorrow);
 
         return address(lendingPool);
     }
@@ -206,13 +208,13 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     function commitBorrow(
         ERC20Upgradeable _underlyingAsset,
         InterestRateModelType _modelType,
-        uint256 _underlyingAmount
+        uint256 _amountToBorrow
     ) external override nonReentrant returns (
         uint256
     ) {
         if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
 
-        return _getLendingPool(_underlyingAsset, _modelType).commitBorrow(tradingCore, _underlyingAmount);
+        return _getLendingPool(_underlyingAsset, _modelType).commitBorrow(tradingCore, _amountToBorrow);
     }
 
     function repay(
@@ -220,12 +222,13 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         address _account,
         uint256 _id,
-        uint256 _underlyingAmount
+        uint256 _amount,
+        bool _forceClose
     ) external override nonReentrant returns (
         uint256,
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _underlyingAmount);
+        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _amount, _forceClose);
     }
 
     function balanceOf(
@@ -275,7 +278,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256 interest,
         uint256 fee
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).collectInterestFeeAndCommit(feeConfig);
+        return _getLendingPool(_underlyingAsset, _modelType).collectInterestFeeAndCommit();
     }
 
     function setEnableWhitelist(bool _enableWhitelist) external onlyOwner {
