@@ -347,6 +347,10 @@ async function testLongPositionProfit(tradingCore, user, baseToken, targetToken,
     await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+
+    const positionInfo3 = await market.getPosition(positionId);
+    console.log(positionInfo3);
+
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
     console.log("");
@@ -488,6 +492,10 @@ async function testShortPositionLoss(tradingCore, user, baseToken, targetToken, 
     await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+
+    const positionInfo3 = await market.getPosition(positionId);
+    console.log(positionInfo3);
+
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
     console.log("");
@@ -591,11 +599,11 @@ async function main() {
     const { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
 
     await testLongPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
-    // await testLongPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
-    // await testShortPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
-    // await testShortPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
-    // await testLongPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
-    // await testShortPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testLongPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testShortPositionProfit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testShortPositionLoss(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testLongPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
+    await testShortPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap);
 }
 
 
