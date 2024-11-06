@@ -427,7 +427,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     ) {
         uint256 timeElapsed = block.timestamp - lastAccumulateTimestamp;
         uint256 _borrowedTeaToken = borrowedTeaToken;
-        if (_borrowedTeaToken == 0) return (interest, fee, newSuppliedConversionRate, newBorrowedConversionRate);
+        if (_borrowedTeaToken == 0) return (interest, fee, suppliedConversionRate, borrowedConversionRate);
         
         uint256 suppliedTeaToken = totalSupply();
         uint256 suppliedUnderlying = suppliedTeaToken.mulDiv(suppliedConversionRate, RATE_MULTIPLIER);
