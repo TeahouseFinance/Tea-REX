@@ -309,7 +309,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function closePosition(
         CloseMode _mode,
         uint256 _positionId,
-        uint256 _decreasedAssetAmount,
+        uint256 _swappedAssetToken,
         uint256 _decreasedDebtAmount,
         uint256 _tradingFee,
         uint256 _debtAmount
@@ -336,7 +336,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         if (_mode == CloseMode.TakeProfit) {
             if (position.takeProfit == 0) revert NoTakeProfit();
             if (
-                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, position.takeProfit, oracleDecimals)
+                _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, position.takeProfit, oracleDecimals)
             ) revert WorsePrice();
         }
         else if (_mode == CloseMode.StopLoss) {
@@ -344,14 +344,14 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
             if (position.stopLoss < assetPriceInDebt) revert PassivelyCloseConditionNotMet();
             if (
-                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, assetPriceInDebt, oracleDecimals)
+                _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, assetPriceInDebt, oracleDecimals)
             ) revert WorsePrice();
         }
         else if (_mode == CloseMode.Liquidate) {
             uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
             if (assetPriceInDebt > _getLiquidationPrice(position, _debtAmount, oracleDecimals)) revert PassivelyCloseConditionNotMet();
             if (
-                _decreasedDebtAmount < _assetToDebtAmount(_decreasedAssetAmount, _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals), oracleDecimals)
+                _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals), oracleDecimals)
             ) revert WorsePrice();
             
             isNotLiquidation = false;
@@ -360,7 +360,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
             _positionId,
             position,
-            _decreasedAssetAmount,
+            _swappedAssetToken,
             _decreasedDebtAmount,
             _tradingFee,
             _debtAmount,
@@ -375,7 +375,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function _afterFlatPosition(
         uint256 _positionId,
         Position memory _position,
-        uint256 _decreasedAssetAmount,
+        uint256 _swappedAssetToken,
         uint256 _decreasedDebtAmount,
         uint256 _tradingFee,
         uint256 _debtAmount,
@@ -391,31 +391,32 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 owedDebt
     ) {
         uint256 positionAssetAmount = _position.assetAmount;
-        _position.swappableAmount = _position.swappableAmount - _decreasedAssetAmount - _tradingFee;
-        if (_decreasedAssetAmount > _position.assetAmount) {
+        _position.swappableAmount = _position.swappableAmount - _swappedAssetToken - _tradingFee;
+        if (_swappedAssetToken > _position.assetAmount) {
             decreasedMarginAmount = _position.marginAmount - _position.swappableAmount;
             _position.marginAmount = _position.swappableAmount;
             _position.assetAmount = 0;
         }
         else {
-            _position.assetAmount = _position.assetAmount - _decreasedAssetAmount - _tradingFee;
+            _position.assetAmount = _position.assetAmount - _swappedAssetToken - _tradingFee;
         }
 
         uint256 overRepaidDebt;
         uint256 newDebtAmount;
         if (_decreasedDebtAmount >= _debtAmount) {
-            isFullyClosed = true;
             overRepaidDebt = _decreasedDebtAmount - _debtAmount;
             newDebtAmount = 0;
         }
         else {
             newDebtAmount = _debtAmount - _decreasedDebtAmount;
             if (!_position.isMarginAsset && _position.marginAmount >= newDebtAmount) {
-                isFullyClosed = true;
                 decreasedMarginAmount = newDebtAmount;
                 _position.marginAmount = _position.marginAmount - newDebtAmount;
                 newDebtAmount = 0;
             }
+        }
+        if (_position.swappableAmount == 0 || newDebtAmount == 0) {
+            isFullyClosed = true;
         }
 
         if (isFullyClosed) {
@@ -435,7 +436,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _updateMarketStatus(
             _position.isLongToken0,
             false,
-            _decreasedAssetAmount + _tradingFee > positionAssetAmount ? positionAssetAmount : _decreasedAssetAmount + _tradingFee,
+            _swappedAssetToken + _tradingFee > positionAssetAmount ? positionAssetAmount : _swappedAssetToken + _tradingFee,
             assetPrice,
             oracleDecimals
         );

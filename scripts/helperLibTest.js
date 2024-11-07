@@ -284,7 +284,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
         await tradingCore.connect(manager).liquidate(
             market,
             positionId,
-            assetAmount,
+            assetAmount + positionInfo.marginAmount,
             0,
             swapProcessor,
             swapContract,

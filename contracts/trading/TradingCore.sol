@@ -250,14 +250,14 @@ contract TradingCore is
         IMarketNFT.CloseMode _mode,
         address _market,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease,
+        uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes memory _data
     ) internal returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -279,7 +279,7 @@ contract TradingCore is
             _feeConfig,
             _mode == IMarketNFT.CloseMode.Liquidate
         );
-        _assetAmountToDecrease = _updateAssetAmountToDecrease(_assetAmountToDecrease, swappableAfterFee);
+        _assetTokenToSwap = _updateassetTokenToSwap(_assetTokenToSwap, swappableAfterFee);
         (ERC20Upgradeable asset, ERC20Upgradeable debt) = _getPositionTokens(token0, token1, position);
         if (address(_calldataProcessor) != address(0)) {
             _data = _calldataProcessor.processCalldata(
@@ -288,20 +288,20 @@ contract TradingCore is
             );
         }
         
-        (decreasedAssetAmount, decreasedDebtAmount) = _swap(
+        (swappedAssetToken, decreasedDebtAmount) = _swap(
             asset,
             debt,
-            _assetAmountToDecrease,
+            _assetTokenToSwap,
             _minDecreasedDebtAmount,
             _swapRouter,
             _data
         );
     
-        uint256 tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, decreasedAssetAmount, _feeConfig);
+        uint256 tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, swappedAssetToken, _feeConfig);
         (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = market.closePosition(
             _mode,
             _positionId,
-            decreasedAssetAmount,
+            swappedAssetToken,
             decreasedDebtAmount,
             tradingFee,
             _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
@@ -314,34 +314,34 @@ contract TradingCore is
             position.interestRateModelType,
             position.borrowId,
             decreasedDebtAmount,
-            market.getPosition(_positionId).assetAmount == 0
+            market.getPosition(_positionId).swappableAmount == 0
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
+            emit ClosePosition(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
+            emit TakeProfit(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
+            emit StopLoss(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(market, _positionId, isFullyClosed, decreasedAssetAmount, decreasedDebtAmount, decreasedMarginAmount);
+            emit Liquidate(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
     }
 
     function closePosition(
         address _market,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease,
+        uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -351,7 +351,7 @@ contract TradingCore is
             IMarketNFT.CloseMode.Close,
             _market,
             _positionId,
-            _assetAmountToDecrease,
+            _assetTokenToSwap,
             _minDecreasedDebtAmount,
             _calldataProcessor,
             _swapRouter,
@@ -362,14 +362,14 @@ contract TradingCore is
     function takeProfit(
         address _market,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease,
+        uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -379,7 +379,7 @@ contract TradingCore is
             IMarketNFT.CloseMode.TakeProfit,
             _market,
             _positionId,
-            _assetAmountToDecrease,
+            _assetTokenToSwap,
             _minDecreasedDebtAmount,
             _calldataProcessor,
             _swapRouter,
@@ -390,14 +390,14 @@ contract TradingCore is
     function stopLoss(
         address _market,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease,
+        uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -407,7 +407,7 @@ contract TradingCore is
             IMarketNFT.CloseMode.StopLoss,
             _market,
             _positionId,
-            _assetAmountToDecrease,
+            _assetTokenToSwap,
             _minDecreasedDebtAmount,
             _calldataProcessor,
             _swapRouter,
@@ -418,14 +418,14 @@ contract TradingCore is
     function liquidate(
         address _market,
         uint256 _positionId,
-        uint256 _assetAmountToDecrease,
+        uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -435,7 +435,7 @@ contract TradingCore is
             IMarketNFT.CloseMode.Liquidate,
             _market,
             _positionId,
-            _assetAmountToDecrease,
+            _assetTokenToSwap,
             _minDecreasedDebtAmount,
             _calldataProcessor,
             _swapRouter,
@@ -638,17 +638,17 @@ contract TradingCore is
         _router.collectInterestFeeAndCommit(debt, position.interestRateModelType);
     }
 
-    function _updateAssetAmountToDecrease(
-        uint256 _assetAmountToDecrease,
+    function _updateassetTokenToSwap(
+        uint256 _assetTokenToSwap,
         uint256 swappableAfterFee
     ) internal pure returns (
         uint256
     ) {
-        if (_assetAmountToDecrease > swappableAfterFee) {
-            _assetAmountToDecrease = swappableAfterFee;
+        if (_assetTokenToSwap > swappableAfterFee) {
+            _assetTokenToSwap = swappableAfterFee;
         }
 
-        return _assetAmountToDecrease;
+        return _assetTokenToSwap;
     }
 
     function _pay(ERC20Upgradeable _token, address _from, address _to, uint256 _amount) internal {

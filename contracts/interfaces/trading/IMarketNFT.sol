@@ -131,7 +131,7 @@ interface IMarketNFT {
     /// @notice TODO
     /// @param mode TODO
     /// @param positionId TODO
-    /// @param decreasedAssetAmount TODO
+    /// @param swappedAssetToken TODO
     /// @param decreasedDebtAmount TODO
     /// @param tradingFee TODO
     /// @param debtAmount TODO
@@ -142,7 +142,7 @@ interface IMarketNFT {
     function closePosition(
         CloseMode mode,
         uint256 positionId,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 tradingFee,
         uint256 debtAmount

@@ -31,10 +31,10 @@ interface ITradingCore {
     event CollectTradingFee(ERC20Upgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event AddMargin(IMarketNFT indexed market, uint256 indexed positionId, uint256 addedAmount);
-    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 decreasedAssetAmount, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
 
     struct FeeConfig {
         address treasury;
@@ -81,14 +81,14 @@ interface ITradingCore {
     function closePosition(
         address market,
         uint256 positionId,
-        uint256 assetAmountToDecrease,
+        uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -97,14 +97,14 @@ interface ITradingCore {
     function takeProfit(
         address market,
         uint256 positionId,
-        uint256 assetAmountToDecrease,
+        uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -113,14 +113,14 @@ interface ITradingCore {
     function stopLoss(
         address market,
         uint256 positionId,
-        uint256 assetAmountToDecrease,
+        uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
@@ -129,14 +129,14 @@ interface ITradingCore {
     function liquidate(
         address market,
         uint256 positionId,
-        uint256 assetAmountToDecrease,
+        uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
         address swapRouter,
         bytes calldata data
     ) external returns (
         bool isFullyClosed,
-        uint256 decreasedAssetAmount,
+        uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
