@@ -313,7 +313,7 @@ contract TradingCore is
             debt,
             position.interestRateModelType,
             position.borrowId,
-            decreasedDebtAmount,
+            position.isMarginAsset ? decreasedDebtAmount : decreasedDebtAmount + decreasedMarginAmount,
             market.getPosition(_positionId).swappableAmount == 0
         );
 

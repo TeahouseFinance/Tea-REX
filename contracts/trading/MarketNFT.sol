@@ -18,7 +18,7 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgradeable, ERC721EnumerableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using Math for uint256;
@@ -391,14 +391,15 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 owedDebt
     ) {
         uint256 positionAssetAmount = _position.assetAmount;
-        _position.swappableAmount = _position.swappableAmount - _swappedAssetToken - _tradingFee;
-        if (_swappedAssetToken > _position.assetAmount) {
+        uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
+        _position.swappableAmount = _position.swappableAmount - totalConsumedAssetToken;
+        if (totalConsumedAssetToken > _position.assetAmount) {
             decreasedMarginAmount = _position.marginAmount - _position.swappableAmount;
             _position.marginAmount = _position.swappableAmount;
             _position.assetAmount = 0;
         }
         else {
-            _position.assetAmount = _position.assetAmount - _swappedAssetToken - _tradingFee;
+            _position.assetAmount = _position.assetAmount - totalConsumedAssetToken;
         }
 
         uint256 overRepaidDebt;
@@ -409,10 +410,10 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         }
         else {
             newDebtAmount = _debtAmount - _decreasedDebtAmount;
-            if (!_position.isMarginAsset && _position.marginAmount >= newDebtAmount) {
-                decreasedMarginAmount = newDebtAmount;
-                _position.marginAmount = _position.marginAmount - newDebtAmount;
-                newDebtAmount = 0;
+            if (_position.assetAmount == 0 && !_position.isMarginAsset) {
+                decreasedMarginAmount = newDebtAmount > _position.marginAmount ? _position.marginAmount : newDebtAmount;
+                _position.marginAmount = _position.marginAmount - decreasedMarginAmount;
+                newDebtAmount = newDebtAmount - decreasedMarginAmount;
             }
         }
         if (_position.swappableAmount == 0 || newDebtAmount == 0) {
@@ -436,7 +437,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _updateMarketStatus(
             _position.isLongToken0,
             false,
-            _swappedAssetToken + _tradingFee > positionAssetAmount ? positionAssetAmount : _swappedAssetToken + _tradingFee,
+            totalConsumedAssetToken > positionAssetAmount ? positionAssetAmount : totalConsumedAssetToken,
             assetPrice,
             oracleDecimals
         );
