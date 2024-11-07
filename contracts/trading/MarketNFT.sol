@@ -18,7 +18,7 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgradeable, ERC721EnumerableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using Math for uint256;
