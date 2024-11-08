@@ -47,12 +47,17 @@ module.exports = {
     bsc: {
       url: process.env.BSC_URL || "",
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    }
+    },
+    arbtest: {
+      url: process.env.ARBTEST_URL || "",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
   },
   etherscan: {
     apiKey: {
       sepolia: process.env.SEPOLIA_API_KEY,
       arbitrumOne: process.env.ARB_API_KEY,
+      arbitrumSepolia: process.env.ARBTEST_API_KEY,
       optimisticEthereum: process.env.OP_API_KEY,
       polygon: process.env.POLY_API_KEY,
       base: process.env.BASE_API_KEY,

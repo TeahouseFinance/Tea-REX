@@ -99,7 +99,7 @@ async function deployContracts() {
     await baseToken.approve(await router.pool(baseToken, 2), baseSupplyAmount)
     await router.supply(baseToken, 2, owner, baseSupplyAmount);
 
-    const targetSupplyAmount = ethers.parseUnits("1000000", 18)
+    const targetSupplyAmount = ethers.parseUnits("1000000", 18);
     await targetToken.approve(await router.pool(targetToken, 2), targetSupplyAmount);
     await router.supply(targetToken, 2, owner, targetSupplyAmount);
 
