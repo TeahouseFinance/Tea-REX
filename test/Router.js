@@ -37,7 +37,7 @@ describe("TeaRex Router", function () {
     async function deployERC20Fixture() {
         const MockERC20 = await ethers.getContractFactory("MockToken");
         const initialSupply = 10_000_000;
-        const mockToken = await MockERC20.deploy(initialSupply, 6);
+        const mockToken = await MockERC20.deploy("Mock", "Mock", initialSupply, 6);
         await mockToken.waitForDeployment();
         // console.log("MockToken deployed to:", await mockToken.getAddress());
 

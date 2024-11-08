@@ -147,8 +147,8 @@ describe("TeaRex Trading Core", function () {
 
     async function deployTokenFixture() {
         const MockToken = await ethers.getContractFactory("MockToken");
-        const baseToken = await MockToken.deploy(ethers.parseUnits("100000000", 6), 6);
-        const targetToken = await MockToken.deploy(ethers.parseUnits("100000000", 18), 18);
+        const baseToken = await MockToken.deploy("Mock", "Mock", ethers.parseUnits("100000000", 6), 6);
+        const targetToken = await MockToken.deploy("Mock", "Mock", ethers.parseUnits("100000000", 18), 18);
     
         return { baseToken, targetToken };
     }

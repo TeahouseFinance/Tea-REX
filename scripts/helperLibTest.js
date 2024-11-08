@@ -12,8 +12,8 @@ async function deployContracts() {
 
     // deploy tokens
     const MockToken = await ethers.getContractFactory("MockToken");
-    const baseToken = await MockToken.deploy(ethers.parseUnits("100000000", 6), 6);
-    const targetToken = await MockToken.deploy(ethers.parseUnits("100000000", 18), 18);
+    const baseToken = await MockToken.deploy("Mock", "Mock", ethers.parseUnits("100000000", 6), 6);
+    const targetToken = await MockToken.deploy("Mock", "Mock", ethers.parseUnits("100000000", 18), 18);
 
     await baseToken.transfer(user, ethers.parseUnits("100000", 6));
     await targetToken.transfer(user, ethers.parseUnits("10000", 18));

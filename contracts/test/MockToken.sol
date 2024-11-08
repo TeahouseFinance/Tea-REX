@@ -9,7 +9,7 @@ contract MockToken is ERC20 {
 
     uint8 private tokenDecimals;
 
-    constructor(uint256 _initialSupply, uint8 _decimals) ERC20("Mock", "Mock") {
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint8 _decimals) ERC20(_name, _symbol) {
         _mint(msg.sender, _initialSupply);
         tokenDecimals = _decimals;
     }
