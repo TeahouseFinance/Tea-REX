@@ -2,7 +2,7 @@ const { ethers, upgrades } = require("hardhat");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 const { before } = require("mocha");
-const { base } = require("viem/chains");
+//const { base } = require("viem/chains");
 
 const ZERO_ADDRESS = '0x' + '0'.repeat(40);
 const UINT256_MAX = '0x' + 'f'.repeat(64);
