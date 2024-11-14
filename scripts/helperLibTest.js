@@ -280,35 +280,26 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
     else {
         // for short positions, repay all debts
         const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
-        const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
         const assets = assetAmount + positionInfo.marginAmount;
-        try {
-            // it's possible that a liquidate call will revert because there's no enough asset to repay the debt
-            // so we run a static call first
-            await tradingCore.connect(manager).liquidate.staticCall(
-                market,
-                positionId,
-                assets,
-                0,
-                swapProcessor,
-                swapContract,
-                swapData
-            );    
 
-            await tradingCore.connect(manager).liquidate(
-                market,
-                positionId,
-                assets,
-                0,
-                swapProcessor,
-                swapContract,
-                swapData
-            );    
-        }
-        catch(e) {
-            // if a revert happens, assume it's impossible to repay all debts and just sell all assets, like in a long position
-            const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
-            const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, baseToken, targetToken, swappableAmount);
+        // it's possible that the amount of all assets are not enough to repay all debts, so do a static call testing selling all assets first
+        // note that there's a small chance that when the actual transaction was sent, the result could be different from the testing
+        // so it could sell all assets in some situation when it's not necessary, but the only downside is a little extra target tokens in the user's wallet
+        // or the liquidation call could revert, so in the production system, liquidation call should be attempted again if it failed
+        const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
+        const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, baseToken, targetToken, swappableAmount);
+        const results = await tradingCore.connect(manager).liquidate.staticCall(
+            market,
+            positionId,
+            swappableAmount,
+            0,
+            ZERO_ADDRESS,
+            swapContract,
+            swapData
+        );
+
+        if (results.decreasedDebtAmount < debtOfPosition.debtAmount) {
+            // not enough assets to repay all debts, just sell all assets
             await tradingCore.connect(manager).liquidate(
                 market,
                 positionId,
@@ -317,7 +308,20 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
                 ZERO_ADDRESS,
                 swapContract,
                 swapData
-            );            
+            );  
+        }
+        else {
+            // there are enough assets, swap just enough amount to repay debts
+            const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
+            await tradingCore.connect(manager).liquidate(
+                market,
+                positionId,
+                assets,
+                0,
+                swapProcessor,
+                swapContract,
+                swapData
+            );
         }
     }
 }
