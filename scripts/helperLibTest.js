@@ -327,7 +327,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
 }
 
 
-async function testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, startPrice, endPrice, timespan) {
+async function testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, startPrice, endPrice, moreMargin, timespan) {
     console.log("Test long position:");
 
     // get lending pool
@@ -369,16 +369,18 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, marke
     console.log("End price:", endPrice);
     await mockOracle.setTokenPrice(targetToken, endPrice);
 
-    // add margin
-    const addMarginAmount = ethers.parseUnits("500", 6);
-    await baseToken.connect(user).approve(tradingCore, addMarginAmount);
-    await tradingCore.connect(user).addMargin(market, positionId, addMarginAmount);
+    if (moreMargin) {
+        // add margin
+        const addMarginAmount = ethers.parseUnits("500", 6);
+        await baseToken.connect(user).approve(tradingCore, addMarginAmount);
+        await tradingCore.connect(user).addMargin(market, positionId, addMarginAmount);    
 
-    const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
-    console.log("Liquidation price after add margin:", liquidationPrice2);
-
-    const positionInfo2 = await market.getPosition(positionId);
-    console.log(positionInfo2);
+        const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
+        console.log("Liquidation price after add margin:", liquidationPrice2);
+    
+        const positionInfo2 = await market.getPosition(positionId);
+        console.log(positionInfo2);    
+    }
 
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
@@ -396,7 +398,7 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, marke
     console.log("----------------");
 }
 
-async function testShortPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, startPrice, endPrice, timespan) {
+async function testShortPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, startPrice, endPrice, moreMargin, timespan) {
     console.log("Test short position:");
 
     // get lending pool
@@ -437,6 +439,19 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, mark
     // adjust price
     console.log("End price:", endPrice);
     await mockOracle.setTokenPrice(targetToken, endPrice);
+
+    if (moreMargin) {
+        // add margin
+        const addMarginAmount = ethers.parseUnits("500", 6);
+        await baseToken.connect(user).approve(tradingCore, addMarginAmount);
+        await tradingCore.connect(user).addMargin(market, positionId, addMarginAmount);
+
+        const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
+        console.log("Liquidation price after add margin:", liquidationPrice2);
+    
+        const positionInfo2 = await market.getPosition(positionId);
+        console.log(positionInfo2);        
+    }
 
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
@@ -574,26 +589,45 @@ async function main() {
     await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         2600n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        true,
         86400
     );
     // test long position with loss
     await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         2400n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        true,        
+        86400
+    );
+    // test long position with large loss
+    await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
+        2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        1900n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        false,
         86400
     );
     // test short position with profit
     await testShortPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         2400n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        true,
         86400
     );
     // test short position with loss
     await testShortPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         2600n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        true,
         86400
     );
+    // test short position with large loss
+    await testShortPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
+        2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        2950n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        false,
+        86400
+    );
+
 
     // test long position with loss to be liquidated
     await testLongPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
