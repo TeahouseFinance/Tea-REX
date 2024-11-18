@@ -263,9 +263,9 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
     const assetAmount = positionInfo.assetAmount;
 
     const longPosition = positionInfo.isLongToken0 ^ isToken0Margin;
+    const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
     if (longPosition) {
         // for long positions, sell all assets
-        const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
         const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, swappableAmount);
         await tradingCore.connect(manager).liquidate(
             market,
@@ -286,12 +286,11 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
         // note that there's a small chance that when the actual transaction was sent, the result could be different from the testing
         // so it could sell all assets in some situation when it's not necessary, but the only downside is a little extra target tokens in the user's wallet
         // or the liquidation call could revert, so in the production system, liquidation call should be attempted again if it failed
-        const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 3); // for liquidating position
         const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, baseToken, targetToken, swappableAmount);
         const results = await tradingCore.connect(manager).liquidate.staticCall(
             market,
             positionId,
-            swappableAmount,
+            assets,
             0,
             ZERO_ADDRESS,
             swapContract,
@@ -303,7 +302,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
             await tradingCore.connect(manager).liquidate(
                 market,
                 positionId,
-                swappableAmount,
+                assets,
                 0,
                 ZERO_ADDRESS,
                 swapContract,
