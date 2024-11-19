@@ -601,7 +601,7 @@ async function main() {
     // test long position with large loss
     await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
-        1900n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        2050n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         false,
         86400
     );
