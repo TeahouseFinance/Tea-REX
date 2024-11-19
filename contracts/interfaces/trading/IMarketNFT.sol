@@ -16,6 +16,7 @@ interface IMarketNFT {
     error InvalidTakeProfit();
     error InvalidStopLoss();
     error HighLossRatio();
+    error BadCloseRate();
     error ExceedsMaxTotalPositionSize();
     error InvalidPositionStatus();
     error CallerIsNotTradingCore();

@@ -337,6 +337,19 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 marginPrice
         ) = _getTokensInfo(position.isLongToken0);
 
+        if (_mode != CloseMode.Liquidate) {
+            uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
+            if (
+                totalConsumedAssetToken * _debtAmount >= (
+                    position.isMarginAsset ? 
+                        // require: consumed / swappable < decreasedDebt / totalDebt
+                        position.swappableAmount * _decreasedDebtAmount : 
+                        // require: consumed / swappable < [decreasedDebt + (consumed / swappable) * m] / totalDebt
+                        position.swappableAmount * _decreasedDebtAmount + position.marginAmount * totalConsumedAssetToken
+                )
+            ) revert BadCloseRate();
+        }
+
         bool isNotLiquidation = true;
         if (_mode == CloseMode.TakeProfit) {
             if (position.takeProfit == 0) revert NoTakeProfit();
