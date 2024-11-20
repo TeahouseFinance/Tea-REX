@@ -123,6 +123,12 @@ interface IMarketNFT {
     ) external returns (
         uint256 positionId
     );
+
+    /// @notice TODO
+    /// @param positionId Position id
+    /// @param takeProfit TODO
+    /// @param stopLoss TODO
+    function modifyPassiveClosePrice(uint256 positionId, uint256 takeProfit, uint256 stopLoss) external;
     
     /// @notice TODO
     /// @param positionId Position id

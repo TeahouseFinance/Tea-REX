@@ -179,9 +179,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 marginPrice
         ) = _getTokensInfo(_isLongToken0);
 
-        uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
-        if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
-        if (_stopLoss != 0 && _stopLoss >= assetPriceInDebt) revert InvalidStopLoss();
+        _checkPassiveClosePrice(_takeProfit, _stopLoss, assetPrice, debtPrice, oracleDecimals);
 
         uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
         uint256 assetValue = _getTokenValue(oracleDecimals, _assetAmount, assetPrice);
@@ -216,6 +214,43 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             takeProfit: _takeProfit,
             stopLoss: _stopLoss
         });
+    }
+
+    function modifyPassiveClosePrice(
+        uint256 _positionId,
+        uint256 _takeProfit,
+        uint256 _stopLoss
+    ) external override nonReentrant onlyNotPaused onlyTradingCore {
+        Position memory position = positions[_positionId];
+        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
+
+        (
+            uint8 oracleDecimals,
+            ,       
+            ,
+            ,
+            uint256 assetPrice,
+            uint256 debtPrice,
+            
+        ) = _getTokensInfo(position.isLongToken0);
+
+        _checkPassiveClosePrice(_takeProfit, _stopLoss, assetPrice, debtPrice, oracleDecimals);
+
+        position.takeProfit = _takeProfit;
+        position.stopLoss = _stopLoss;
+        positions[_positionId] = position;
+    }
+
+    function _checkPassiveClosePrice(
+        uint256 _takeProfit,
+        uint256 _stopLoss,
+        uint256 _assetPrice,
+        uint256 _debtPrice,
+        uint8 _oracleDecimals
+    ) internal pure {
+        uint256 assetPriceInDebt = _getRelativePrice(_assetPrice, _debtPrice, _oracleDecimals);
+        if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
+        if (_stopLoss != 0 && _stopLoss >= assetPriceInDebt) revert InvalidStopLoss();
     }
 
     function addMargin(
@@ -350,7 +385,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             ) revert BadCloseRate();
         }
 
-        bool isNotLiquidation = true;
         if (_mode == CloseMode.TakeProfit) {
             if (position.takeProfit == 0) revert NoTakeProfit();
             if (
@@ -371,8 +405,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             if (
                 _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, _liquidateAuctionPrice(assetPrice, debtPrice, oracleDecimals), oracleDecimals)
             ) revert WorsePrice();
-            
-            isNotLiquidation = false;
         }
 
         (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
@@ -382,7 +414,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _decreasedDebtAmount,
             _tradingFee,
             _debtAmount,
-            isNotLiquidation,
+            _mode != CloseMode.Liquidate,
             oracleDecimals,
             assetPrice,
             debtPrice,

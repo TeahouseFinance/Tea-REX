@@ -73,6 +73,12 @@ interface ITradingCore {
     ) external returns (
         uint256 positionId
     );
+    function modifyPassiveClosePrice(
+        address market,
+        uint256 positionId,
+        uint256 takeProfit,
+        uint256 stopLoss
+    ) external;
     function addMargin(
         address market,
         uint256 positionId,

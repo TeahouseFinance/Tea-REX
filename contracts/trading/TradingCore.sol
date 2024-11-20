@@ -224,6 +224,18 @@ contract TradingCore is
 
         emit OpenPosition(market, positionId);
     }
+
+    function modifyPassiveClosePrice(
+        address _market,
+        uint256 _positionId,
+        uint256 _takeProfit,
+        uint256 _stopLoss
+    ) external override nonReentrant {
+        (, , , MarketNFT market, , address positionOwner) = _beforeModifyOpeningPosition(_market, _positionId);
+        if (positionOwner != msg.sender) revert NotPositionOwner();
+
+        market.modifyPassiveClosePrice(_positionId, _takeProfit, _stopLoss);
+    }
     
     function addMargin(
         address _market,
