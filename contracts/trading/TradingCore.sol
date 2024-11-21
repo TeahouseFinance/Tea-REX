@@ -330,16 +330,16 @@ contract TradingCore is
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit ClosePosition(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit TakeProfit(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit StopLoss(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(market, _positionId, isFullyClosed, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit Liquidate(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
     }
 

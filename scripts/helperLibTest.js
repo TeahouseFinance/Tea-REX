@@ -135,6 +135,11 @@ async function deployContracts() {
     return { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap };
 }
 
+// get event
+async function getEvent(contract, tx, eventName) {
+    return await contract.queryFilter(eventName, tx.blockNumber, tx.blockNumber);
+}
+
 // generate swapData for OracleSwap
 function oracleSwapper(swapContract, swapProcessor) {
     return function(input, receiver, fromToken, toToken, amount) {
@@ -171,7 +176,7 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
     const token0 = baseToken.target < targetToken.target ? baseToken : targetToken;
     const token1 = baseToken.target < targetToken.target ? targetToken : baseToken;
     const market = await tradingCore.pairMarket(token0, token1);
-    await tradingCore.connect(user).openPosition(
+    return await tradingCore.connect(user).openPosition(
         market,
         2,
         targetToken,
@@ -194,7 +199,7 @@ async function openShortPosition(tradingCore, user, baseToken, targetToken, marg
     const token0 = baseToken.target < targetToken.target ? baseToken : targetToken;
     const token1 = baseToken.target < targetToken.target ? targetToken : baseToken;
     const market = await tradingCore.pairMarket(token0, token1);
-    await tradingCore.connect(user).openPosition(
+    return await tradingCore.connect(user).openPosition(
         market,
         2,
         baseToken,
@@ -224,7 +229,7 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
         // for long positions, sell all assets
         const swappableAmount = await tradingCore.getClosePositionSwappableAfterFee(market, positionId, 0); // for normal closing position
         const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, swappableAmount);
-        await tradingCore.connect(user).closePosition(
+        return await tradingCore.connect(user).closePosition(
             market,
             positionId,
             assetAmount,
@@ -239,7 +244,7 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
         const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
         const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
         const assets = assetAmount + positionInfo.marginAmount;
-        await tradingCore.connect(user).closePosition(
+        return await tradingCore.connect(user).closePosition(
             market,
             positionId,
             assets,
@@ -267,7 +272,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
     if (longPosition) {
         // for long positions, sell all assets
         const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, targetToken, baseToken, swappableAmount);
-        await tradingCore.connect(manager).liquidate(
+        return await tradingCore.connect(manager).liquidate(
             market,
             positionId,
             assetAmount,
@@ -299,7 +304,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
 
         if (results.decreasedDebtAmount < debtOfPosition.debtAmount) {
             // not enough assets to repay all debts, just sell all assets
-            await tradingCore.connect(manager).liquidate(
+            return await tradingCore.connect(manager).liquidate(
                 market,
                 positionId,
                 assets,
@@ -312,7 +317,7 @@ async function liquidatePosition(tradingCore, manager, market, positionId, swapF
         else {
             // there are enough assets, swap just enough amount to repay debts
             const { swapContract, swapProcessor, swapData } = swapFunction(false, tradingCore.target, baseToken, targetToken, debtOfPosition.debtAmount);
-            await tradingCore.connect(manager).liquidate(
+            return await tradingCore.connect(manager).liquidate(
                 market,
                 positionId,
                 assets,
@@ -384,9 +389,11 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, marke
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
-    await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tx = await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "ClosePosition");
+    console.log("ClosePosition event:", event[0].args);
 
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
@@ -455,9 +462,12 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, mark
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
-    await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tx = await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "ClosePosition");
+    console.log("ClosePosition event:", event[0].args);
+
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
     const tokensInPoolAfter = await targetToken.balanceOf(pool);
@@ -512,9 +522,12 @@ async function testLongPositionLiquidate(tradingCore, manager, user, baseToken, 
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
-    await liquidatePosition(tradingCore, manager, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tx = await liquidatePosition(tradingCore, manager, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "Liquidate");
+    console.log("Liquidate event:", event[0].args);
+
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
     const tokensInPoolAfter = await baseToken.balanceOf(pool);
@@ -569,9 +582,12 @@ async function testShortPositionLiquidate(tradingCore, manager, user, baseToken,
     // liquidate position
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
-    await liquidatePosition(tradingCore, manager, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tx = await liquidatePosition(tradingCore, manager, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
     const tokensAfterClose = await baseToken.balanceOf(user);
     const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "Liquidate");
+    console.log("Liquidate event:", event[0].args);
+
     console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
     console.log("target token received after close:", targetAfterClose - targetBeforeClose);
     const tokensInPoolAfter = await targetToken.balanceOf(pool);
@@ -667,7 +683,7 @@ async function main() {
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         3100n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         86400 * 180
-    );    
+    );
 }
 
 
