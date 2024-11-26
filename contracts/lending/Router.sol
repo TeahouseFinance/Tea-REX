@@ -190,12 +190,27 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         InterestRateModelType _modelType,
         address _account,
         uint256 _id,
+        uint256 _amount
+    ) external override nonReentrant returns (
+        uint256,
+        uint256
+    ) {
+        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _amount, false);
+    }
+
+    function repay(
+        ERC20Upgradeable _underlyingAsset,
+        InterestRateModelType _modelType,
+        address _account,
+        uint256 _id,
         uint256 _amount,
         bool _forceClose
     ) external override nonReentrant returns (
         uint256,
         uint256
     ) {
+        if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
+
         return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _amount, _forceClose);
     }
 

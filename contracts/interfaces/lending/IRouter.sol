@@ -140,6 +140,7 @@ interface IRouter {
     );
     
     /// @notice Borrow and transfer token directly without accounting, need to call commitBorrow to finish final accouting
+    /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
     /// @param modelType Type of the interest rate model
     /// @param amountToBorrow Amount of underlying tokens to borrow
@@ -153,6 +154,7 @@ interface IRouter {
     );
     
     /// @notice Finish borrow accounting and check whether all conditions are met for this borrow
+    /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
     /// @param modelType Type of the interest rate model
     /// @param amountToBorrow Amount of underlying tokens to borrow
@@ -164,8 +166,28 @@ interface IRouter {
     ) external returns (
         uint256 id
     );
+
+    /// @notice Repay debt for a lending position
+    /// @param underlyingAsset Address of the underlying token
+    /// @param modelType Type of the interest rate model
+    /// @param account Repaid token from this account
+    /// @param id Borrow id of the lending position
+    /// @param amount Amount of interest-bearing tokens to repay
+    /// @return repaidUnderlyingAmount Repaid amount of underlying tokens
+    /// @return unrepaidUnderlyingAmount Unrepaid amount of underlying tokens
+    function repay(
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType,
+        address account,
+        uint256 id,
+        uint256 amount
+    ) external returns (
+        uint256 repaidUnderlyingAmount,
+        uint256 unrepaidUnderlyingAmount
+    );
     
     /// @notice Repay debt for a lending position
+    /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
     /// @param modelType Type of the interest rate model
     /// @param account Repaid token from this account

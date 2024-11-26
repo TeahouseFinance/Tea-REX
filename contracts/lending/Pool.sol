@@ -300,7 +300,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         uint256 _id,
         uint256 _amount,
         bool _forceClose
-    ) external override nonReentrant onlyNotPaused returns (
+    ) external override nonReentrant onlyNotPaused onlyRouter returns (
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     ) {
