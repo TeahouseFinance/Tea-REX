@@ -94,7 +94,6 @@ interface IPool {
     /// @return quota Current withdraw quota
     function getWithdrawQuota() external view returns (uint256 quota);
 
-
     /// @notice Borrow and transfer token directly without accounting, need to call commitBorrow to finish final accouting
     /// @notice Only lending router can call this function
     /// @param account Borrowed tokens go to this account

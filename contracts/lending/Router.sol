@@ -254,6 +254,16 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return _getLendingPool(_underlyingAsset, _modelType).debtOfUnderlying(_id);
     }
 
+    function getConversionRates(
+        ERC20Upgradeable _underlyingAsset,
+        InterestRateModelType _modelType
+    ) external view override returns (
+        uint256 suppiedConversionRate,
+        uint256 borrowedConversionRate
+    ) {
+        return _getLendingPool(_underlyingAsset, _modelType).getConversionRates();
+    }
+
     function collectInterestFeeAndCommit(
         ERC20Upgradeable _underlyingAsset,
         InterestRateModelType _modelType

@@ -259,6 +259,19 @@ interface IRouter {
     ) external view returns (
         uint256 underlyingAmount
     );
+
+    /// @notice Get supplied and borrowed interest-bearing token to underlying token conversion rate
+    /// @param underlyingAsset Address of the underlying token
+    /// @param modelType Type of the interest rate model
+    /// @return suppiedConversionRate Supplied interest-bearing token to underlying token conversion rate
+    /// @return borrowedConversionRate Borrowed interest-bearing token to underlying token conversion rate
+    function getConversionRates(
+        ERC20Upgradeable underlyingAsset,
+        InterestRateModelType modelType
+    ) external view returns (
+        uint256 suppiedConversionRate,
+        uint256 borrowedConversionRate
+    );
     
     /// @notice Collect interest and borrow fee, and do accouting.
     /// @param underlyingAsset Address of the underlying token
