@@ -242,6 +242,8 @@ contract TradingCore is
         uint256 _positionId,
         uint256 _addedAmount
     ) external override nonReentrant {
+        if (_addedAmount == 0) revert ZeroNotAllowed();
+
         (
             ERC20Upgradeable token0,
             ERC20Upgradeable token1,
