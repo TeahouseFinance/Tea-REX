@@ -25,11 +25,9 @@ interface IPool {
     /// @notice Info of borrow position
     /// @param isClosed Position is closed or not
     /// @param borrowedTeaToken Amount of borrowed interest-bearing tokens
-    /// @param lastBorrowedConversionRate Borrow rate at the time of the position created
     struct DebtInfo {
         bool isClosed;
         uint256 borrowedTeaToken;
-        uint256 lastBorrowedConversionRate;
     }
 
     /// @notice Pause operations for this lending pool

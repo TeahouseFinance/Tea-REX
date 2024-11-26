@@ -288,8 +288,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
             isClosed: false,
-            borrowedTeaToken: borrowedTeaTokenAmount,
-            lastBorrowedConversionRate: newBorrowedConversionRate
+            borrowedTeaToken: borrowedTeaTokenAmount
         });
         borrowedTeaToken = borrowedTeaToken + borrowedTeaTokenAmount;
 
