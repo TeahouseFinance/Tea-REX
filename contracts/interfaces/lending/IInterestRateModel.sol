@@ -6,7 +6,7 @@ interface IInterestRateModel {
 
     /// @notice Get oracle decimals
     /// @dev Return APY in percentage will be multiplied by 10^decimals
-    /// @dev E.g. Return APY 12500 equals to 1.25%
+    /// @dev E.g. Return APY 12500 equals to 1.25% when decimals equals to 4
     function decimals() external view returns (uint8 decimals);
 
     /// @notice Get supplied APY with a given lending condition

@@ -74,20 +74,31 @@ interface IMarketNFT {
     }
 
     /// @notice Pause operations for this market
+    /// @notice Only owner can call this function
     function pause() external;
 
     /// @notice Unpause operations for this market
+    /// @notice Only owner can call this function
     function unpause() external;
 
-
+    /// @notice Set max leverage of the market
+    /// @param maxLeverage Max leverage of the market
     function setMaxLeverage(uint24 maxLeverage) external;
 
+    /// @notice Set market params
+    /// @param openPositionLossRatioThreshold Tolerance of loss ratio when opening position which loss ratio equals to [value(asset) - value(debt)] / value(margin)
+    /// @param liquidateLossRatioThreshold Liquidation threshold of loss ratio, position can be liquidated after the loss ratio is greater than the threshold
+    /// @param liquidationDiscount Position asset will be in auction mode with a discount ratio in order to liquidate in time if the liquidation condition is met
     function setMarketRatioParams(
         uint24 openPositionLossRatioThreshold,
         uint24 liquidateLossRatioThreshold,
         uint24 liquidationDiscount
     ) external;
 
+    /// @notice Set position size cap for the market
+    /// @notice Only owner can call this function
+    /// @param token0PositionSizeCap Size cap of token0
+    /// @param token1PositionSizeCap Size cap of token1
     function setPositionSizeCap(uint256 token0PositionSizeCap, uint256 token1PositionSizeCap) external;
     
     /// @notice Return whether token0 is set as the margin
@@ -99,7 +110,8 @@ interface IMarketNFT {
     /// @return position Position of the given id
     function getPosition(uint256 positionId) external view returns (Position memory position);
     
-    /// @notice TODO
+    /// @notice Open a position
+    /// @notice Loss ratio must be not greater than openPositionLossRatioThreshold
     /// @param account Position owner
     /// @param interestRateModelType Position lending mode
     /// @param borrowId Position lending id
@@ -107,8 +119,8 @@ interface IMarketNFT {
     /// @param marginAmount Margin amount of the position
     /// @param debtAmount Debt amount of the position
     /// @param assetAmount Asset amount of the position
-    /// @param takeProfit Take profit price
-    /// @param stopLoss Stop loss price
+    /// @param takeProfit Take profit price, the price is asset price in debt
+    /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @return positionId Position id
     function openPosition(
         address account,
@@ -124,28 +136,34 @@ interface IMarketNFT {
         uint256 positionId
     );
 
-    /// @notice TODO
+    /// @notice Set take profit and stop loss price for the position
     /// @param positionId Position id
-    /// @param takeProfit TODO
-    /// @param stopLoss TODO
+    /// @param takeProfit Take profit price, the price is asset price in debt
+    /// @param stopLoss Stop loss price, the price is asset price in debt
     function modifyPassiveClosePrice(uint256 positionId, uint256 takeProfit, uint256 stopLoss) external;
     
-    /// @notice TODO
+    /// @notice Add margin for a position in order to prevent getting liquidated
     /// @param positionId Position id
-    /// @param addedAmount TODO
+    /// @param addedAmount Amount of margin asset to add
     function addMargin(uint256 positionId, uint256 addedAmount) external;
     
-    /// @notice TODO
-    /// @param mode TODO
-    /// @param positionId TODO
-    /// @param swappedAssetToken TODO
-    /// @param decreasedDebtAmount TODO
-    /// @param tradingFee TODO
-    /// @param debtAmount TODO
-    /// @return isFullyClosed TODO
-    /// @return decreasedMarginAmount TODO
-    /// @return owedAsset TODO
-    /// @return owedDebt TODO
+    /// @notice Close a position
+    /// @notice Should not close with potentional risk of being not able to repay the debt, unless liquidation
+    /// @notice When not liquidation, the decreased ratio of debt needs not to be less than the ratio of consumed asset token plus the same ratio of margin
+    /// @dev If margin token is same as asset token, require consumed / swappable < decreasedDebt / totalDebt
+    /// @dev If margin token is same as debt token, require consumed / swappable < [decreasedDebt + (consumed / swappable) * margin] / totalDebt
+    /// @dev Swappable equals to asset amount plus margin amount if margin token is same as asset token, asset amount otherwise
+    /// @dev Consumed asset token equals to swapped asset token plus trading fee
+    /// @param mode Close mode, refer to CloseMode structure
+    /// @param positionId Position id
+    /// @param swappedAssetToken Amount of the comsumed asset token
+    /// @param decreasedDebtAmount Amount of debt token from swapped asset token
+    /// @param tradingFee Plateform trading fee in form of asset token
+    /// @param debtAmount Amount of debt before closing position
+    /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
+    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return owedAsset Asset tokens the position owner is owed
+    /// @return owedDebt Debt tokens the position owner is owed
     function closePosition(
         CloseMode mode,
         uint256 positionId,
@@ -162,19 +180,19 @@ interface IMarketNFT {
     
     /// @notice get token prices
     /// @return decimals Oracle decimals
-    /// @return price0 Token0 price
-    /// @return price1 Token1 price
+    /// @return price0 Token0 oracle price
+    /// @return price1 Token1 oracle price
     function getTokenPrices() external view returns (uint8 decimals, uint256 price0, uint256 price1);
     
-    /// @notice TODO
-    /// @param isLongToken0 TODO
-    /// @return price TODO
+    /// @notice Get current liquidation auction price for all positions that meet the liquidation condition
+    /// @param isLongToken0 Whether position is longing token0 or not
+    /// @return price Position asset auction price in debt
     function liquidateAuctionPrice(bool isLongToken0) external view returns (uint256 price);
     
     /// @notice Get liquidation price of the position
     /// @param positionId Position id
     /// @param debtAmount Position debt amount
-    /// @return price Liquidation price
+    /// @return price Liquidation price in debt
     function getLiquidationPrice(
         uint256 positionId,
         uint256 debtAmount

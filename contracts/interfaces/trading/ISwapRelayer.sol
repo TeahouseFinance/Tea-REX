@@ -15,10 +15,12 @@ interface ISwapRelayer {
     receive() external payable;
 
     /// @notice Switch of router whitelist check
+    /// @notice Only owner can call this function
     /// @param checkWhitelist Whether the whitelist mechanism is enabled
     function setCheckWhitelist(bool checkWhitelist) external;
 
     /// @notice Set up router whitelist
+    /// @notice Only owner can call this function
     /// @param router Addresses of routers
     /// @param isWhitelisted Setting for routers
     function setWhitelist(address[] calldata router, bool[] calldata isWhitelisted) external;
