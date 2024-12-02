@@ -46,9 +46,10 @@ Here's several operations of trading actions. We defined some notations to elabo
 ##### Open Position
 
 1. $LR$ must lower than a pre-set threshold of the market.
-2. Leverage must lower than a pre-set threshold of the market.
+2. Leverage must lower than a pre-set limit of the market.
 3. Total position size must under a pre-set cap of the market.
-4. Mint an NFT as a proof of the position.
+4. Pay a portion of swap source token to the platform treasury as the trading fee. E.g. Swapping ETH to USDC when opening a short ETH/USDC position, a fixed percent of ETH will be charge from the position.
+5. Mint an NFT as a proof of the position.
 
 ```solidity
 function openPosition
@@ -67,7 +68,6 @@ function modifyPassiveClosePrice
 
 1. Add margin to lower the risk of liquidation.
 2. Maintain a lower $LR$ such that $LR$ of a position less than a pre-set liquidation threshold of the market.
-3. Pay a portion of swap source token to the platform treasury as the trading fee. E.g. Swapping ETH to USDC when opening a short ETH/USDC position, a fixed percent of ETH will be charge from the position.
 
 ```solidity
 function addMargin
