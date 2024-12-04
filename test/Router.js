@@ -52,7 +52,8 @@ describe("TeaRex Router", function () {
         await routerAtProxy.setInterestRateModel(interestRateModelType, await interestRateModel.getAddress());
         await routerAtProxy.setTradingCore(await tradingCore.address);
         await routerAtProxy.setFeeConfig(await feeTreasury.address, borrow_fee);
-
+        await routerAtProxy.setEnableWhitelist(true);
+        await routerAtProxy.setWhitelistedOperator([tradingCore.address, owner.address], [true, true]);
         await routerAtProxy.createLendingPool(
             await mockToken.getAddress(),
             feeConfig._modelType,
@@ -101,9 +102,15 @@ describe("TeaRex Router", function () {
 
             expect(await routerAtProxy.whitelistedOperator(tradingCore.address)).to.equal(false);
             expect(await routerAtProxy.whitelistedOperator(user.address)).to.equal(false);
+
             await routerAtProxy.setWhitelistedOperator([tradingCore.address, user.address], [true, true]);
             expect(await routerAtProxy.whitelistedOperator(tradingCore.address)).to.equal(true);
             expect(await routerAtProxy.whitelistedOperator(user.address)).to.equal(true);
+            
+            await routerAtProxy.setWhitelistedOperator([tradingCore.address, user.address], [false, false]);
+            expect(await routerAtProxy.whitelistedOperator(tradingCore.address)).to.equal(false);
+            expect(await routerAtProxy.whitelistedOperator(user.address)).to.equal(false);
+
         });
 
         it("Should be able to set trading core from owner", async function () {
@@ -265,84 +272,84 @@ describe("TeaRex Router", function () {
                 feeConfig._modelType,
                 user.address,
                 amount
-            )).to.be.reverted;
+            )).to.be.revertedWithCustomError(routerAtProxy, "NotInWhitelist");
         });
 
         it("Should be able to supply and withdraw", async function () {
-            const { mockToken, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
+            const { mockToken, routerAtProxy, tradingCore } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress(); 
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
             const poolContract = await ethers.getContractAt("Pool", pool);
             const amount = ethers.parseUnits("1", await mockToken.decimals());
-            await mockToken.transfer(user.address, amount);
-            expect(await mockToken.balanceOf(user.address)).to.equal(amount);
+            await mockToken.transfer(tradingCore.address, amount);
+            expect(await mockToken.balanceOf(tradingCore.address)).to.equal(amount);
 
-            await mockToken.connect(user).approve(pool, amount);
-            expect(await routerAtProxy.connect(user).supply(
+            await mockToken.connect(tradingCore).approve(pool, amount);
+            expect(await routerAtProxy.connect(tradingCore).supply(
                 underlyingAsset,
                 feeConfig._modelType,
-                user.address,
+                tradingCore.address,
                 amount
             )).to.emit(routerAtProxy, "Supplied")
-            .withArgs(user.address, user.address, underlyingAsset, anyValue);
+            .withArgs(tradingCore.address, tradingCore.address, underlyingAsset, anyValue);
 
             const teaTokenAmount = amount * 1000000000000000000n;
-            expect(await poolContract.balanceOf(user.address)).to.equal(teaTokenAmount);
-            expect(await mockToken.balanceOf(user.address)).to.equal(0);
+            expect(await poolContract.balanceOf(tradingCore.address)).to.equal(teaTokenAmount);
+            expect(await mockToken.balanceOf(tradingCore.address)).to.equal(0);
             expect(await mockToken.balanceOf(pool)).to.equal(amount);
             expect(await routerAtProxy.balanceOf(
                 underlyingAsset, 
                 feeConfig._modelType,
-                user.address
+                tradingCore.address
             )).to.equal(teaTokenAmount);
 
             expect(await routerAtProxy.balanceOfUnderlying(
                 underlyingAsset, 
                 feeConfig._modelType,
-                user.address
+                tradingCore.address
             )).to.equal(amount);
         });
 
         it("Should not be able to withdraw more than supply", async function () {
-            const { mockToken, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
+            const { mockToken, routerAtProxy, tradingCore } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
             const amount = ethers.parseUnits("1", await mockToken.decimals());
-            await mockToken.transfer(user.address, amount);
-            await mockToken.connect(user).approve(pool, amount);
-            await routerAtProxy.connect(user).supply(
+            await mockToken.transfer(tradingCore.address, amount);
+            await mockToken.connect(tradingCore).approve(pool, amount);
+            await routerAtProxy.connect(tradingCore).supply(
                 underlyingAsset,
                 feeConfig._modelType,
-                user.address,
+                tradingCore.address,
                 amount
             );
             
-            await expect(routerAtProxy.connect(user).withdraw(
+            await expect(routerAtProxy.connect(tradingCore).withdraw(
                 underlyingAsset,
                 feeConfig._modelType,
-                user.address,
+                tradingCore.address,
                 amount*1000000000000000000n
             )).to.changeTokenBalances(
                 mockToken, 
-                [pool, user], 
+                [pool, tradingCore], 
                 [-amount, amount]
             );
         });
 
         it("Should be able to repay the debt", async function () {
-            const { mockToken, owner, tradingCore, routerAtProxy, user } = await loadFixture(deployRouterProxyWithSetFixture);
+            const { mockToken, owner, tradingCore, routerAtProxy } = await loadFixture(deployRouterProxyWithSetFixture);
             const underlyingAsset = await mockToken.getAddress();
             const pool = await routerAtProxy.getLendingPool(underlyingAsset, feeConfig._modelType);
             const poolContract = await ethers.getContractAt("Pool", pool);
 
             const transferAmount = ethers.parseUnits("2.5", await mockToken.decimals());
             const supplyAmount = ethers.parseUnits("1", await mockToken.decimals());
-            await mockToken.transfer(user.address, transferAmount);
-            await mockToken.connect(user).approve(pool, supplyAmount);
-            await routerAtProxy.connect(user).supply(
+            await mockToken.transfer(tradingCore.address, transferAmount);
+            await mockToken.connect(tradingCore).approve(pool, supplyAmount);
+            await routerAtProxy.connect(tradingCore).supply(
                 underlyingAsset,
                 feeConfig._modelType,
-                user.address,
+                tradingCore.address,
                 supplyAmount)
 
             await mockToken.approve(pool, supplyAmount);
@@ -377,11 +384,11 @@ describe("TeaRex Router", function () {
                 borrowId);
             
             const repayAmount = ethers.parseUnits("1", await mockToken.decimals());
-            await mockToken.connect(user).approve(pool, repayAmount);
-            expect(await routerAtProxy.connect(user).repay(
+            await mockToken.connect(tradingCore).approve(pool, repayAmount);
+            expect(await routerAtProxy.connect(tradingCore).repay(
                 await mockToken.getAddress(),
                 interestRateModelType,
-                user.address,
+                tradingCore.address,
                 borrowId,
                 repayAmount,
                 false

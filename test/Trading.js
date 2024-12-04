@@ -283,6 +283,9 @@ describe("TeaRex Trading Core", function () {
 
             expect(positionInfo.marginAmount).to.equal(marginAmount);
             expect(debtInfo[2]).to.equal(borrowAmount.toString());
+            // Get liquidation price
+            const liqPrice = await tradingCore.getLiquidationPrice(market, positionId);
+            // console.log("Liquidation price", liqPrice.toString());
         });
 
         it("Should open short position correctly", async function () {
@@ -322,6 +325,9 @@ describe("TeaRex Trading Core", function () {
 
             expect(positionInfo.marginAmount).to.equal(marginAmount);
             expect(debtInfo[2]).to.equal(borrowAmount.toString());
+            const liqPrice = await tradingCore.getLiquidationPrice(market, positionId);
+            // console.log("Liquidation price", liqPrice.toString());
+
         });
 
         it("Should revert if open position exceed leverage limit", async function () {
