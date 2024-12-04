@@ -81,6 +81,10 @@ interface IMarketNFT {
     /// @notice Only owner can call this function
     function unpause() external;
 
+    /// @notice Change oracle for price feed
+    /// @notice Only owner can call this function
+    function changeOracle(IAssetOracle oracle) external;
+
     /// @notice Set max leverage of the market
     /// @param maxLeverage Max leverage of the market
     function setMaxLeverage(uint24 maxLeverage) external;

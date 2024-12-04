@@ -58,9 +58,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _token0PositionSizeCap,
         uint256 _token1PositionSizeCap
     ) public initializer {
-        if (!_oracle.isOracleEnabled(address(_token0))) revert IAssetOracle.AssetNotEnabled();
-        if (!_oracle.isOracleEnabled(address(_token1))) revert IAssetOracle.AssetNotEnabled();
-
         __Ownable_init(_owner);
         __ERC721_init(
             string.concat("TeaREX Market: ", _token0.name() , " - ", _token1.name()), 
@@ -71,10 +68,10 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         __ReentrancyGuard_init();
 
         tradingCore = ITradingCore(msg.sender);
-        oracle = _oracle;
         token0 = address(_token0);
         token1 = address(_token1);
         isToken0Margin = _isToken0Margin;
+        _changeOracle(_oracle);
 
         _setMaxLeverage(_maxLeverage);
         _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
@@ -107,6 +104,17 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _unpause();
     }
 
+    function changeOracle(IAssetOracle _oracle) external override onlyOwner {
+        _changeOracle(_oracle);
+    }
+
+
+    function _changeOracle(IAssetOracle _oracle) internal {
+        if (!_oracle.isOracleEnabled(address(token0))) revert IAssetOracle.AssetNotEnabled();
+        if (!_oracle.isOracleEnabled(address(token1))) revert IAssetOracle.AssetNotEnabled();
+
+        oracle = _oracle;
+    }
 
     function setMaxLeverage(uint24 _maxLeverage) external override onlyOwner {
         _setMaxLeverage(_maxLeverage);
