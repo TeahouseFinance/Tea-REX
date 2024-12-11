@@ -57,6 +57,10 @@ module.exports = {
       url: process.env.SEITEST_URL || "",
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],      
     },
+    sei: {
+      url: process.env.SEI_URL || "",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],            
+    },
   },
   etherscan: {
     apiKey: {
@@ -68,6 +72,8 @@ module.exports = {
       base: process.env.BASE_API_KEY,
       linea: process.env.LINEA_API_KEY,
       bsc: process.env.BSC_API_KEY,
+      seitest: process.env.SEITEST_API_KEY,
+      sei: process.env.SEI_API_KEY,
     },
     customChains: [
       {
@@ -77,7 +83,23 @@ module.exports = {
           apiURL: "https://api.lineascan.build/api",
           browserURL: "https://lineascan.build",
         },
-      }
+      },
+      {
+        network: "seitest",
+        chainId: 1328,
+        urls: {
+          apiURL: "https://seitrace.com/atlantic-2/api",
+          browserURL: "https://seitrace.com",
+        },
+      },
+      {
+        network: "sei",
+        chainId: 1329,
+        urls: {
+          apiURL: "https://seitrace.com/pacific-1/api",
+          browserURL: "https://seitrace.com",
+        },
+      },
     ]
   },
   sourcify: {
