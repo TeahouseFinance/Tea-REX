@@ -185,6 +185,7 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
         0,
         UINT256_MAX,
         0,
+        0,
         swapContract,
         swapData
     );
@@ -207,6 +208,7 @@ async function openShortPosition(tradingCore, user, baseToken, targetToken, marg
         borrowAmount,
         0,
         UINT256_MAX,
+        0,
         0,
         swapContract,
         swapData

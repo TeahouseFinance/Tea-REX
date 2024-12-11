@@ -174,6 +174,7 @@ describe("TeaRex Trading Core", function () {
             0,
             takeProfitPrice,
             stopLossPrice,
+            0,
             oracleSwapRouter,
             swapCalldata
         )
@@ -205,6 +206,7 @@ describe("TeaRex Trading Core", function () {
             0,
             takeProfitPrice,
             stopLossPrice,
+            0,
             oracleSwapRouter,
             swapCalldata
         )
@@ -242,6 +244,7 @@ describe("TeaRex Trading Core", function () {
                 0,
                 UINT256_MAX,
                 0,
+                0,
                 oracleSwapRouter,
                 swapCalldata
             )).to.be.revertedWithCustomError(market, "EnforcedPause");    
@@ -271,6 +274,7 @@ describe("TeaRex Trading Core", function () {
                 borrowAmount,
                 0,
                 UINT256_MAX,
+                0,
                 0,
                 oracleSwapRouter,
                 swapCalldata
@@ -314,6 +318,7 @@ describe("TeaRex Trading Core", function () {
                 0,
                 UINT256_MAX,
                 0,
+                0,
                 oracleSwapRouter,
                 swapCalldata
             )
@@ -354,6 +359,7 @@ describe("TeaRex Trading Core", function () {
                 borrowAmount,
                 0,
                 UINT256_MAX,
+                0,
                 0,
                 oracleSwapRouter,
                 swapCalldata
