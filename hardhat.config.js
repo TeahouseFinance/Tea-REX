@@ -52,6 +52,10 @@ module.exports = {
       url: process.env.ARBTEST_URL || "",
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    seitest: {
+      url: process.env.SEITEST_URL || "",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],      
+    },
   },
   etherscan: {
     apiKey: {
