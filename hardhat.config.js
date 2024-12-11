@@ -10,6 +10,7 @@ module.exports = {
     version: "0.8.26",
     settings: {
       viaIR: true,
+      evmVersion: "shanghai",
       optimizer: {
         enabled: true,
         runs: 200,
