@@ -167,7 +167,7 @@ contract TradingCore is
         emit CreateMarket(msg.sender, IMarketNFT(marketAddress), _token0, _token1);
     }
 
-    function openPosition(
+    function openPositionPermit(
         address _market,
         IRouter.InterestRateModelType _interestRateModelType,
         ERC20PermitUpgradeable _longTarget,
@@ -188,19 +188,15 @@ contract TradingCore is
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
         MarketNFT market = MarketNFT(_market);
-        (market.isToken0Margin() ? token0 : token1).permit(
-            msg.sender,
-            address(this),
-            _marginAmount,
-            _deadline,
-            _v,
-            _r,
-            _s
-        );
+        ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
+        margin.permit(msg.sender, address(this), _marginAmount, _deadline, _v, _r, _s);
 
-        positionId = openPosition(
-            _market,
+        positionId = _openPosition(
+            market,
             _interestRateModelType,
+            token0,
+            token1,
+            margin,
             _longTarget,
             _marginAmount,
             _borrowAmount,
@@ -225,17 +221,54 @@ contract TradingCore is
         uint24 _stopLossRateTolerance,
         address _swapRouter,
         bytes calldata _data
-    ) public override nonReentrant returns (
+    ) external override nonReentrant returns (
         uint256 positionId
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
-        if (_longTarget != token0 && _longTarget != token1) revert InvalidAsset();
-
         MarketNFT market = MarketNFT(_market);
         ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
-        (bool isLongToken0, ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _longTarget == token0 ? 
-            (true, token0, token1) :
-            (false, token1, token0);
+
+        positionId = _openPosition(
+            market,
+            _interestRateModelType,
+            token0,
+            token1,
+            margin,
+            _longTarget,
+            _marginAmount,
+            _borrowAmount,
+            _minAssetAmount,
+            _takeProfit,
+            _stopLoss,
+            _stopLossRateTolerance,
+            _swapRouter,
+            _data
+        );
+    }
+
+    function _openPosition(
+        MarketNFT _market,
+        IRouter.InterestRateModelType _interestRateModelType,
+        ERC20PermitUpgradeable _token0,
+        ERC20PermitUpgradeable _token1,
+        ERC20PermitUpgradeable _margin,
+        ERC20PermitUpgradeable _longTarget,
+        uint256 _marginAmount,
+        uint256 _borrowAmount,
+        uint256 _minAssetAmount,
+        uint256 _takeProfit,
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance,
+        address _swapRouter,
+        bytes calldata _data
+    ) internal returns (
+        uint256 positionId
+    ) {
+        if (_longTarget != _token0 && _longTarget != _token1) revert InvalidAsset();
+
+        (bool isLongToken0, ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _longTarget == _token0 ? 
+            (true, _token0, _token1) :
+            (false, _token1, _token0);
         
         IRouter _router = router;
         address pool = _router.borrow(debt, _interestRateModelType, _borrowAmount);
@@ -256,8 +289,8 @@ contract TradingCore is
             debt.safeTransfer(pool, unusedAmount);
         }
         uint256 borrowId = _router.commitBorrow(debt, _interestRateModelType, debtAmount);
-        margin.safeTransferFrom(msg.sender, address(this), _marginAmount);
-        positionId = market.openPosition(
+        _margin.safeTransferFrom(msg.sender, address(this), _marginAmount);
+        positionId = _market.openPosition(
             msg.sender,
             _interestRateModelType,
             borrowId, 
@@ -270,7 +303,7 @@ contract TradingCore is
             _stopLossRateTolerance
         );
 
-        emit OpenPosition(market, positionId);
+        emit OpenPosition(_market, positionId);
     }
 
     function modifyPassiveClosePrice(
@@ -286,7 +319,7 @@ contract TradingCore is
         market.modifyPassiveClosePrice(_positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
     
-    function addMargin(
+    function addMarginPermit(
         address _market,
         uint256 _positionId,
         uint256 _addedAmount,
@@ -294,27 +327,7 @@ contract TradingCore is
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) public override nonReentrant {
-        (
-            ERC20PermitUpgradeable token0,
-            ERC20PermitUpgradeable token1,
-            ,
-            ,
-            IMarketNFT.Position memory position,
-
-        ) = _beforeModifyOpeningPosition(_market, _positionId);
-
-        (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
-        (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _addedAmount, _deadline, _v, _r, _s);
-    }
-    
-    function addMargin(
-        address _market,
-        uint256 _positionId,
-        uint256 _addedAmount
-    ) public override nonReentrant {
-        if (_addedAmount == 0) revert ZeroNotAllowed();
-
+    ) external override nonReentrant {
         (
             ERC20PermitUpgradeable token0,
             ERC20PermitUpgradeable token1,
@@ -325,10 +338,44 @@ contract TradingCore is
         ) = _beforeModifyOpeningPosition(_market, _positionId);
 
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
-        market.addMargin(_positionId, _addedAmount);
-        (position.isMarginAsset ? asset : debt).safeTransferFrom(msg.sender, address(this), _addedAmount);
+        (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _addedAmount, _deadline, _v, _r, _s);
 
-        emit AddMargin(market, _positionId, _addedAmount);
+        _addMargin(market, asset, debt, _positionId, position, _addedAmount);
+    }
+
+    function addMargin(
+        address _market,
+        uint256 _positionId,
+        uint256 _addedAmount
+    ) external override nonReentrant {
+        (
+            ERC20PermitUpgradeable token0,
+            ERC20PermitUpgradeable token1,
+            ,
+            MarketNFT market,
+            IMarketNFT.Position memory position,
+
+        ) = _beforeModifyOpeningPosition(_market, _positionId);
+
+        (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
+
+        _addMargin(market, asset, debt, _positionId, position, _addedAmount);
+    }
+    
+    function _addMargin(
+        MarketNFT _market,
+        ERC20PermitUpgradeable _asset,
+        ERC20PermitUpgradeable _debt,
+        uint256 _positionId,
+        IMarketNFT.Position memory _position,
+        uint256 _addedAmount
+    ) internal {
+        if (_addedAmount == 0) revert ZeroNotAllowed();
+        
+        _market.addMargin(_positionId, _addedAmount);
+        (_position.isMarginAsset ? _asset : _debt).safeTransferFrom(msg.sender, address(this), _addedAmount);
+
+        emit AddMargin(_market, _positionId, _addedAmount);
     }
 
     function _closePosition(

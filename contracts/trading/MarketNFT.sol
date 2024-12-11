@@ -278,7 +278,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 assetPriceInDebt = _getRelativePrice(_assetPrice, _debtPrice, _oracleDecimals);
         if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
         if (_stopLoss != 0 && _stopLoss >= assetPriceInDebt) revert InvalidStopLoss();
-        if (_stopLossRateTolerance > Percent.MULTIPLIER) revert InvalidStopLossRateTolerance();
+        if (_stopLossRateTolerance >= Percent.MULTIPLIER) revert InvalidStopLossRateTolerance();
     }
 
     function addMargin(

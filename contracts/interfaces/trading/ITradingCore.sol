@@ -86,7 +86,7 @@ interface ITradingCore {
         address marketAddress
     );
 
-    /// @notice Open a position
+    /// @notice Open a position with user's signature
     /// @param market Market address
     /// @param interestRateModelType Type of the interest rate model
     /// @param longTarget Long target, must be one of token0 or token1
@@ -103,7 +103,7 @@ interface ITradingCore {
     /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @return positionId Position id, same as ERC721 token id
-    function openPosition(
+    function openPositionPermit(
         address market,
         IRouter.InterestRateModelType interestRateModelType,
         ERC20PermitUpgradeable longTarget,
@@ -166,7 +166,7 @@ interface ITradingCore {
         uint24 stopLossRateTolerance
     ) external;
 
-    /// @notice Add margin for a position in order to prevent getting liquidated
+    /// @notice Add margin for a position in order to prevent getting liquidated with user's signature
     /// @param market Market address
     /// @param positionId Position id
     /// @param addedAmount Amount of margin asset to add
@@ -174,7 +174,7 @@ interface ITradingCore {
     /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    function addMargin(
+    function addMarginPermit(
         address market,
         uint256 positionId,
         uint256 addedAmount,
