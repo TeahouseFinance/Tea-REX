@@ -35,9 +35,10 @@ describe("TeaRex Router", function () {
     }
 
     async function deployERC20Fixture() {
+        const [owner] = await ethers.getSigners();
         const MockERC20 = await ethers.getContractFactory("MockToken");
         const initialSupply = 10_000_000;
-        const mockToken = await MockERC20.deploy("Mock", "Mock", initialSupply, 6);
+        const mockToken = await MockERC20.deploy(owner, "Mock", "Mock", initialSupply, 6);
         await mockToken.waitForDeployment();
         // console.log("MockToken deployed to:", await mockToken.getAddress());
 
@@ -46,7 +47,7 @@ describe("TeaRex Router", function () {
 
     async function deployRouterProxyWithSetFixture() {
         const { owner, tradingCore, feeTreasury, user, interestRateModel, routerAtProxy } = await deployRouterProxyFixture();
-        const { mockToken } = await deployERC20Fixture(); 
+        const { mockToken } = await deployERC20Fixture(owner); 
         const borrow_fee = 10_000;
 
         await routerAtProxy.setInterestRateModel(interestRateModelType, await interestRateModel.getAddress());
