@@ -2,7 +2,7 @@
 // Teahouse Finance
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {IAssetOracle} from "./IAssetOracle.sol";
 import {IRouter} from "../lending/IRouter.sol";
@@ -26,9 +26,9 @@ interface ITradingCore {
     error NotInWhitelist();
     error InvalidAsset();
 
-    event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20Upgradeable token0, ERC20Upgradeable token1);
+    event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1);
     event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
-    event CollectTradingFee(ERC20Upgradeable token, FeeConfig feeConfig, uint256 fee);
+    event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event AddMargin(IMarketNFT indexed market, uint256 indexed positionId, uint256 addedAmount);
     event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
@@ -73,8 +73,8 @@ interface ITradingCore {
     /// @return marketAddress Address of the created market
     function createMarket(
         IAssetOracle oracle,
-        ERC20Upgradeable token0,
-        ERC20Upgradeable token1,
+        ERC20PermitUpgradeable token0,
+        ERC20PermitUpgradeable token1,
         bool isToken0Margin,
         uint24 maxLeverage,
         uint24 openPositionLossRatioThreshold,
@@ -95,18 +95,57 @@ interface ITradingCore {
     /// @param minAssetAmount Minimum asset swap after swap, a slippage protection
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param swapRouter Swap router to be used
+    /// @param data Calldata for the assigned swap router
+    /// @param deadline ERC20Permit deadline of approval
+    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @return positionId Position id, same as ERC721 token id
+    function openPosition(
+        address market,
+        IRouter.InterestRateModelType interestRateModelType,
+        ERC20PermitUpgradeable longTarget,
+        uint256 marginAmount,
+        uint256 borrowAmount,
+        uint256 minAssetAmount,
+        uint256 takeProfit,
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance,
+        address swapRouter,
+        bytes calldata data,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (
+        uint256 positionId
+    );
+
+    /// @notice Open a position
+    /// @param market Market address
+    /// @param interestRateModelType Type of the interest rate model
+    /// @param longTarget Long target, must be one of token0 or token1
+    /// @param marginAmount Margin amount for the position
+    /// @param borrowAmount Amount of borrowed token for swapping to asset token
+    /// @param minAssetAmount Minimum asset swap after swap, a slippage protection
+    /// @param takeProfit Take profit price, the price is asset price in debt
+    /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return positionId Position id, same as ERC721 token id
     function openPosition(
         address market,
         IRouter.InterestRateModelType interestRateModelType,
-        ERC20Upgradeable longTarget,
+        ERC20PermitUpgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,
         uint256 minAssetAmount,
         uint256 takeProfit,
         uint256 stopLoss,
+        uint24 stopLossRateTolerance,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -118,11 +157,31 @@ interface ITradingCore {
     /// @param positionId Position id
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
     function modifyPassiveClosePrice(
         address market,
         uint256 positionId,
         uint256 takeProfit,
-        uint256 stopLoss
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance
+    ) external;
+
+    /// @notice Add margin for a position in order to prevent getting liquidated
+    /// @param market Market address
+    /// @param positionId Position id
+    /// @param addedAmount Amount of margin asset to add
+    /// @param deadline ERC20Permit deadline of approval
+    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    function addMargin(
+        address market,
+        uint256 positionId,
+        uint256 addedAmount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external;
 
     /// @notice Add margin for a position in order to prevent getting liquidated
@@ -273,8 +332,8 @@ interface ITradingCore {
         address market,
         uint256 positionId
     ) external returns (
-        ERC20Upgradeable asset,
-        ERC20Upgradeable debt,
+        ERC20PermitUpgradeable asset,
+        ERC20PermitUpgradeable debt,
         uint256 debtAmount
     );
 
@@ -284,7 +343,7 @@ interface ITradingCore {
     /// @return price Position asset auction price in debt
     function liquidateAuctionPrice(
         address market,
-        ERC20Upgradeable longTarget
+        ERC20PermitUpgradeable longTarget
     ) external view returns (
         uint256 price
     );

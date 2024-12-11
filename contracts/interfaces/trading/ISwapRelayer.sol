@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 interface ISwapRelayer {
 
@@ -33,8 +33,8 @@ interface ISwapRelayer {
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     function swap(
-        ERC20Upgradeable srcToken,
-        ERC20Upgradeable dstToken,
+        ERC20PermitUpgradeable srcToken,
+        ERC20PermitUpgradeable dstToken,
         uint256 amountIn,
         address swapRouter,
         bytes calldata data

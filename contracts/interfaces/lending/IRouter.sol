@@ -2,7 +2,7 @@
 // Teahouse Finance
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {IPool} from "./IPool.sol";
 
@@ -85,7 +85,7 @@ interface IRouter {
     /// @param reserveRatio Reserve ratio of the lending pool
     /// @return proxyAddress Address of the created lending pool
     function createLendingPool(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         uint256 supplyCap,
         uint256 borrowCap,
@@ -97,13 +97,13 @@ interface IRouter {
     /// @notice Get if any lending pool of the underlying token exists
     /// @param asset Address of the underlying token
     /// @return isEnabled Lending pool of the underlying token exists or not
-    function isAssetEnabled(ERC20Upgradeable asset) external view returns (bool isEnabled);
+    function isAssetEnabled(ERC20PermitUpgradeable asset) external view returns (bool isEnabled);
 
     /// @notice Get address of the lending pool address
     /// @param underlyingAsset Address of the underlying token
     /// @param modelType Type of the interest rate model
     /// @return lendingPool Address of the lending pool
-    function getLendingPool(ERC20Upgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool lendingPool);
+    function getLendingPool(ERC20PermitUpgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool lendingPool);
     
     /// @notice Supply tokens to the lending pool and mint interest-bearing tokens
     /// @param underlyingAsset Address of the underlying token
@@ -113,7 +113,7 @@ interface IRouter {
     /// @return depositedUnderlying Actual supplied amount of underlying tokens
     /// @return mintedTeaToken Amount of minted interest-bearing tokens
     function supply(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         address supplyFor,
         uint256 amount
@@ -130,7 +130,7 @@ interface IRouter {
     /// @return withdrawnUnderlying Actual withdrawn amount of underlying tokens
     /// @return burntTeaToken Amount of burnt interest-bearing tokens
     function withdraw(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         address withdrawTo,
         uint256 amount
@@ -146,7 +146,7 @@ interface IRouter {
     /// @param amountToBorrow Amount of underlying tokens to borrow
     /// @return pool Address of the tokens borrowed from
     function borrow(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         uint256 amountToBorrow
     ) external returns (
@@ -160,7 +160,7 @@ interface IRouter {
     /// @param amountToBorrow Amount of underlying tokens to borrow
     /// @return id Borrow id of the lending position
     function commitBorrow(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         uint256 amountToBorrow
     ) external returns (
@@ -178,7 +178,7 @@ interface IRouter {
     /// @return repaidUnderlyingAmount Repaid amount of underlying tokens
     /// @return unrepaidUnderlyingAmount Unrepaid amount of underlying tokens
     function repay(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         address account,
         uint256 id,
@@ -195,7 +195,7 @@ interface IRouter {
     /// @param account Query account
     /// @return teaTokenAmount Amount of supplied interest-bearing tokens
     function balanceOf(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         address account
     ) external view returns (
@@ -208,7 +208,7 @@ interface IRouter {
     /// @param account Query account
     /// @return underlyingAmount Amount of supplied underlying tokens
     function balanceOfUnderlying(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         address account
     ) external view returns (
@@ -221,7 +221,7 @@ interface IRouter {
     /// @param id Borrow id of the lending position
     /// @return teaTokenAmount Amount of borrowed interest-bearing tokens
     function debtOf(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         uint256 id
     ) external view returns (
@@ -234,7 +234,7 @@ interface IRouter {
     /// @param id Borrow id of the lending position
     /// @return underlyingAmount Amount of borrowed underlying tokens
     function debtOfUnderlying(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType,
         uint256 id
     ) external view returns (
@@ -247,7 +247,7 @@ interface IRouter {
     /// @return suppiedConversionRate Supplied interest-bearing token to underlying token conversion rate
     /// @return borrowedConversionRate Borrowed interest-bearing token to underlying token conversion rate
     function getConversionRates(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType
     ) external view returns (
         uint256 suppiedConversionRate,
@@ -260,7 +260,7 @@ interface IRouter {
     /// @return interest Amount of interest
     /// @return fee Amount of borrow fee
     function collectInterestFeeAndCommit(
-        ERC20Upgradeable underlyingAsset,
+        ERC20PermitUpgradeable underlyingAsset,
         InterestRateModelType modelType
     ) external returns (
         uint256 interest,

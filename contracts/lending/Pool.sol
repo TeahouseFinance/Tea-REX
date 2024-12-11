@@ -5,6 +5,7 @@ pragma solidity =0.8.26;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,8 +20,8 @@ import {Percent} from "../libraries/Percent.sol";
 
 // import "hardhat/console.sol";
 
-contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
-    using SafeERC20 for ERC20Upgradeable;
+contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+    using SafeERC20 for ERC20PermitUpgradeable;
     using Math for uint256;
     
     uint8 public DECIMALS;
@@ -28,7 +29,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
     uint256 public DECIMALS_MULTIPLIER;
     uint256 public RATE_MULTIPLIER;
     IRouter public router;
-    ERC20Upgradeable public underlyingAsset;
+    ERC20PermitUpgradeable public underlyingAsset;
     IRouter.InterestRateModelType interestRateModelType;
     uint24 public reserveRatio;
     uint256 public supplyCap;
@@ -48,14 +49,16 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
 
     function initialize(
         address _owner,
-        ERC20Upgradeable _underlyingAsset,
+        ERC20PermitUpgradeable _underlyingAsset,
         IRouter.InterestRateModelType _interestRateModelType,
         uint256 _supplyCap,
         uint256 _borrowCap,
         uint24 _reserveRatio
     ) public initializer {
+        string memory tokenName = string.concat("TeaREX Supply ", _underlyingAsset.name());
         __Ownable_init(_owner);
-        __ERC20_init(string.concat("TeaREX Supply ", _underlyingAsset.name()), string.concat("Tea", _underlyingAsset.symbol()));
+        __ERC20_init(tokenName, string.concat("Tea", _underlyingAsset.symbol()));
+        __ERC20Permit_init(tokenName);
         __Pausable_init();
         __ReentrancyGuard_init();
 
@@ -198,7 +201,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
         (, , uint256 newSuppliedConversionRate, ) = _collectInterestFeeAndCommit();
-        ERC20Upgradeable _underlyingAsset = underlyingAsset;
+        ERC20PermitUpgradeable _underlyingAsset = underlyingAsset;
         uint256 quota = _getPoolUnderlyingBalance(_underlyingAsset);
         if (quota == 0) revert NoUnborrowedUnderlying();
 
@@ -222,14 +225,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         return _getPoolUnderlyingBalance(underlyingAsset);
     }
 
-    function _getPoolUnderlyingBalance(ERC20Upgradeable _underlyingAsset) internal view returns (uint256) {
+    function _getPoolUnderlyingBalance(ERC20PermitUpgradeable _underlyingAsset) internal view returns (uint256) {
         return _underlyingAsset.balanceOf(address(this));
     }
 
     function claimFee() external override nonReentrant onlyNotPaused returns (uint256 claimedFee, uint256 unclaimedFee) {
         _collectInterestFeeAndCommit();
 
-        ERC20Upgradeable _underlyingAsset = underlyingAsset;
+        ERC20PermitUpgradeable _underlyingAsset = underlyingAsset;
         uint256 balance = _underlyingAsset.balanceOf(address(this));
         unclaimedFee = pendingFee;
         claimedFee = balance > unclaimedFee ? unclaimedFee : balance;
@@ -320,7 +323,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20Upgradeable, Pau
         }
         unrepaidUnderlyingAmount = _toUnderlying(_debtInfo.borrowedTeaToken, newBorrowedConversionRate, true) - repaidUnderlyingAmount;
         
-        ERC20Upgradeable _underlyingAsset = underlyingAsset;
+        ERC20PermitUpgradeable _underlyingAsset = underlyingAsset;
         _underlyingAsset.safeTransferFrom(_account, address(this), repaidUnderlyingAmount);
 
         borrowedTeaToken = _borrowedTeaToken - _teaTokenAmount;

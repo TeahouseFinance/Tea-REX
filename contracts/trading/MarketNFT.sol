@@ -8,7 +8,7 @@ import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC72
 import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -48,8 +48,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function initialize(
         address _owner,
         IAssetOracle _oracle,
-        ERC20Upgradeable _token0,
-        ERC20Upgradeable _token1,
+        ERC20PermitUpgradeable _token0,
+        ERC20PermitUpgradeable _token1,
         bool _isToken0Margin,
         uint24 _maxLeverage,
         uint24 _openPositionLossRatioThreshold,
@@ -173,7 +173,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _debtAmount,
         uint256 _assetAmount,
         uint256 _takeProfit,
-        uint256 _stopLoss
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance
     ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
         uint256 positionId
     ) {
@@ -187,7 +188,14 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 marginPrice
         ) = _getTokensInfo(_isLongToken0);
 
-        _checkPassiveClosePrice(_takeProfit, _stopLoss, assetPrice, debtPrice, oracleDecimals);
+        _checkPassiveCloseCondition(
+            _takeProfit,
+            _stopLoss,
+            _stopLossRateTolerance,
+            assetPrice,
+            debtPrice,
+            oracleDecimals
+        );
 
         uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
         uint256 assetValue = _getTokenValue(oracleDecimals, _assetAmount, assetPrice);
@@ -213,6 +221,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             status: PositionStatus.Open,
             isLongToken0: _isLongToken0,
             isMarginAsset: isMarginAsset,
+            stopLossRateTolerance: _stopLossRateTolerance,
             initialLeverage: leverage,
             marginAmount: _marginAmount,
             interestRateModelType: _interestRateModelType,
@@ -227,7 +236,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function modifyPassiveClosePrice(
         uint256 _positionId,
         uint256 _takeProfit,
-        uint256 _stopLoss
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance
     ) external override nonReentrant onlyNotPaused onlyTradingCore {
         Position memory position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
@@ -242,16 +252,25 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             
         ) = _getTokensInfo(position.isLongToken0);
 
-        _checkPassiveClosePrice(_takeProfit, _stopLoss, assetPrice, debtPrice, oracleDecimals);
+        _checkPassiveCloseCondition(
+            _takeProfit,
+            _stopLoss,
+            _stopLossRateTolerance,
+            assetPrice,
+            debtPrice,
+            oracleDecimals
+        );
 
         position.takeProfit = _takeProfit;
         position.stopLoss = _stopLoss;
+        position.stopLossRateTolerance = _stopLossRateTolerance;
         positions[_positionId] = position;
     }
 
-    function _checkPassiveClosePrice(
+    function _checkPassiveCloseCondition(
         uint256 _takeProfit,
         uint256 _stopLoss,
+        uint24 _stopLossRateTolerance,
         uint256 _assetPrice,
         uint256 _debtPrice,
         uint8 _oracleDecimals
@@ -259,6 +278,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 assetPriceInDebt = _getRelativePrice(_assetPrice, _debtPrice, _oracleDecimals);
         if (_takeProfit != 0 && _takeProfit <= assetPriceInDebt) revert InvalidTakeProfit();
         if (_stopLoss != 0 && _stopLoss >= assetPriceInDebt) revert InvalidStopLoss();
+        if (_stopLossRateTolerance > Percent.MULTIPLIER) revert InvalidStopLossRateTolerance();
     }
 
     function addMargin(
@@ -404,7 +424,11 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetPriceInDebt = _getRelativePrice(assetPrice, debtPrice, oracleDecimals);
             if (position.stopLoss < assetPriceInDebt) revert PassivelyCloseConditionNotMet();
             if (
-                _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, assetPriceInDebt, oracleDecimals)
+                _decreasedDebtAmount < _assetToDebtAmount(_swappedAssetToken, assetPriceInDebt, oracleDecimals).mulDiv(
+                    Percent.MULTIPLIER - position.stopLossRateTolerance,
+                    Percent.MULTIPLIER,
+                    Math.Rounding.Ceil
+                )
             ) revert WorsePrice();
         }
         else if (_mode == CloseMode.Liquidate) {

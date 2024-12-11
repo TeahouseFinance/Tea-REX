@@ -2,7 +2,7 @@
 // Teahouse Finance
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {IAssetOracle} from "./IAssetOracle.sol";
 import {IRouter} from "../lending/IRouter.sol";
@@ -15,6 +15,7 @@ interface IMarketNFT {
     error InvalidDiscountRate();
     error InvalidTakeProfit();
     error InvalidStopLoss();
+    error InvalidStopLossRateTolerance();
     error HighLossRatio();
     error BadCloseRate();
     error ExceedsMaxTotalPositionSize();
@@ -51,7 +52,8 @@ interface IMarketNFT {
     /// @param status Position status, refer to enum of PositionStatus
     /// @param isLongToken0 Position trading direction, long token0/short token1 or not
     /// @param isMarginAsset Whether margin is same as position asset, depending on the trading direction
-    /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value 
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value
     /// @param marginAmount Margin amount of the position
     /// @param interestRateModelType Position lending mode, refer to enum of IRouter.InterestRateModelType
     /// @param borrowId Position lending id
@@ -63,6 +65,7 @@ interface IMarketNFT {
         PositionStatus status;
         bool isLongToken0;
         bool isMarginAsset;
+        uint24 stopLossRateTolerance;
         uint24 initialLeverage;
         uint256 marginAmount;
         IRouter.InterestRateModelType interestRateModelType;
@@ -125,6 +128,7 @@ interface IMarketNFT {
     /// @param assetAmount Asset amount of the position
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
     /// @return positionId Position id
     function openPosition(
         address account,
@@ -135,7 +139,8 @@ interface IMarketNFT {
         uint256 debtAmount,
         uint256 assetAmount,
         uint256 takeProfit,
-        uint256 stopLoss
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance
     ) external returns (
         uint256 positionId
     );
@@ -144,7 +149,13 @@ interface IMarketNFT {
     /// @param positionId Position id
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
-    function modifyPassiveClosePrice(uint256 positionId, uint256 takeProfit, uint256 stopLoss) external;
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    function modifyPassiveClosePrice(
+        uint256 positionId,
+        uint256 takeProfit,
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance
+    ) external;
     
     /// @notice Add margin for a position in order to prevent getting liquidated
     /// @param positionId Position id
