@@ -140,6 +140,47 @@ async function getEvent(contract, tx, eventName) {
     return await contract.queryFilter(eventName, tx.blockNumber, tx.blockNumber);
 }
 
+// generate ERC 2612 permit
+async function generatePermit(token, user, spender, amount, deadline) {
+    const name = await token.name();
+    // it's recommended to try to call ".version()" function of a token to get the latest version number,
+    // but it's not a standard function so it's not guaranteed to exist
+    const version = "1"; 
+    const chainId = (await ethers.provider.getNetwork()).chainId;
+    const nonce = await token.nonces(user);
+    const signature = await user.signTypedData(
+        {
+            name: name,
+            version: version,
+            chainId: chainId,
+            verifyingContract: token.target,
+        },
+        {
+            Permit: [
+                { name: "owner", type: "address" },
+                { name: "spender", type: "address" },
+                { name: "value", type: "uint256" },
+                { name: "nonce", type: "uint256" },
+                { name: "deadline", type: "uint256" },
+            ],
+        },
+        {
+            "owner": user.address,
+            "spender": spender.target,
+            "value": amount,
+            "nonce": nonce,
+            "deadline": deadline,
+        }
+    );
+
+    // split signature
+    const r = `0x${signature.slice(2, 66)}`;
+    const s = `0x${signature.slice(66, 130)}`;
+    const v = ethers.toNumber(`0x${signature.slice(130, 132)}`);
+
+    return { r, s, v };
+}
+
 // generate swapData for OracleSwap
 function oracleSwapper(swapContract, swapProcessor) {
     return function(input, receiver, fromToken, toToken, amount) {
@@ -191,6 +232,34 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
     );
 }
 
+// open position to long targetToken using ERC-2612 permit
+async function openLongPositionPermit(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
+    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+    const { swapContract, swapProcessor, swapData } = swapFunction(true, tradingCore.target, baseToken.target, targetToken.target, receivedAmount);
+    const block = await ethers.provider.getBlock();
+    const deadline = block.timestamp + 1000;
+    const { r, s, v } = await generatePermit(baseToken, user, tradingCore, marginAmount, deadline);
+    const token0 = baseToken.target < targetToken.target ? baseToken : targetToken;
+    const token1 = baseToken.target < targetToken.target ? targetToken : baseToken;
+    const market = await tradingCore.pairMarket(token0, token1);
+    return await tradingCore.connect(user).openPositionPermit(
+        market,
+        2,
+        targetToken,
+        marginAmount,
+        borrowAmount,
+        0,
+        UINT256_MAX,
+        0,
+        0,
+        swapContract,
+        swapData,
+        deadline,
+        v,
+        r,
+        s
+    );
+}
 
 // open position to short targetToken
 async function openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
@@ -380,6 +449,81 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, marke
         const addMarginAmount = ethers.parseUnits("500", 6);
         await baseToken.connect(user).approve(tradingCore, addMarginAmount);
         await tradingCore.connect(user).addMargin(market, positionId, addMarginAmount);    
+
+        const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
+        console.log("Liquidation price after add margin:", liquidationPrice2);
+    
+        const positionInfo2 = await market.getPosition(positionId);
+        console.log(positionInfo2);    
+    }
+
+    // close position
+    const tokensBeforeClose = await baseToken.balanceOf(user);
+    const targetBeforeClose = await targetToken.balanceOf(user);
+    const tx = await closePosition(tradingCore, user, market, positionId, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterClose = await baseToken.balanceOf(user);
+    const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "ClosePosition");
+    console.log("ClosePosition event:", event[0].args);
+
+    console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
+    console.log("target token received after close:", targetAfterClose - targetBeforeClose);
+    const tokensInPoolAfter = await baseToken.balanceOf(pool);
+    console.log("token diff in pool:", tokensInPoolAfter - tokensInPoolBefore);
+    const positionInfo3 = await market.getPosition(positionId);
+    console.log(positionInfo3);
+    console.log("----------------");
+}
+
+async function testLongPositionPermit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, startPrice, endPrice, moreMargin, timespan) {
+    console.log("Test long position (permit):");
+
+    // get lending pool
+    const router = await ethers.getContractAt("Router", await tradingCore.router());
+    const pool = await ethers.getContractAt("Pool", await router.pool(baseToken, 2));
+    const tokensInPoolBefore = await baseToken.balanceOf(pool);
+
+    // adjust price
+    console.log("Start price:", startPrice);
+    await mockOracle.setTokenPrice(targetToken, startPrice);
+
+    // open position to long targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const leverage = 5n;
+    const borrowAmount = marginAmount * leverage;
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    await openLongPositionPermit(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterOpen = await baseToken.balanceOf(user);
+    console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
+
+    // get positionId
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
+    console.log("Position TokenID:", positionId);
+    const positionInfo = await market.getPosition(positionId);
+    console.log(positionInfo);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
+    console.log("Liquidation price:", liquidationPrice);
+
+    // wait for some time
+    await helpers.time.increase(timespan);
+    
+    const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position (after " + timespan + " seconds):", debtOfPosition2.debtAmount);
+
+    // adjust price
+    console.log("End price:", endPrice);
+    await mockOracle.setTokenPrice(targetToken, endPrice);
+
+    if (moreMargin) {
+        // add margin
+        const addMarginAmount = ethers.parseUnits("500", 6);
+        const block = await ethers.provider.getBlock();
+        const deadline = block.timestamp + 1000;
+        const { r, s, v } = await generatePermit(baseToken, user, tradingCore, addMarginAmount, deadline);
+        await tradingCore.connect(user).addMarginPermit(market, positionId, addMarginAmount, deadline, v, r, s);
 
         const liquidationPrice2 = await tradingCore.getLiquidationPrice(market, positionId);
         console.log("Liquidation price after add margin:", liquidationPrice2);
@@ -604,6 +748,13 @@ async function main() {
 
     // test long position with profit
     await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
+        2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        2600n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        true,
+        86400
+    );
+    // test long position with permit
+    await testLongPositionPermit(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         2600n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         true,
