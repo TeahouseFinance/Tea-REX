@@ -12,17 +12,14 @@ const interestRateModelType = 2;
 const reserveRatio = 50000;
 
 describe("TeaRex Trading Core", function () {
-    const { ethers } = require("hardhat");
-
     async function getPermitSignature(user, token, spenderAddress, value, deadline) {
-        // Get token details directly from contract
+
         const name = await token.name();
         const version = "1";  // Usually "1" for ERC2612
         const chainId = (await user.provider.getNetwork()).chainId;
         const verifyingContract = await token.getAddress();
         const nonce = await token.nonces(user.address);
         
-        // Use the exact same format as EIP-2612
         const domain = {
             name,
             version,
@@ -30,7 +27,6 @@ describe("TeaRex Trading Core", function () {
             verifyingContract
         };
 
-        // The exact EIP-2612 format
         const types = {
             Permit: [
                 { name: "owner", type: "address" },
@@ -43,7 +39,6 @@ describe("TeaRex Trading Core", function () {
 
         const currentDeadline = deadline || Math.floor(Date.now() / 1000) + 3600;
 
-        // Format all values as per EIP-2612
         const message = {
             owner: await user.getAddress(),
             spender: spenderAddress,
@@ -52,22 +47,13 @@ describe("TeaRex Trading Core", function () {
             deadline: currentDeadline
         };
 
-        // console.log("=== Debug Info ===");
-        // console.log("Domain:", domain);
-        // console.log("Message:", message);
-        // console.log("User address:", await user.getAddress());
-        // console.log("Spender address:", spenderAddress);
-        // console.log("Token address:", verifyingContract);
-
         try {
-            // Get the signature
             const signature = await user.signTypedData(
                 domain,
                 types,
                 message
             );
 
-            // Split the signature
             const sig = ethers.Signature.from(signature);
 
             return {
