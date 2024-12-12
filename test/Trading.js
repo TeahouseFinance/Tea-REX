@@ -12,6 +12,61 @@ const interestRateModelType = 2;
 const reserveRatio = 50000;
 
 describe("TeaRex Trading Core", function () {
+    async function getPermitSignature(user, token, spenderAddress, value, deadline) {
+
+        const name = await token.name();
+        const version = "1";  // Usually "1" for ERC2612
+        const chainId = (await user.provider.getNetwork()).chainId;
+        const verifyingContract = await token.getAddress();
+        const nonce = await token.nonces(user.address);
+        
+        const domain = {
+            name,
+            version,
+            chainId,
+            verifyingContract
+        };
+
+        const types = {
+            Permit: [
+                { name: "owner", type: "address" },
+                { name: "spender", type: "address" },
+                { name: "value", type: "uint256" },
+                { name: "nonce", type: "uint256" },
+                { name: "deadline", type: "uint256" }
+            ]
+        };
+
+        const currentDeadline = deadline || Math.floor(Date.now() / 1000) + 3600;
+
+        const message = {
+            owner: await user.getAddress(),
+            spender: spenderAddress,
+            value: value.toString(),
+            nonce: nonce.toString(),
+            deadline: currentDeadline
+        };
+
+        try {
+            const signature = await user.signTypedData(
+                domain,
+                types,
+                message
+            );
+
+            const sig = ethers.Signature.from(signature);
+
+            return {
+                v: sig.v,
+                r: sig.r,
+                s: sig.s
+            };
+        } catch (error) {
+            console.error("Signing failed:", error);
+            throw error;
+        }
+    }
+
     async function deployContractsFixture() {
         const [owner, feeTreasury, manager, user] = await ethers.getSigners();
 
@@ -216,7 +271,7 @@ describe("TeaRex Trading Core", function () {
         const positionId = lastEvent.args[1];
 
         return { positionId}; 
-    }       
+    }
 
     describe("Functionality", function () {
         it("Should not be able to open position when market is paused", async function () {
@@ -333,7 +388,108 @@ describe("TeaRex Trading Core", function () {
             expect(debtInfo[2]).to.equal(borrowAmount.toString());
             const liqPrice = await tradingCore.getLiquidationPrice(market, positionId);
             // console.log("Liquidation price", liqPrice.toString());
+        });
 
+        it("Should be able to open long position with permit", async function () {
+            const { baseToken, targetToken, owner, manager, feeTreasury, user, tradingCore, interestRateModel, router, swapRelayer, assetOracle, oracleSwapRouter, market } = await loadFixture(deployContractsFixture);
+            
+            const marginAmount = ethers.parseUnits("1000", 6);
+            const borrowAmount = marginAmount * 5n;
+            const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+            const swapCalldata = oracleSwapRouter.interface.encodeFunctionData("swapExactInput", [
+                baseToken.target,
+                targetToken.target,
+                receivedAmount,
+                tradingCore.target,
+                0n
+            ]);
+
+            const beforeBaseBalance = await baseToken.balanceOf(user.address);
+            const deadline = UINT256_MAX;
+            const { v, r, s } = await getPermitSignature(
+                user,
+                baseToken,
+                tradingCore.target,
+                marginAmount,
+                deadline
+              )
+
+            await tradingCore.connect(user).openPositionPermit(
+                market,
+                interestRateModelType,
+                targetToken,
+                marginAmount,
+                borrowAmount,
+                0,
+                UINT256_MAX,
+                0,
+                0,
+                oracleSwapRouter,
+                swapCalldata,
+                deadline,
+                v,r,s
+            )
+            const afterBaseBalance = await baseToken.balanceOf(user.address);
+            expect(beforeBaseBalance - afterBaseBalance).to.equal(marginAmount);
+
+            const positionId = await market.tokenOfOwnerByIndex(user, 0);
+            const positionInfo = await market.getPosition(positionId);
+            const debtInfo = await tradingCore.debtOfPosition(market, positionId);
+
+            expect(positionInfo.marginAmount).to.equal(marginAmount);
+            expect(debtInfo[2]).to.equal(borrowAmount.toString());
+        });
+
+        it("Should be able to open short position with permit", async function () {
+            const { baseToken, targetToken, owner, manager, feeTreasury, user, tradingCore, interestRateModel, router, swapRelayer, assetOracle, oracleSwapRouter, market } = await loadFixture(deployContractsFixture);
+
+            const marginAmount = ethers.parseUnits("1000", 6);
+            const borrowAmount = ethers.parseUnits("2", 18);
+            const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+            const swapCalldata = oracleSwapRouter.interface.encodeFunctionData("swapExactInput", [
+                targetToken.target,
+                baseToken.target,
+                receivedAmount,
+                tradingCore.target,
+                0n
+            ]);
+
+            const beforeTargetBalance = await baseToken.balanceOf(user.address);
+            const deadline = UINT256_MAX;
+            const { v, r, s } = await getPermitSignature(
+                user,
+                baseToken,
+                tradingCore.target,
+                marginAmount,
+                deadline
+              );
+
+            await tradingCore.connect(user).openPositionPermit(
+                market,
+                interestRateModelType,
+                baseToken,
+                marginAmount,
+                borrowAmount,
+                0,
+                UINT256_MAX,
+                0,
+                0,
+                oracleSwapRouter,
+                swapCalldata,
+                deadline,
+                v,r,s
+            )
+            const afterTargetBalance = await baseToken.balanceOf(user.address);
+            expect(beforeTargetBalance - afterTargetBalance).to.equal(marginAmount);
+
+            const positionId = await market.tokenOfOwnerByIndex(user, 0);            
+            const debtInfo = await tradingCore.debtOfPosition(market, positionId);
+            const positionInfo = await market.getPosition(positionId);
+
+            expect(positionInfo.marginAmount).to.equal(marginAmount);
+            expect(debtInfo[2]).to.equal(borrowAmount.toString());
+            const liqPrice = await tradingCore.getLiquidationPrice(market, positionId);
+            // console.log("Liquidation price", liqPrice.toString());
         });
 
         it("Should revert if open position exceed leverage limit", async function () {
@@ -563,6 +719,41 @@ describe("TeaRex Trading Core", function () {
                 market,
                 positionId,
                 addAmount
+            )).to.changeTokenBalances(baseToken, [user, tradingCore], [-addAmount, addAmount]);
+
+            const afterMarginAmount = (await market.getPosition(positionId)).marginAmount;
+            const afterLiqPrice = await tradingCore.getLiquidationPrice(market, positionId);
+            // console.log("After liquidation price", afterLiqPrice.toString());
+            expect(afterLiqPrice).to.be.lt(beforeLiqPrice);
+            expect(afterMarginAmount).to.equal(beforeMarginAmount + addAmount);
+        });
+
+        it("Should be able to add margin with permit", async function () {
+            const { baseToken, targetToken, owner, manager, feeTreasury, user, tradingCore, interestRateModel, router, swapRelayer, assetOracle, oracleSwapRouter, oracleSwapProcessor, market } = await deployContractsFixture();
+            const marginAmount = ethers.parseUnits("1000", 6);
+            const borrowAmount = ethers.parseUnits("6000", 6);
+            const { positionId } = await openLongPosition(baseToken, targetToken, user, tradingCore, oracleSwapRouter, market, marginAmount, borrowAmount, UINT256_MAX, 0);
+            const positionInfo = await market.getPosition(positionId);
+            const beforeMarginAmount = positionInfo.marginAmount;
+            const beforeLiqPrice = await tradingCore.getLiquidationPrice(market, positionId);
+            // console.log("Before liquidation price", beforeLiqPrice.toString());
+            const addAmount = ethers.parseUnits("500", 6);
+            
+            const deadline = UINT256_MAX;
+            const { v, r, s } = await getPermitSignature(
+                user,
+                baseToken,
+                tradingCore.target,
+                addAmount,
+                deadline
+              );
+
+            await expect(tradingCore.connect(user).addMarginPermit(
+                market,
+                positionId,
+                addAmount,
+                deadline,
+                v,r,s                
             )).to.changeTokenBalances(baseToken, [user, tradingCore], [-addAmount, addAmount]);
 
             const afterMarginAmount = (await market.getPosition(positionId)).marginAmount;
