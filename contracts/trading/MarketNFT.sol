@@ -29,7 +29,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     address public token0;
     address public token1;
     bool public isToken0Margin;
-    uint24 public maxLeverage;
+    uint32 public maxLeverage;
     uint24 public openPositionLossRatioThreshold;
     uint24 public liquidateLossRatioThreshold;
     uint24 public liquidationDiscount;
@@ -51,7 +51,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
         bool _isToken0Margin,
-        uint24 _maxLeverage,
+        uint32 _maxLeverage,
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
@@ -116,11 +116,11 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         oracle = _oracle;
     }
 
-    function setMaxLeverage(uint24 _maxLeverage) external override onlyOwner {
+    function setMaxLeverage(uint32 _maxLeverage) external override onlyOwner {
         _setMaxLeverage(_maxLeverage);
     }
 
-    function _setMaxLeverage(uint24 _maxLeverage) internal {
+    function _setMaxLeverage(uint32 _maxLeverage) internal {
         if (_maxLeverage == 0) revert ZeroNotAllowed();
         
         maxLeverage = _maxLeverage;
@@ -203,7 +203,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         
         uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
         if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
-        uint24 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint24();
+        uint32 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint32();
         if (leverage > maxLeverage) revert InvalidLeverage();
 
         _updateMarketStatus(

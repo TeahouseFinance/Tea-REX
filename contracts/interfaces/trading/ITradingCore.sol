@@ -77,7 +77,7 @@ interface ITradingCore {
         ERC20PermitUpgradeable token0,
         ERC20PermitUpgradeable token1,
         bool isToken0Margin,
-        uint24 maxLeverage,
+        uint32 maxLeverage,
         uint24 openPositionLossRatioThreshold,
         uint24 liquidateLossRatioThreshold,
         uint24 liquidationDiscount,

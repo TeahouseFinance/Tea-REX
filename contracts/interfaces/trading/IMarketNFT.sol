@@ -66,7 +66,7 @@ interface IMarketNFT {
         bool isLongToken0;
         bool isMarginAsset;
         uint24 stopLossRateTolerance;
-        uint24 initialLeverage;
+        uint32 initialLeverage;
         uint256 marginAmount;
         IRouter.InterestRateModelType interestRateModelType;
         uint256 borrowId;
@@ -90,7 +90,7 @@ interface IMarketNFT {
 
     /// @notice Set max leverage of the market
     /// @param maxLeverage Max leverage of the market
-    function setMaxLeverage(uint24 maxLeverage) external;
+    function setMaxLeverage(uint32 maxLeverage) external;
 
     /// @notice Set market params
     /// @param openPositionLossRatioThreshold Tolerance of loss ratio when opening position which loss ratio equals to [value(asset) - value(debt)] / value(margin)

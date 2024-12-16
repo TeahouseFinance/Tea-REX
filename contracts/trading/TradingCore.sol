@@ -130,7 +130,7 @@ contract TradingCore is
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
         bool _isToken0Margin,
-        uint24 _maxLeverage,
+        uint32 _maxLeverage,
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
