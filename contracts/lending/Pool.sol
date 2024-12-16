@@ -117,10 +117,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         reserveRatio = _ratio;
     }
 
-    function _getFeeConfig() internal view returns (IRouter.FeeConfig memory) {
-        return router.getFeeConfig();
-    }
-
     function getInterestRateModel() external view override returns (IInterestRateModel) {
         return _getInterestRateModel();
     }
@@ -216,9 +212,13 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
         if (burntTeaToken == 0) revert ZeroAmountNotAllowed();
         _burn(_account, burntTeaToken);
-        _underlyingAsset.safeTransfer(_withdrawTo, withdrawnUnderlying);
 
-        emit Withdrew(_account, _withdrawTo, withdrawnUnderlying, burntTeaToken);
+        IRouter.FeeConfig memory feeConfig = router.getFeeConfig();
+        uint256 withdrawalFee = withdrawnUnderlying.mulDiv(feeConfig.withdrawalFee, Percent.MULTIPLIER, Math.Rounding.Ceil);
+        if (withdrawalFee > 0) _underlyingAsset.safeTransfer(feeConfig.treasury, withdrawalFee);
+        _underlyingAsset.safeTransfer(_withdrawTo, withdrawnUnderlying - withdrawalFee);
+
+        emit Withdrew(_account, _withdrawTo, withdrawalFee, withdrawnUnderlying, burntTeaToken);
     }
 
     function getWithdrawQuota() external view override returns (uint256) {

@@ -36,9 +36,11 @@ interface IRouter {
     /// @notice Fee config structure
     /// @param treasury Borrowed fee goes to this address
     /// @param borrowFee Additional borrow fee (APY) for lending positions
+    /// @param withdrawalFee A withdrawal fee to prevent exploits
     struct FeeConfig {
         address treasury;
         uint32 borrowFee;
+        uint32 withdrawalFee;
     }
 
     /// @notice Pause operations for this router and all lending pools
@@ -61,7 +63,8 @@ interface IRouter {
     /// @notice Set new fee structure
     /// @param treasury Fee treasury
     /// @param borrowFee Borrow fee rate in APY
-    function setFeeConfig(address treasury, uint32 borrowFee) external;
+    /// @param withdrawalFee A withdrawal fee to prevent exploits
+    function setFeeConfig(address treasury, uint32 borrowFee, uint32 withdrawalFee) external;
 
     /// @notice Get fee structure
     /// @return feeConfig Fee structure

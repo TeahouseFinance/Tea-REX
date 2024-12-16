@@ -15,7 +15,7 @@ interface IPool {
     error CallerIsNotRouter();
 
     event Supplied(address indexed account, address indexed supplyFor, uint256 depositedUnderlying, uint256 mintedTeaToken);
-    event Withdrew(address indexed account, address indexed WithdrawTo, uint256 withdrawnUnderlying, uint256 burntTeaToken);
+    event Withdrew(address indexed account, address indexed WithdrawTo, uint256 withdrawalFee, uint256 withdrawnUnderlying, uint256 burntTeaToken);
     event FeeClaimed(address indexed account, uint256 claimedFee);
     event Borrowed(address indexed account, uint256 indexed id, uint256 underlyingAmount, uint256 borrowedTeaTokenAmount);
     event Repaid(address indexed account, uint256 indexed id, uint256 teaTokenAmount, uint256 repaidUnderlyingAmount);

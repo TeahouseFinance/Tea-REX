@@ -72,10 +72,11 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         emit TradingCoreSet(msg.sender, _tradingCore);
     }
 
-    function setFeeConfig(address _treasury, uint32 _borrowFee) external override onlyOwner {
+    function setFeeConfig(address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
         if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
+        if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
 
-        feeConfig = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee });
+        feeConfig = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
 
         emit FeeConfigSet(msg.sender, _treasury, _borrowFee);
     }
