@@ -4,7 +4,6 @@ const { ethers, upgrades } = require("hardhat");
 const {
   loadFixture, time
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-const { qTestnet } = require("viem/chains");
 
 const FEE_CAP = 300000;
 const interestRateModelType = 2;
