@@ -304,6 +304,7 @@ contract TradingCore is
         );
 
         emit OpenPosition(_market, positionId);
+        emit ModifyPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
 
     function modifyPassiveClosePrice(
@@ -317,6 +318,8 @@ contract TradingCore is
         if (positionOwner != msg.sender) revert NotPositionOwner();
 
         market.modifyPassiveClosePrice(_positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
+    
+        emit ModifyPassiveClosePrice(market, _positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
     
     function addMarginPermit(
