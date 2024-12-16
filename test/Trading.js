@@ -114,9 +114,10 @@ describe("TeaRex Trading Core", function () {
         const oracleSwapProcessor = await ethers.deployContract("OracleSwapProcessor", []);
 
         const borrow_fee = 20000;
+        const withdraw_fee = 1000;
         await router.setInterestRateModel(interestRateModelType, interestRateModel);
         await router.setTradingCore(tradingCore);
-        await router.setFeeConfig(feeTreasury.address, borrow_fee);
+        await router.setFeeConfig(feeTreasury.address, borrow_fee, withdraw_fee);
         await router.setWhitelistedOperator([manager], [true]);
         await tradingCore.setWhitelistedOperator([manager], [true]);
         await swapRelayer.setWhitelist([oracleSwapRouter.target], [true]);

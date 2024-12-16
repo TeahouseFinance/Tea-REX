@@ -4,6 +4,7 @@ const { ethers, upgrades } = require("hardhat");
 const {
   loadFixture, time
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { qTestnet } = require("viem/chains");
 
 const FEE_CAP = 300000;
 const interestRateModelType = 2;
@@ -49,10 +50,11 @@ describe("TeaRex Router", function () {
         const { owner, tradingCore, feeTreasury, user, interestRateModel, routerAtProxy } = await deployRouterProxyFixture();
         const { mockToken } = await deployERC20Fixture(owner); 
         const borrow_fee = 10_000;
+        const withdraw_fee = 1000;
 
         await routerAtProxy.setInterestRateModel(interestRateModelType, await interestRateModel.getAddress());
         await routerAtProxy.setTradingCore(await tradingCore.address);
-        await routerAtProxy.setFeeConfig(await feeTreasury.address, borrow_fee);
+        await routerAtProxy.setFeeConfig(await feeTreasury.address, borrow_fee, withdraw_fee);
         await routerAtProxy.setEnableWhitelist(true);
         await routerAtProxy.setWhitelistedOperator([tradingCore.address, owner.address], [true, true]);
         await routerAtProxy.createLendingPool(
@@ -135,19 +137,22 @@ describe("TeaRex Router", function () {
             const { feeTreasury, routerAtProxy } = await loadFixture(deployRouterProxyFixture);
 
             const borrowFee = 10_000;
-            await routerAtProxy.setFeeConfig(feeTreasury.address, borrowFee);
+            const withdrawFee = 1_000;
+            await routerAtProxy.setFeeConfig(feeTreasury.address, borrowFee, withdrawFee);
 
-            const [feeReceiver, fee] = await routerAtProxy.getFeeConfig();
+            const [feeReceiver, borrow_fee, withdraw_fee] = await routerAtProxy.getFeeConfig();
 
             expect(feeReceiver).to.equal(feeTreasury.address);
-            expect(fee).to.equal(borrowFee);
+            expect(borrow_fee).to.equal(borrowFee);
+            expect(withdraw_fee).to.equal(withdrawFee);
         });
 
-        it("Should revert if the fee config set with invalid borrow fee", async function () {
+        it("Should revert if the fee config set with invalid fee", async function () {
             const { feeTreasury, routerAtProxy } = await loadFixture(deployRouterProxyFixture);
             
             const borrowFee = FEE_CAP + 1;
-            await expect(routerAtProxy.setFeeConfig(feeTreasury.address, borrowFee))
+            const withdrawFee = 1000;
+            await expect(routerAtProxy.setFeeConfig(feeTreasury.address, borrowFee, withdrawFee))
             .to.be.revertedWithCustomError(routerAtProxy, "ExceedsFeeCap");
         });
 
@@ -239,7 +244,8 @@ describe("TeaRex Router", function () {
 
         it("Should not be able to call from non-owner", async function () {
             const { tradingCore, feeTreasury, interestRateModel, user, routerAtProxy } = await loadFixture(deployRouterProxyFixture);
-            const borrowFee = 100_000;
+            const borrowFee = 10_000;
+            const withdrawFee = 1000;
             // We can increase the time in Hardhat Network
             await expect(routerAtProxy.connect(user).pause())
             .to.be.revertedWithCustomError(routerAtProxy, "OwnableUnauthorizedAccount");
@@ -250,7 +256,7 @@ describe("TeaRex Router", function () {
             await expect(routerAtProxy.connect(user).setTradingCore(await tradingCore.address))
             .to.be.revertedWithCustomError(routerAtProxy, "OwnableUnauthorizedAccount");
 
-            await expect(routerAtProxy.connect(user).setFeeConfig(await feeTreasury.address, borrowFee))
+            await expect(routerAtProxy.connect(user).setFeeConfig(await feeTreasury.address, borrowFee, withdrawFee))
             .to.be.revertedWithCustomError(routerAtProxy, "OwnableUnauthorizedAccount");
 
             await expect(routerAtProxy.connect(user).setInterestRateModel(interestRateModelType, await interestRateModel.getAddress()))
@@ -283,7 +289,8 @@ describe("TeaRex Router", function () {
             const poolContract = await ethers.getContractAt("Pool", pool);
             const amount = ethers.parseUnits("1", await mockToken.decimals());
             await mockToken.transfer(tradingCore.address, amount);
-            expect(await mockToken.balanceOf(tradingCore.address)).to.equal(amount);
+            const before_supply_amount = await mockToken.balanceOf(tradingCore.address);
+            expect(before_supply_amount).to.equal(amount);
 
             await mockToken.connect(tradingCore).approve(pool, amount);
             expect(await routerAtProxy.connect(tradingCore).supply(
@@ -292,14 +299,16 @@ describe("TeaRex Router", function () {
                 tradingCore.address,
                 amount
             )).to.emit(routerAtProxy, "Supplied")
-            .withArgs(tradingCore.address, tradingCore.address, underlyingAsset, anyValue);
+            .withArgs(tradingCore.address, tradingCore.address, underlyingAsset, amount);
+            const after_supply_amount = await mockToken.balanceOf(tradingCore.address);
+            expect(before_supply_amount - after_supply_amount).to.equal(amount);
 
             const teaTokenAmount = amount * 1000000000000000000n;
             expect(await poolContract.balanceOf(tradingCore.address)).to.equal(teaTokenAmount);
             expect(await mockToken.balanceOf(tradingCore.address)).to.equal(0);
             expect(await mockToken.balanceOf(pool)).to.equal(amount);
             expect(await routerAtProxy.balanceOf(
-                underlyingAsset, 
+                underlyingAsset,
                 feeConfig._modelType,
                 tradingCore.address
             )).to.equal(teaTokenAmount);
@@ -309,6 +318,18 @@ describe("TeaRex Router", function () {
                 feeConfig._modelType,
                 tradingCore.address
             )).to.equal(amount);
+            
+            const withdraw_fee_amount = ethers.parseUnits("0.001", await mockToken.decimals()); // withdraw_fee 0.1%
+            expect(await routerAtProxy.connect(tradingCore).withdraw(
+                underlyingAsset,
+                feeConfig._modelType,
+                tradingCore.address,
+                teaTokenAmount
+            )).to.changeTokenBalances(
+                mockToken,
+                [pool, tradingCore],
+                [-withdraw_fee_amount, withdraw_fee_amount]
+            );
         });
 
         it("Should not be able to withdraw more than supply", async function () {
@@ -325,16 +346,11 @@ describe("TeaRex Router", function () {
                 amount
             );
             
-            await expect(routerAtProxy.connect(tradingCore).withdraw(
+            await routerAtProxy.connect(tradingCore).withdraw(
                 underlyingAsset,
                 feeConfig._modelType,
                 tradingCore.address,
-                amount*1000000000000000000n
-            )).to.changeTokenBalances(
-                mockToken, 
-                [pool, tradingCore], 
-                [-amount, amount]
-            );
+                amount*1100000000000000000n);
         });
 
         it("Should be able to repay the debt", async function () {
