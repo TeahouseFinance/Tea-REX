@@ -116,8 +116,8 @@ async function deployContracts() {
         50000,      // open position loss ratio < 5%
         500000,     // allow max 50% loss on margin
         20000,      // 2%
-        ethers.parseEther("1000000", 6),
-        ethers.parseEther("100000", 18)
+        ethers.parseUnits("1000000", 6),
+        ethers.parseUnits("100000", 18)
     );
 
     const marketAddress = await tradingCore.pairMarket(token0, token1);
