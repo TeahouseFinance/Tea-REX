@@ -52,6 +52,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
         FEE_CAP = _feeCap;
         poolBeacon = _beacon;
+        enableWhitelist = true;
     }
 
     function pause() external override onlyOwner {
