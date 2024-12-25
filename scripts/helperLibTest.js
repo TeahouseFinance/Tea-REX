@@ -69,7 +69,7 @@ async function deployContracts() {
     await router.setInterestRateModel(2, variableInterestRateModel);
     await router.setFeeConfig(treasury, 20000, 0);     // 2% borrowing fee, no withdraw fee
     await router.setTradingCore(tradingCore);
-    await router.setWhitelistedOperator([manager], [true]);
+    await router.setWhitelistedOperator([owner], [true]);
     await tradingCore.setWhitelistedOperator([manager], [true]);
 
     // set up oracle
