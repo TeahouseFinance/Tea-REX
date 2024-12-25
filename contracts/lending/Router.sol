@@ -136,6 +136,38 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         if (lendingPool == Pool(address(0))) revert PoolNotExists();
     }
 
+    function getSupplyRate(
+        ERC20PermitUpgradeable _underlyingAsset,
+        InterestRateModelType _modelType
+    ) external override view returns (
+        uint256 rate
+    ) {
+        (
+            uint256 supplied,
+            uint256 borrowed,
+            ,
+            uint24 reserveRatio
+        ) = pool[_underlyingAsset][_modelType].getLendingStatus();
+        
+        rate = IInterestRateModel(interestRateModel[_modelType]).getSupplyRate(supplied, borrowed, reserveRatio);
+    }
+
+    function getBorrowRate(
+        ERC20PermitUpgradeable _underlyingAsset,
+        InterestRateModelType _modelType
+    ) external override view returns (
+        uint256 rate
+    ) {
+        (
+            uint256 supplied,
+            uint256 borrowed,
+            ,
+            uint24 reserveRatio
+        ) = pool[_underlyingAsset][_modelType].getLendingStatus();
+        
+        rate = IInterestRateModel(interestRateModel[_modelType]).getBorrowRate(supplied, borrowed, reserveRatio);
+    }
+
     function supply(
         ERC20PermitUpgradeable _underlyingAsset,
         InterestRateModelType _modelType,

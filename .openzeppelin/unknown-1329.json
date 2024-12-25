@@ -1605,6 +1605,283 @@
           ]
         }
       }
+    },
+    "80aa97eaca39d28059be374e5ad8c3ba54cdda5d74b7859368c1ccb6ab3a8b5f": {
+      "address": "0x8f11DB35891C055434D0eB17F87a129421CB02F6",
+      "txHash": "0x7b3c347007bfc6ffb295602e922ab4879303fe3c634383bcb7dd2d48cba3f154",
+      "layout": {
+        "solcVersion": "0.8.26",
+        "storage": [
+          {
+            "label": "poolBeacon",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:24"
+          },
+          {
+            "label": "tradingCore",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_address",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:25"
+          },
+          {
+            "label": "lendingPoolImplementation",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:26"
+          },
+          {
+            "label": "FEE_CAP",
+            "offset": 20,
+            "slot": "2",
+            "type": "t_uint32",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:27"
+          },
+          {
+            "label": "feeConfig",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_struct(FeeConfig)9748_storage",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:28"
+          },
+          {
+            "label": "enableWhitelist",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_bool",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:29"
+          },
+          {
+            "label": "pool",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_contract(ERC20PermitUpgradeable)1416,t_mapping(t_enum(InterestRateModelType)9740,t_contract(Pool)12797))",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:31"
+          },
+          {
+            "label": "interestRateModel",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_enum(InterestRateModelType)9740,t_address)",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:32"
+          },
+          {
+            "label": "isAssetEnabled",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_contract(ERC20PermitUpgradeable)1416,t_bool)",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:33"
+          },
+          {
+            "label": "whitelistedOperator",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "Router",
+            "src": "contracts/lending/Router.sol:34"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)80_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)1117_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)1188_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_contract(ERC20PermitUpgradeable)1416": {
+            "label": "contract ERC20PermitUpgradeable",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Pool)12797": {
+            "label": "contract Pool",
+            "numberOfBytes": "20"
+          },
+          "t_enum(InterestRateModelType)9740": {
+            "label": "enum IRouter.InterestRateModelType",
+            "members": [
+              "Null",
+              "Static",
+              "Variable",
+              "End"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20PermitUpgradeable)1416,t_bool)": {
+            "label": "mapping(contract ERC20PermitUpgradeable => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20PermitUpgradeable)1416,t_mapping(t_enum(InterestRateModelType)9740,t_contract(Pool)12797))": {
+            "label": "mapping(contract ERC20PermitUpgradeable => mapping(enum IRouter.InterestRateModelType => contract Pool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(InterestRateModelType)9740,t_address)": {
+            "label": "mapping(enum IRouter.InterestRateModelType => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_enum(InterestRateModelType)9740,t_contract(Pool)12797)": {
+            "label": "mapping(enum IRouter.InterestRateModelType => contract Pool)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(FeeConfig)9748_storage": {
+            "label": "struct IRouter.FeeConfig",
+            "members": [
+              {
+                "label": "treasury",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "borrowFee",
+                "type": "t_uint32",
+                "offset": 20,
+                "slot": "0"
+              },
+              {
+                "label": "withdrawalFee",
+                "type": "t_uint32",
+                "offset": 24,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:40",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
     }
   }
 }

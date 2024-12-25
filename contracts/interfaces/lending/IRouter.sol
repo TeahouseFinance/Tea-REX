@@ -108,6 +108,18 @@ interface IRouter {
     /// @return lendingPool Address of the lending pool
     function getLendingPool(ERC20PermitUpgradeable underlyingAsset, InterestRateModelType modelType) external view returns (IPool lendingPool);
     
+    /// @notice Get current supplied yield rate
+    /// @param underlyingAsset Address of the underlying token
+    /// @param modelType Type of the interest rate model
+    /// @return rate Current supplied yield rate
+    function getSupplyRate(ERC20PermitUpgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
+
+    /// @notice Get current borrowed interest rate
+    /// @param underlyingAsset Address of the underlying token
+    /// @param modelType Type of the interest rate model
+    /// @return rate Current borrowed interest rate
+    function getBorrowRate(ERC20PermitUpgradeable underlyingAsset, InterestRateModelType modelType) external view returns (uint256 rate);
+
     /// @notice Supply tokens to the lending pool and mint interest-bearing tokens
     /// @param underlyingAsset Address of the underlying token
     /// @param modelType Type of the interest rate model
