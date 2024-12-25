@@ -118,8 +118,8 @@ describe("TeaRex Trading Core", function () {
         await router.setInterestRateModel(interestRateModelType, interestRateModel);
         await router.setTradingCore(tradingCore);
         await router.setFeeConfig(feeTreasury.address, borrow_fee, withdraw_fee);
-        await router.setWhitelistedOperator([manager], [true]);
-        await tradingCore.setWhitelistedOperator([manager], [true]);
+        await router.setWhitelistedOperator([manager, owner], [true, true]);
+        await tradingCore.setWhitelistedOperator([manager, owner], [true, true]);
         await swapRelayer.setWhitelist([oracleSwapRouter.target], [true]);
         
         await router.createLendingPool(
