@@ -394,7 +394,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
         if (_amountDelta > 0) {
             uint256 rateDelta = _amountDelta / totalSupply();
-            _isIncrease ? rate + rateDelta : rate - rateDelta;
+            // H-01
+            rate = _isIncrease ? rate + rateDelta : rate - rateDelta;
         }
     }
 
