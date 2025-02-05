@@ -285,10 +285,15 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _positionId,
         uint256 _addedAmount
     ) external override nonReentrant onlyNotPaused onlyTradingCore {
-        Position storage position = positions[_positionId];
+        Position memory position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
 
         position.marginAmount = position.marginAmount + _addedAmount;
+        // H-04: market status remains no changes since it only records position size, margin is not included
+        if (position.isMarginAsset) {
+            position.swappableAmount = position.swappableAmount + _addedAmount;
+        }
+        positions[_positionId] = position;
     }
 
 
