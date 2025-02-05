@@ -11,6 +11,7 @@ import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
 contract ChainlinkOracle is IAssetOracle, Ownable {
 
     error InvalidAssetAddress();
+    error OraclePriceIsInvalid();
 
     struct OracleInfo {
         AggregatorV3Interface priceOracle;
@@ -79,6 +80,10 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
 
         (,int256 assetPrice,,,) = assetInfo.priceOracle.latestRoundData();
         (,int256 basePrice,,,) = baseInfo.priceOracle.latestRoundData();
+
+        // L-01
+        if (assetPrice < 0) revert OraclePriceIsInvalid();
+        if (basePrice < 0) revert OraclePriceIsInvalid();
 
         uint256 mulDecimals = baseInfo.totalDecimals + priceDecimals;
         uint256 divDecimals = assetInfo.totalDecimals;
