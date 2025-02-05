@@ -309,7 +309,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     ) {
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
-        (, , uint256 newSuppliedConversionRate, uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
+        (, , , uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
 
         DebtInfo memory _debtInfo = debtInfo[_id];
