@@ -183,7 +183,7 @@ contract TradingCore is
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) external override nonReentrant returns (
+    ) external override nonReentrant whenNotPaused returns (
         uint256 positionId
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
@@ -221,7 +221,7 @@ contract TradingCore is
         uint24 _stopLossRateTolerance,
         address _swapRouter,
         bytes calldata _data
-    ) external override nonReentrant returns (
+    ) external override nonReentrant whenNotPaused returns (
         uint256 positionId
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
@@ -315,7 +315,7 @@ contract TradingCore is
         uint256 _takeProfit,
         uint256 _stopLoss,
         uint24 _stopLossRateTolerance
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         (, , , MarketNFT market, , address positionOwner) = _beforeModifyOpeningPosition(_market, _positionId);
         if (positionOwner != msg.sender) revert NotPositionOwner();
 
@@ -332,7 +332,7 @@ contract TradingCore is
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         (
             ERC20PermitUpgradeable token0,
             ERC20PermitUpgradeable token1,
@@ -352,7 +352,7 @@ contract TradingCore is
         address _market,
         uint256 _positionId,
         uint256 _addedAmount
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         (
             ERC20PermitUpgradeable token0,
             ERC20PermitUpgradeable token1,
@@ -476,7 +476,7 @@ contract TradingCore is
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
-    ) external override nonReentrant returns (
+    ) external override nonReentrant whenNotPaused returns (
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
@@ -504,7 +504,7 @@ contract TradingCore is
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
-    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+    ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
@@ -532,7 +532,7 @@ contract TradingCore is
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
-    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+    ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
@@ -560,7 +560,7 @@ contract TradingCore is
         ICalldataProcessor _calldataProcessor,
         address _swapRouter,
         bytes calldata _data
-    ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
+    ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
