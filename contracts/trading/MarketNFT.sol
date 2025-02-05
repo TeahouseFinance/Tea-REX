@@ -565,7 +565,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) internal pure returns (
         uint256 value
     ) {
-        value = _tokenAmount.mulDiv(_tokenPrice, 10 ** _oracleDecimals );
+        // M-01
+        value = _tokenAmount.mulDiv(_tokenPrice, 10 ** _oracleDecimals, Math.Rounding.Ceil);
     }
 
     function _getRelativePrice(
