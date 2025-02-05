@@ -337,7 +337,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
             uint256 loss = _toUnderlying(_debtInfo.borrowedTeaToken, newBorrowedConversionRate, false);
             uint256 _pendingFee = pendingFee;
             if (loss > _pendingFee) {
-                newSuppliedConversionRate = _calculateSuppliedRate(false, loss - _pendingFee);
+                // H-05
+                suppliedConversionRate = _calculateSuppliedRate(false, loss - _pendingFee);
                 pendingFee = 0;
             }
             else {
