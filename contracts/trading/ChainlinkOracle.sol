@@ -12,12 +12,14 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
 
     error InvalidAssetAddress();
     error OraclePriceIsInvalid();
+    error OraclePriceIsTooOld();
 
     struct OracleInfo {
         AggregatorV3Interface priceOracle;
         uint8 priceDecimals;
         uint8 assetDecimals;
         uint8 totalDecimals;
+        uint64 priceTimeLimit;
     }
 
     uint8 private priceDecimals;
@@ -78,12 +80,21 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
 
         OracleInfo storage baseInfo = oracleInfo[baseAsset];
 
-        (,int256 assetPrice,,,) = assetInfo.priceOracle.latestRoundData();
-        (,int256 basePrice,,,) = baseInfo.priceOracle.latestRoundData();
+        (,int256 assetPrice,,uint256 assetUpdateTime,) = assetInfo.priceOracle.latestRoundData();
+        (,int256 basePrice,,uint256 baseUpdateTime,) = baseInfo.priceOracle.latestRoundData();
 
         // L-01
         if (assetPrice < 0) revert OraclePriceIsInvalid();
         if (basePrice < 0) revert OraclePriceIsInvalid();
+
+        // L-07
+        if (assetUpdateTime + uint256(assetInfo.priceTimeLimit) < block.timestamp) {
+            revert OraclePriceIsTooOld();
+        }
+
+        if (baseUpdateTime + uint256(baseInfo.priceTimeLimit) < block.timestamp) {
+            revert OraclePriceIsTooOld();
+        }
 
         uint256 mulDecimals = baseInfo.totalDecimals + priceDecimals;
         uint256 divDecimals = assetInfo.totalDecimals;
