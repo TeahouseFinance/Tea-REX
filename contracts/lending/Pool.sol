@@ -286,7 +286,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 borrowedUnderlying = _toUnderlying(_borrowedTeaToken, newBorrowedConversionRate, false);
         _checkBorrowable(suppliedUnderlying, borrowedUnderlying, _amountToBorrow);
 
-        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, false);
+        // L-02
+        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, true);
         id = idCounter;
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
