@@ -96,6 +96,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function _setSupplyCap(uint256 _cap) internal {
+        if (borrowCap > _cap) revert InvalidCap();
+
         supplyCap = _cap == 0 ? Constant.UINT256_MAX : _cap;
     }
 
@@ -104,6 +106,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function _setBorrowCap(uint256 _cap) internal {
+        if (_cap > supplyCap) revert InvalidCap();
+
         borrowCap = _cap == 0 ? Constant.UINT256_MAX : _cap;
     }
 
