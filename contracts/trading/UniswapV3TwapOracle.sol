@@ -86,7 +86,7 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
             }));
             _asset = _asset == token0 ? token1 : token0;
 
-            unchecked { i = i + 1; }
+            unchecked { ++i; }
         }
         if (token0 != baseAsset && token1 != baseAsset) revert BaseAssetMismatch();
     }
@@ -142,7 +142,7 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
             }
             price = price.mulDiv(relativePrice, 10 ** DECIMALS);
 
-            unchecked { i = i + 1; }
+            unchecked { ++i; }
         }
     }
 }

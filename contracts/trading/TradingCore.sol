@@ -416,7 +416,7 @@ contract TradingCore is
             _feeConfig,
             _mode == IMarketNFT.CloseMode.Liquidate
         );
-        _assetTokenToSwap = _updateassetTokenToSwap(_assetTokenToSwap, swappableAfterFee);
+        _assetTokenToSwap = _updateAssetTokenToSwap(_assetTokenToSwap, swappableAfterFee);
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
         if (address(_calldataProcessor) != address(0)) {
             _data = _calldataProcessor.processCalldata(
@@ -775,7 +775,7 @@ contract TradingCore is
         _router.collectInterestFeeAndCommit(debt, position.interestRateModelType);
     }
 
-    function _updateassetTokenToSwap(
+    function _updateAssetTokenToSwap(
         uint256 _assetTokenToSwap,
         uint256 swappableAfterFee
     ) internal pure returns (
@@ -810,8 +810,10 @@ contract TradingCore is
 
     function setWhitelistedOperator(address[] calldata _accounts, bool[] calldata _isWhitelisted) external onlyOwner {
         uint256 length = _accounts.length;
-        for (uint256 i; i < length; i = i + 1) {
+        for (uint256 i; i < length; ) {
             whitelistedOperator[_accounts[i]] = _isWhitelisted[i];
+
+            unchecked { ++i; }
         }
     }
 

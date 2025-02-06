@@ -117,26 +117,30 @@ contract SEINativeOracle is IAssetOracle, Ownable {
             // use spot price
             IOracle.DenomOracleExchangeRatePair[] memory results = ORACLE_CONTRACT.getExchangeRates();
 
-            for (uint256 i = 0; i < results.length; i++) {
+            for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
                 }
                 else if (bytes(results[i].denom).length == baseInfo.nameLength && keccak256(bytes(results[i].denom)) == baseInfo.nameHash) {
                     basePrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
                 }
+
+                unchecked { ++i; }
             }
         }
         else {
             // use twap price
             IOracle.OracleTwap[] memory results = ORACLE_CONTRACT.getOracleTwaps(lookbackSeconds);
 
-            for (uint256 i = 0; i < results.length; i++) {
+            for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].twap);
                 }
                 else if (bytes(results[i].denom).length == baseInfo.nameLength && keccak256(bytes(results[i].denom)) == baseInfo.nameHash) {
                     basePrice = _decodePrice(results[i].twap);
                 }
+
+                unchecked { ++i; }
             }
         }
 

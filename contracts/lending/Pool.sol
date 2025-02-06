@@ -128,24 +128,23 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     function _toUnderlying(
         uint256 _teaTokenAmount,
         uint256 _conversionRate,
-        bool _isRoudingUp
+        bool _isRoundingUp
     ) internal view returns (
         uint256 underlyingAmount
     ) {
-        underlyingAmount = _isRoudingUp ? 
+        underlyingAmount = _isRoundingUp ? 
             _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER) : 
             _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
-
     }
 
     function _toTeaToken(
         uint256 _underlyingAmount,
         uint256 _conversionRate,
-        bool _isRoudingUp
+        bool _isRoundingUp
     ) internal view returns (
         uint256 teaTokenAmount
     ) {
-        teaTokenAmount = _isRoudingUp ? 
+        teaTokenAmount = _isRoundingUp ? 
             _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate) : 
             _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate, Math.Rounding.Ceil);
     }
@@ -231,20 +230,17 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
     function claimFee() external override nonReentrant onlyNotPaused returns (uint256 claimedFee, uint256 unclaimedFee) {
         _collectInterestFeeAndCommit();
-
-        ERC20PermitUpgradeable _underlyingAsset = underlyingAsset;
-        uint256 balance = _underlyingAsset.balanceOf(address(this));
-        unclaimedFee = pendingFee;
-        claimedFee = balance > unclaimedFee ? unclaimedFee : balance;
-
+        
+        uint256 balance = underlyingAsset.balanceOf(address(this));
+        claimedFee = balance > pendingFee ? pendingFee : balance;
         if (claimedFee > 0) {
-            unclaimedFee = unclaimedFee - claimedFee;
-            pendingFee = unclaimedFee;
+            pendingFee -= claimedFee;
             address treasury = router.getFeeConfig().treasury;
-            _underlyingAsset.safeTransfer(treasury, claimedFee);
+            underlyingAsset.safeTransfer(treasury, claimedFee);
 
             emit FeeClaimed(treasury, claimedFee);
         }
+        unclaimedFee = pendingFee;
     }
 
     function getUnclaimedFee() external override view returns (uint256 unclaimedFee, uint256 claimableFee) {

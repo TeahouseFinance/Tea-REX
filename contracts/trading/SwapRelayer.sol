@@ -30,8 +30,10 @@ contract SwapRelayer is ISwapRelayer, Ownable {
     function setWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external override onlyOwner {
         if (_router.length != _isWhitelisted.length) revert LengthMismatch();
 
-        for (uint256 i; i < _router.length; i = i + 1) {
+        for (uint256 i; i < _router.length; ) {
             routerWhitelist[_router[i]] = _isWhitelisted[i];
+
+            unchecked { ++i; }
         }
 
         emit SetWhitelist(msg.sender, _router, _isWhitelisted);
