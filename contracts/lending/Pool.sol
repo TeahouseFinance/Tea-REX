@@ -112,6 +112,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function setReserveRatio(uint24 _ratio) external override onlyOwner {
+        // L-03
+        _collectInterestFeeAndCommit();
         _setReserveRatio(_ratio);
     }
 
