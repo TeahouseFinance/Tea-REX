@@ -303,12 +303,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     ) {
+        // I-02
+        DebtInfo memory _debtInfo = debtInfo[_id];
+        if (_debtInfo.isClosed) revert DebtPositionIsClosed();
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
         (, , , uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
-
-        DebtInfo memory _debtInfo = debtInfo[_id];
+    
         uint256 _teaTokenAmount = _toTeaToken(_amount, newBorrowedConversionRate, false);
         if (_teaTokenAmount > _debtInfo.borrowedTeaToken) {
             _teaTokenAmount = _debtInfo.borrowedTeaToken;

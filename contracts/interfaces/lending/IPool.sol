@@ -9,6 +9,7 @@ interface IPool {
 
     error InvalidCap();
     error InvalidPercentage();
+    error DebtPositionIsClosed();
     error ZeroAmountNotAllowed();
     error ExceedsCap();
     error NoUnborrowedUnderlying();
