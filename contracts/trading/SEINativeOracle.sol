@@ -37,11 +37,14 @@ contract SEINativeOracle is IAssetOracle, Ownable {
     error InvalidAssetAddress();
     error UnknownToken();
     error InvalidPriceString();
+    error InvalidOraclePriceTime(); // L-07
+    error OraclePriceIsTooOld();    // L-07
 
     struct OracleInfo {
         bytes32 nameHash;
         uint32 nameLength;
         uint8 assetDecimals;
+        uint64 priceTimeLimit;
     }
 
     address constant private ORACLE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001008;
@@ -120,9 +123,23 @@ contract SEINativeOracle is IAssetOracle, Ownable {
             for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
+                    // L-07
+                    if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
+                        revert InvalidOraclePriceTime();
+                    }
+                    if (uint64(results[i].oracleExchangeRateVal.lastUpdateTimestamp) + assetInfo.priceTimeLimit < block.timestamp) {
+                        revert OraclePriceIsTooOld();
+                    }
                 }
                 else if (bytes(results[i].denom).length == baseInfo.nameLength && keccak256(bytes(results[i].denom)) == baseInfo.nameHash) {
                     basePrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
+                    // L-07
+                    if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
+                        revert InvalidOraclePriceTime();
+                    }
+                    if (uint64(results[i].oracleExchangeRateVal.lastUpdateTimestamp) + baseInfo.priceTimeLimit < block.timestamp) {
+                        revert OraclePriceIsTooOld();
+                    }
                 }
 
                 unchecked { ++i; }
