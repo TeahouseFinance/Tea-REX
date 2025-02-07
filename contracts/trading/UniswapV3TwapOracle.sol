@@ -32,16 +32,18 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
     uint256 private constant POW_2_128 = 1 << 128;
     uint256 private constant POW_2_192 = 1 << 192;
     address immutable public baseAsset;
+    uint8 immutable public baseAssetDecimals;
     uint8 private constant DECIMALS = 36;
     mapping(address => PoolInfo[]) public poolInfoChain;
 
     constructor(address _owner, address _baseAsset) Ownable(_owner) {
         baseAsset = _baseAsset;
+        baseAssetDecimals = ERC20(_baseAsset).decimals();
 
         poolInfoChain[_baseAsset].push(PoolInfo({
             pool: IUniswapV3Pool(address(1)),
             twapInterval: 0,
-            decimals0: ERC20(_baseAsset).decimals(),
+            decimals0: baseAssetDecimals,
             decimals1: 0,
             assetIsToken0: true
         }));
@@ -140,7 +142,10 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
                         sqrtPriceX96
                     ) / 10 ** (_poolInfo.decimals0 - _poolInfo.decimals1) / sqrtPriceX96;
             }
-            price = price.mulDiv(relativePrice, 10 ** DECIMALS);
+            // M-05
+            price = _poolInfoChain[0].assetIsToken0 ? 
+                price.mulDiv(relativePrice * (10 ** baseAssetDecimals), 10 ** (DECIMALS + _poolInfoChain[0].decimals0)) : 
+                price.mulDiv(relativePrice * (10 ** baseAssetDecimals), 10 ** (DECIMALS + _poolInfoChain[0].decimals1));
 
             unchecked { ++i; }
         }
