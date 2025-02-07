@@ -142,12 +142,15 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
                         sqrtPriceX96
                     ) / 10 ** (_poolInfo.decimals0 - _poolInfo.decimals1) / sqrtPriceX96;
             }
-            // M-05
-            price = _poolInfoChain[0].assetIsToken0 ? 
-                price.mulDiv(relativePrice * (10 ** baseAssetDecimals), 10 ** (DECIMALS + _poolInfoChain[0].decimals0)) : 
-                price.mulDiv(relativePrice * (10 ** baseAssetDecimals), 10 ** (DECIMALS + _poolInfoChain[0].decimals1));
+            price = price = price.mulDiv(relativePrice, 10 ** DECIMALS);
 
             unchecked { ++i; }
         }
+
+        // M-05
+        price = price.mulDiv(
+            10 ** baseAssetDecimals,
+            10 ** (_poolInfoChain[0].assetIsToken0 ? _poolInfoChain[0].decimals0 : _poolInfoChain[0].decimals1)
+        );
     }
 }
