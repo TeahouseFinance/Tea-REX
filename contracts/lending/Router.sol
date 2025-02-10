@@ -196,11 +196,9 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         ERC20PermitUpgradeable _underlyingAsset,
         InterestRateModelType _modelType,
         uint256 _amountToBorrow
-    ) external override nonReentrant returns (
+    ) external override nonReentrant onlyTradingCore returns (
         address
     ) {
-        if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
-
         IPool lendingPool = _getLendingPool(_underlyingAsset, _modelType);
         lendingPool.borrow(tradingCore, _amountToBorrow);
 
@@ -211,11 +209,9 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         ERC20PermitUpgradeable _underlyingAsset,
         InterestRateModelType _modelType,
         uint256 _amountToBorrow
-    ) external override nonReentrant returns (
+    ) external override nonReentrant onlyTradingCore returns (
         uint256
     ) {
-        if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
-
         return _getLendingPool(_underlyingAsset, _modelType).commitBorrow(tradingCore, _amountToBorrow);
     }
 
@@ -226,12 +222,10 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256 _id,
         uint256 _amount,
         bool _forceClose
-    ) external override nonReentrant returns (
+    ) external override nonReentrant onlyTradingCore returns (
         uint256,
         uint256
     ) {
-        if (msg.sender != tradingCore) revert CallerIsNotTradingCore();
-
         return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _amount, _forceClose);
     }
 
@@ -301,13 +295,24 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function setWhitelistedOperator(address[] calldata _accounts, bool[] calldata _isWhitelisted) external onlyOwner {
         uint256 length = _accounts.length;
-        for (uint256 i; i < length; i = i + 1) {
+        for (uint256 i; i < length; ) {
             whitelistedOperator[_accounts[i]] = _isWhitelisted[i];
+
+            unchecked { ++i; }
         }
+    }
+
+    function _onlyTradingCore() internal view {
+        if (msg.sender != address(tradingCore)) revert CallerIsNotTradingCore();
     }
 
     function _onlyWhitelistedOperator(address _account) internal view {
         if (enableWhitelist && !whitelistedOperator[_account]) revert NotInWhitelist();
+    }
+
+    modifier onlyTradingCore() {
+        _onlyTradingCore();
+        _;
     }
 
     modifier onlyWhitelistedOperator(address _account) {

@@ -37,8 +37,8 @@ contract SEINativeOracle is IAssetOracle, Ownable {
     error InvalidAssetAddress();
     error UnknownToken();
     error InvalidPriceString();
-    error InvalidOracleUpdateTime();
-    error OraclePriceIsTooOld();
+    error InvalidOraclePriceTime(); // L-07
+    error OraclePriceIsTooOld();    // L-07
 
     struct OracleInfo {
         bytes32 nameHash;
@@ -120,12 +120,12 @@ contract SEINativeOracle is IAssetOracle, Ownable {
             // use spot price
             IOracle.DenomOracleExchangeRatePair[] memory results = ORACLE_CONTRACT.getExchangeRates();
 
-            for (uint256 i = 0; i < results.length; i++) {
+            for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
                     // L-07
                     if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
-                        revert InvalidOracleUpdateTime();
+                        revert InvalidOraclePriceTime();
                     }
                     if (uint64(results[i].oracleExchangeRateVal.lastUpdateTimestamp) + assetInfo.priceTimeLimit < block.timestamp) {
                         revert OraclePriceIsTooOld();
@@ -135,25 +135,29 @@ contract SEINativeOracle is IAssetOracle, Ownable {
                     basePrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
                     // L-07
                     if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
-                        revert InvalidOracleUpdateTime();
+                        revert InvalidOraclePriceTime();
                     }
                     if (uint64(results[i].oracleExchangeRateVal.lastUpdateTimestamp) + baseInfo.priceTimeLimit < block.timestamp) {
                         revert OraclePriceIsTooOld();
                     }
                 }
+
+                unchecked { ++i; }
             }
         }
         else {
             // use twap price
             IOracle.OracleTwap[] memory results = ORACLE_CONTRACT.getOracleTwaps(lookbackSeconds);
 
-            for (uint256 i = 0; i < results.length; i++) {
+            for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].twap);
                 }
                 else if (bytes(results[i].denom).length == baseInfo.nameLength && keccak256(bytes(results[i].denom)) == baseInfo.nameHash) {
                     basePrice = _decodePrice(results[i].twap);
                 }
+
+                unchecked { ++i; }
             }
         }
 

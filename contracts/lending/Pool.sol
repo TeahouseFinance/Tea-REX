@@ -96,6 +96,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function _setSupplyCap(uint256 _cap) internal {
+        if (borrowCap > _cap) revert InvalidCap();
+
         supplyCap = _cap == 0 ? Constant.UINT256_MAX : _cap;
     }
 
@@ -104,10 +106,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function _setBorrowCap(uint256 _cap) internal {
+        if (_cap > supplyCap) revert InvalidCap();
+
         borrowCap = _cap == 0 ? Constant.UINT256_MAX : _cap;
     }
 
     function setReserveRatio(uint24 _ratio) external override onlyOwner {
+        // L-03
+        _collectInterestFeeAndCommit();
         _setReserveRatio(_ratio);
     }
 
@@ -128,24 +134,23 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     function _toUnderlying(
         uint256 _teaTokenAmount,
         uint256 _conversionRate,
-        bool _isRoudingUp
+        bool _isRoundingUp
     ) internal view returns (
         uint256 underlyingAmount
     ) {
-        underlyingAmount = _isRoudingUp ? 
+        underlyingAmount = _isRoundingUp ? 
             _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER) : 
             _teaTokenAmount.mulDiv(_conversionRate, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
-
     }
 
     function _toTeaToken(
         uint256 _underlyingAmount,
         uint256 _conversionRate,
-        bool _isRoudingUp
+        bool _isRoundingUp
     ) internal view returns (
         uint256 teaTokenAmount
     ) {
-        teaTokenAmount = _isRoudingUp ? 
+        teaTokenAmount = _isRoundingUp ? 
             _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate) : 
             _underlyingAmount.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, _conversionRate, Math.Rounding.Ceil);
     }
@@ -231,20 +236,17 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
     function claimFee() external override nonReentrant onlyNotPaused returns (uint256 claimedFee, uint256 unclaimedFee) {
         _collectInterestFeeAndCommit();
-
-        ERC20PermitUpgradeable _underlyingAsset = underlyingAsset;
-        uint256 balance = _underlyingAsset.balanceOf(address(this));
-        unclaimedFee = pendingFee;
-        claimedFee = balance > unclaimedFee ? unclaimedFee : balance;
-
+        
+        uint256 balance = underlyingAsset.balanceOf(address(this));
+        claimedFee = balance > pendingFee ? pendingFee : balance;
         if (claimedFee > 0) {
-            unclaimedFee = unclaimedFee - claimedFee;
-            pendingFee = unclaimedFee;
+            pendingFee -= claimedFee;
             address treasury = router.getFeeConfig().treasury;
-            _underlyingAsset.safeTransfer(treasury, claimedFee);
+            underlyingAsset.safeTransfer(treasury, claimedFee);
 
             emit FeeClaimed(treasury, claimedFee);
         }
+        unclaimedFee = pendingFee;
     }
 
     function getUnclaimedFee() external override view returns (uint256 unclaimedFee, uint256 claimableFee) {
@@ -286,7 +288,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 borrowedUnderlying = _toUnderlying(_borrowedTeaToken, newBorrowedConversionRate, false);
         _checkBorrowable(suppliedUnderlying, borrowedUnderlying, _amountToBorrow);
 
-        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, false);
+        // L-02
+        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, true);
         id = idCounter;
         idCounter = idCounter + 1;
         debtInfo[id] = DebtInfo({
@@ -307,12 +310,14 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     ) {
+        // I-02
+        DebtInfo memory _debtInfo = debtInfo[_id];
+        if (_debtInfo.isClosed) revert DebtPositionIsClosed();
         if (_amount == 0) revert ZeroAmountNotAllowed();
 
         (, , , uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
-
-        DebtInfo memory _debtInfo = debtInfo[_id];
+    
         uint256 _teaTokenAmount = _toTeaToken(_amount, newBorrowedConversionRate, false);
         if (_teaTokenAmount > _debtInfo.borrowedTeaToken) {
             _teaTokenAmount = _debtInfo.borrowedTeaToken;
