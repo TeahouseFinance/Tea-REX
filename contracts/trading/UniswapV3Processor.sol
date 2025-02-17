@@ -17,12 +17,12 @@ contract UniswapV3Processor is ICalldataProcessor {
         if (selector == ISwapRouter.exactOutputSingle.selector) {
             (ISwapRouter.ExactOutputSingleParams memory params) = abi.decode(data[4:], (ISwapRouter.ExactOutputSingleParams));
             params.amountOut = amount;
-            return abi.encodeWithSelector(selector, (params));
+            return abi.encodeCall(ISwapRouter.exactOutputSingle, (params));
         }
         else if (selector == ISwapRouter.exactOutput.selector) {
             (ISwapRouter.ExactOutputParams memory params) = abi.decode(data[4:], (ISwapRouter.ExactOutputParams));
             params.amountOut = amount;
-            return abi.encodeWithSelector(selector, (params));
+            return abi.encodeCall(ISwapRouter.exactOutput, (params));
         }
         else {
             revert InvalidCalldata();
