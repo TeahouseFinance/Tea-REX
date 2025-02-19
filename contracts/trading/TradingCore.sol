@@ -659,6 +659,7 @@ contract TradingCore is
     ) {
         token0 = ERC20PermitUpgradeable(MarketNFT(_market).token0());
         token1 = ERC20PermitUpgradeable(MarketNFT(_market).token1());
+        if (pairMarket[token0][token1] != IMarketNFT(_market)) revert InvalidMarketPair();
     }
 
     function _getPositionTokens(

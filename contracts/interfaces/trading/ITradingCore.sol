@@ -25,6 +25,7 @@ interface ITradingCore {
     error AmountExceedsLimit();
     error NotInWhitelist();
     error InvalidAsset();
+    error InvalidMarketPair();
 
     event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1);
     event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
