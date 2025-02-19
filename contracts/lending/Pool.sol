@@ -453,8 +453,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 rateDeltaInterest = _calculateInterests(_borrowedConversionRate, interestRate, timeElapsed);
         uint256 rateDeltaFee = _calculateInterests(_borrowedConversionRate, router.getFeeConfig().borrowFee, timeElapsed);
         // H-02
-        interest = _borrowedTeaToken.mulDiv(rateDeltaInterest, RATE_MULTIPLIER * DECIMALS_MULTIPLIER);
-        fee = _borrowedTeaToken.mulDiv(rateDeltaFee, RATE_MULTIPLIER * DECIMALS_MULTIPLIER);
+        interest = _borrowedTeaToken.mulDiv(rateDeltaInterest, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
+        fee = _borrowedTeaToken.mulDiv(rateDeltaFee, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
         newSuppliedConversionRate = _calculateSuppliedRate(true, interest);
         newBorrowedConversionRate = _borrowedConversionRate + rateDeltaInterest + rateDeltaFee;
     }
