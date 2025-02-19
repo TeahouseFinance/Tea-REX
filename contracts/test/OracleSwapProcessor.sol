@@ -16,7 +16,7 @@ contract OracleSwapProcessor is ICalldataProcessor {
 
         if (selector == OracleSwap.swapExactOutput.selector) {
             (address inToken, address outToken,, address receiver, uint256 maxInAmount) = abi.decode(data[4:], (address, address, uint256, address, uint256));
-            return abi.encodeWithSelector(selector, inToken, outToken, amount, receiver, maxInAmount);
+            return abi.encodeCall(OracleSwap.swapExactOutput, (inToken, outToken, amount, receiver, maxInAmount));
         }
         else {
             revert InvalidCalldata();
