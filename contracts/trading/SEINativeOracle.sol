@@ -60,12 +60,13 @@ contract SEINativeOracle is IAssetOracle, Ownable {
         uint8 _decimals,
         uint64 _lookbackSeconds,
         IERC20Metadata _baseAsset,
-        string memory _baseAssetName
+        string memory _baseAssetName,
+        uint64 _priceTimeLimit
     ) Ownable(_owner) {
         priceDecimals = _decimals;
         baseAsset = _baseAsset;
         lookbackSeconds = _lookbackSeconds;
-        _addAsset(_baseAsset, _baseAssetName);
+        _addAsset(_baseAsset, _baseAssetName, _priceTimeLimit);
     }
 
     function decimals() external view returns (uint8) {
@@ -80,8 +81,8 @@ contract SEINativeOracle is IAssetOracle, Ownable {
         lookbackSeconds = _lookbackSeconds;
     }
 
-    function setAsset(address _asset, string calldata _assetName) external onlyOwner {
-        _addAsset(IERC20Metadata(_asset), _assetName);
+    function setAsset(address _asset, string calldata _assetName, uint64 _priceTimeLimit) external onlyOwner {
+        _addAsset(IERC20Metadata(_asset), _assetName, _priceTimeLimit);
     }
 
     function removeAsset(address _asset) external onlyOwner {
@@ -91,13 +92,14 @@ contract SEINativeOracle is IAssetOracle, Ownable {
         delete oracleInfo[IERC20Metadata(_asset)];
     }
 
-    function _addAsset(IERC20Metadata _asset, string memory _assetName) internal {
+    function _addAsset(IERC20Metadata _asset, string memory _assetName, uint64 _priceTimeLimit) internal {
         require(address(_asset) != address(0), InvalidAssetAddress());
 
         OracleInfo storage info = oracleInfo[_asset];
         info.nameHash = keccak256(bytes(_assetName));
         info.nameLength = uint32(bytes(_assetName).length);
         info.assetDecimals = _asset.decimals();  // token is assumed to have decimals() function
+        info.priceTimeLimit = _priceTimeLimit; // L-07
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {

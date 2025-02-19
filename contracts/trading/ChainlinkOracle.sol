@@ -30,11 +30,12 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         address _owner,
         uint8 _decimals,
         IERC20Metadata _baseAsset,
-        AggregatorV3Interface _baseOracle
+        AggregatorV3Interface _baseOracle,
+        uint64 _priceTimeLimit
     ) Ownable(_owner) {
         priceDecimals = _decimals;
         baseAsset = _baseAsset;
-        _addAsset(_baseAsset, _baseOracle);
+        _addAsset(_baseAsset, _baseOracle, _priceTimeLimit);
     }
 
     function decimals() external view returns (uint8) {
@@ -45,8 +46,8 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         return address(baseAsset);
     }
 
-    function setAsset(address _asset, AggregatorV3Interface _priceOracle) external onlyOwner {
-        _addAsset(IERC20Metadata(_asset), _priceOracle);
+    function setAsset(address _asset, AggregatorV3Interface _priceOracle, uint64 _priceTimeLimit) external onlyOwner {
+        _addAsset(IERC20Metadata(_asset), _priceOracle, _priceTimeLimit);
     }
 
     function removeAsset(address _asset) external onlyOwner {
@@ -56,7 +57,7 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         delete oracleInfo[IERC20Metadata(_asset)];
     }
 
-    function _addAsset(IERC20Metadata _asset, AggregatorV3Interface _priceOracle) internal {
+    function _addAsset(IERC20Metadata _asset, AggregatorV3Interface _priceOracle, uint64 _priceTimeLimit) internal {
         require(address(_asset) != address(0), InvalidAssetAddress());
 
         OracleInfo storage info = oracleInfo[_asset];
@@ -64,6 +65,7 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         info.assetDecimals = _asset.decimals();  // token is assumed to have decimals() function
         info.priceDecimals = _priceOracle.decimals();
         info.totalDecimals = info.assetDecimals + info.priceDecimals;
+        info.priceTimeLimit = _priceTimeLimit; // L-07
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {
