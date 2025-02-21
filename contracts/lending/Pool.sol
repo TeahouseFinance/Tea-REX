@@ -18,8 +18,6 @@ import {ITradingCore} from "../interfaces/trading/ITradingCore.sol";
 import {Constant} from "../libraries/Constant.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-// import "hardhat/console.sol";
-
 contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for ERC20PermitUpgradeable;
     using Math for uint256;
@@ -112,7 +110,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function setReserveRatio(uint24 _ratio) external override onlyOwner {
-        // L-03
         _collectInterestFeeAndCommit();
         _setReserveRatio(_ratio);
     }
@@ -288,7 +285,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 borrowedUnderlying = _toUnderlying(_borrowedTeaToken, newBorrowedConversionRate, false);
         _checkBorrowable(suppliedUnderlying, borrowedUnderlying, _amountToBorrow);
 
-        // L-02
         uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, true);
         id = idCounter;
         idCounter = idCounter + 1;
@@ -310,7 +306,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 repaidUnderlyingAmount,
         uint256 unrepaidUnderlyingAmount
     ) {
-        // I-02
         DebtInfo memory _debtInfo = debtInfo[_id];
         if (_debtInfo.isClosed) revert DebtPositionIsClosed();
         if (_amount == 0) revert ZeroAmountNotAllowed();
@@ -338,11 +333,9 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         }
         else if (_forceClose) {
             _debtInfo.isClosed = true;
-            // H-03
             uint256 loss = _toUnderlying(_debtInfo.borrowedTeaToken, newBorrowedConversionRate, false);
             uint256 _pendingFee = pendingFee;
             if (loss > _pendingFee) {
-                // H-05
                 suppliedConversionRate = _calculateSuppliedRate(false, loss - _pendingFee);
                 pendingFee = 0;
             }
@@ -401,7 +394,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
         if (_amountDelta > 0) {
             uint256 rateDelta = _amountDelta / totalSupply();
-            // H-01
             rate = _isIncrease ? rate + rateDelta : rate - rateDelta;
         }
     }
@@ -452,7 +444,6 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
         uint256 rateDeltaInterest = _calculateInterests(_borrowedConversionRate, interestRate, timeElapsed);
         uint256 rateDeltaFee = _calculateInterests(_borrowedConversionRate, router.getFeeConfig().borrowFee, timeElapsed);
-        // H-02
         interest = _borrowedTeaToken.mulDiv(rateDeltaInterest, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
         fee = _borrowedTeaToken.mulDiv(rateDeltaFee, RATE_MULTIPLIER * DECIMALS_MULTIPLIER, Math.Rounding.Ceil);
         newSuppliedConversionRate = _calculateSuppliedRate(true, interest);

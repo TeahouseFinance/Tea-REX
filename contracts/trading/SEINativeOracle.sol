@@ -125,7 +125,6 @@ contract SEINativeOracle is IAssetOracle, Ownable {
             for (uint256 i = 0; i < results.length; ) {
                 if (bytes(results[i].denom).length == assetInfo.nameLength && keccak256(bytes(results[i].denom)) == assetInfo.nameHash) {
                     assetPrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
-                    // L-07
                     if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
                         revert InvalidOraclePriceTime();
                     }
@@ -135,7 +134,6 @@ contract SEINativeOracle is IAssetOracle, Ownable {
                 }
                 else if (bytes(results[i].denom).length == baseInfo.nameLength && keccak256(bytes(results[i].denom)) == baseInfo.nameHash) {
                     basePrice = _decodePrice(results[i].oracleExchangeRateVal.exchangeRate);
-                    // L-07
                     if (results[i].oracleExchangeRateVal.lastUpdateTimestamp < 0) {
                         revert InvalidOraclePriceTime();
                     }

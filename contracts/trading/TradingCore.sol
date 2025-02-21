@@ -274,7 +274,6 @@ contract TradingCore is
         address pool = _router.borrow(debt, _interestRateModelType, _borrowAmount);
         FeeConfig memory _feeConfig = _getFeeForAccount(msg.sender);
         uint256 tradingFee = _calculateTradingFee(false, _borrowAmount, _feeConfig);
-        // M-02
         _collectTradingFee(debt, tradingFee, _feeConfig);
 
         (uint256 debtAmount, uint256 assetAmount) = _swap(

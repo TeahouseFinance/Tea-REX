@@ -85,7 +85,6 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         (,int256 assetPrice,,uint256 assetUpdateTime,) = assetInfo.priceOracle.latestRoundData();
         (,int256 basePrice,,uint256 baseUpdateTime,) = baseInfo.priceOracle.latestRoundData();
 
-        // L-07
         if (assetUpdateTime + assetInfo.priceTimeLimit < block.timestamp) {
             revert OraclePriceIsTooOld();
         }
@@ -94,7 +93,6 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
             revert OraclePriceIsTooOld();
         }
 
-        // L-01
         if (assetPrice < 0) revert OraclePriceIsInvalid();
         if (basePrice < 0) revert OraclePriceIsInvalid();
 

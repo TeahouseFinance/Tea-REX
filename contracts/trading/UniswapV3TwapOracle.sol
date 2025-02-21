@@ -147,7 +147,6 @@ contract UniswapV3TwapOracle is IAssetOracle, Ownable {
             unchecked { ++i; }
         }
 
-        // M-05
         price = price.mulDiv(
             10 ** baseAssetDecimals,
             10 ** (_poolInfoChain[0].assetIsToken0 ? _poolInfoChain[0].decimals0 : _poolInfoChain[0].decimals1)

@@ -289,7 +289,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
 
         position.marginAmount = position.marginAmount + _addedAmount;
-        // H-04: market status remains no changes since it only records position size, margin is not included
         if (position.isMarginAsset) {
             position.swappableAmount = position.swappableAmount + _addedAmount;
         }
@@ -518,7 +517,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetValue = _getTokenValue(oracleDecimals, _position.assetAmount, assetPrice);
             uint256 marginValue = _getTokenValue(oracleDecimals, _position.marginAmount, marginPrice);
             uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
-            // L-05
+
             if (lossRatio >= liquidateLossRatioThreshold) revert HighLossRatio();
         }
 
@@ -566,7 +565,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) internal pure returns (
         uint256 value
     ) {
-        // M-01
         value = _tokenAmount.mulDiv(_tokenPrice, 10 ** _oracleDecimals, Math.Rounding.Ceil);
     }
 
