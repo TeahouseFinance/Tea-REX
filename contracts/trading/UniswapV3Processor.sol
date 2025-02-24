@@ -3,7 +3,8 @@
 
 pragma solidity =0.8.26;
 
-import {ISwapRouter} from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import {ICalldataProcessor} from "../interfaces/trading/ICalldataProcessor.sol";
 
 /// replace 
@@ -23,6 +24,16 @@ contract UniswapV3Processor is ICalldataProcessor {
             (ISwapRouter.ExactOutputParams memory params) = abi.decode(data[4:], (ISwapRouter.ExactOutputParams));
             params.amountOut = amount;
             return abi.encodeCall(ISwapRouter.exactOutput, (params));
+        }
+        else if (selector == IV3SwapRouter.exactOutputSingle.selector) {
+            (IV3SwapRouter.ExactOutputSingleParams memory params) = abi.decode(data[4:], (IV3SwapRouter.ExactOutputSingleParams));
+            params.amountOut = amount;
+            return abi.encodeCall(IV3SwapRouter.exactOutputSingle, (params));
+        }
+        else if (selector == IV3SwapRouter.exactOutput.selector) {
+            (IV3SwapRouter.ExactOutputParams memory params) = abi.decode(data[4:], (IV3SwapRouter.ExactOutputParams));
+            params.amountOut = amount;
+            return abi.encodeCall(IV3SwapRouter.exactOutput, (params));
         }
         else {
             revert InvalidCalldata();
