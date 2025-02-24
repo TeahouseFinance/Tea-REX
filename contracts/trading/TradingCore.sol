@@ -70,6 +70,7 @@ contract TradingCore is
 
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);
+        __Pausable_init();
         __ReentrancyGuard_init();
 
         FEE_CAP = _feeCap;
