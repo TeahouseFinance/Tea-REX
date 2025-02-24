@@ -37,8 +37,8 @@ contract SEINativeOracle is IAssetOracle, Ownable {
     error InvalidAssetAddress();
     error UnknownToken();
     error InvalidPriceString();
-    error InvalidOraclePriceTime(); // L-07
-    error OraclePriceIsTooOld();    // L-07
+    error InvalidOraclePriceTime();
+    error OraclePriceIsTooOld();
 
     struct OracleInfo {
         bytes32 nameHash;
@@ -99,7 +99,7 @@ contract SEINativeOracle is IAssetOracle, Ownable {
         info.nameHash = keccak256(bytes(_assetName));
         info.nameLength = uint32(bytes(_assetName).length);
         info.assetDecimals = _asset.decimals();  // token is assumed to have decimals() function
-        info.priceTimeLimit = _priceTimeLimit; // L-07
+        info.priceTimeLimit = _priceTimeLimit;
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {

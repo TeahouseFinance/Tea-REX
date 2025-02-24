@@ -65,7 +65,7 @@ contract ChainlinkOracle is IAssetOracle, Ownable {
         info.assetDecimals = _asset.decimals();  // token is assumed to have decimals() function
         info.priceDecimals = _priceOracle.decimals();
         info.totalDecimals = info.assetDecimals + info.priceDecimals;
-        info.priceTimeLimit = _priceTimeLimit; // L-07
+        info.priceTimeLimit = _priceTimeLimit;
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {
