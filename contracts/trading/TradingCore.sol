@@ -411,7 +411,7 @@ contract TradingCore is
         if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
 
         FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
-        uint256 swappableAfterFee = _getSwappableAfterFee(
+        (uint256 swappableAfterFee, uint256 tradingFee) = _getSwappableAfterFee(
             _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
             _feeConfig,
             _mode == IMarketNFT.CloseMode.Liquidate
@@ -433,8 +433,14 @@ contract TradingCore is
             _swapRouter,
             _data
         );
-    
-        uint256 tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, swappedAssetToken, _feeConfig);
+
+        if (swappedAssetToken == _assetTokenToSwap) {
+            // To prevent from remaining small amount of asset in a position after mulDiv floor + ceil calculation
+            _collectTradingFee(asset, tradingFee, _feeConfig);
+        }
+        else {
+            tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, swappedAssetToken, _feeConfig);
+        }
         (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = market.closePosition(
             _mode,
             _positionId,
@@ -634,7 +640,7 @@ contract TradingCore is
         address positionOwner = market.ownerOf(_positionId);
         FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
 
-        swappableAfterFee = _getSwappableAfterFee(
+        (swappableAfterFee, ) = _getSwappableAfterFee(
             _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
             _feeConfig,
             _mode == IMarketNFT.CloseMode.Liquidate
@@ -710,11 +716,13 @@ contract TradingCore is
         FeeConfig memory _feeConfig,
         bool isLiquidation
     ) internal pure returns (
-        uint256 swappableAmount
+        uint256 swappableAmount,
+        uint256 fee
     ) {
         swappableAmount = isLiquidation ? 
             _amount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee + _feeConfig.liquidationFee) : 
             _amount.mulDiv(Percent.MULTIPLIER, Percent.MULTIPLIER + _feeConfig.tradingFee);
+        fee = _amount - swappableAmount;
     }
 
     function _swap(
