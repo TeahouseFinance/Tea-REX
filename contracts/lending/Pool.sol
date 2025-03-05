@@ -393,7 +393,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         rate = suppliedConversionRate;
 
         if (_amountDelta > 0) {
-            uint256 rateDelta = _amountDelta / totalSupply();
+            uint256 rateDelta = _amountDelta.mulDiv(RATE_MULTIPLIER * DECIMALS_MULTIPLIER, totalSupply());
             rate = _isIncrease ? rate + rateDelta : rate - rateDelta;
         }
     }
