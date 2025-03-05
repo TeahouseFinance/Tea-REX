@@ -80,7 +80,7 @@ contract AggregatorHelper is IAggregatorHelper {
     }
 
     function _adjustCalldata(
-        bytes memory _calldata,
+        bytes calldata _calldata,
         uint256 _amount,
         uint256 _amountOffset
     ) internal pure returns (bytes memory) {
@@ -98,34 +98,20 @@ contract AggregatorHelper is IAggregatorHelper {
         bytes memory newCalldata = new bytes(dataLength);
 
         assembly {
-            let calldataPtr := add(_calldata, 32) // skip the length prefix
             let newCalldataPtr := add(newCalldata, 32)
-            let amountPtr := add(newCalldataPtr, _amountOffset)
-            let calldataLength := mload(_calldata) // get length of calldata
 
-            // copy the first 4 bytes
-            let signature := mload(calldataPtr)
-            mstore8(newCalldataPtr, shr(248, signature))
-            mstore8(add(newCalldataPtr, 1), shr(240, signature))
-            mstore8(add(newCalldataPtr, 2), shr(232, signature))
-            mstore8(add(newCalldataPtr, 3), shr(224, signature))
+            // store data length
+            mstore(newCalldata, dataLength)
 
-            // copy the remaining bytes of the first part by word
-             for { let i := 4 } lt(i, _amountOffset) { i := add(i, 32) } {
-                mstore(add(newCalldataPtr, i), mload(add(calldataPtr, i)))
-             }
-            
+            // copy _amountOffset bytes
+            calldatacopy(newCalldataPtr, _calldata.offset, _amountOffset)
+
             // store the uint256 amount at the offset
-            mstore(amountPtr, _amount)
-            
-            // copy the rest of the calldata after offset + 32 by word
-            let offsetAfter := add(_amountOffset, 32)
-             for { let i := offsetAfter } lt(i, calldataLength) { i := add(i, 32) } {
-                mstore(add(newCalldataPtr, i), mload(add(calldataPtr, i)))
-             }
+            mstore(add(newCalldataPtr, _amountOffset), _amount)
 
-            // copy the length of the calldata
-            mstore(newCalldata, calldataLength)
+            // copy remaining bytes
+            let newOffset := add(_amountOffset, 32)
+            calldatacopy(add(newCalldataPtr, newOffset), add(_calldata.offset, newOffset), sub(dataLength, newOffset))
         }
 
         return newCalldata;
