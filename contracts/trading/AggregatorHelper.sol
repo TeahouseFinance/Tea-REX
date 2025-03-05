@@ -79,14 +79,14 @@ contract AggregatorHelper is IAggregatorHelper {
         _dst.approve(_scrapRouter, 0);
     }
 
-    // TODO: needs to check correctness
     function _adjustCalldata(
         bytes memory _calldata,
         uint256 _amount,
         uint256 _amountOffset
     ) internal pure returns (bytes memory) {
         uint256 dataLength = _calldata.length;
-        //Check for offset.
+
+        // check for offset
         if (_amountOffset + 32 > dataLength) {
              revert IncorrectScrapAmountOffset();
         }
@@ -94,30 +94,37 @@ contract AggregatorHelper is IAggregatorHelper {
              revert IncorrectScrapAmountOffset();
         }
 
-        // Create a copy of the calldata
+        // create a copy of the calldata
         bytes memory newCalldata = new bytes(dataLength);
 
         assembly {
-            let calldataPtr := add(_calldata, 32) // Skip the length prefix
+            let calldataPtr := add(_calldata, 32) // skip the length prefix
             let newCalldataPtr := add(newCalldata, 32)
             let amountPtr := add(newCalldataPtr, _amountOffset)
-            let calldataLength := mload(_calldata) // Get length of calldata
+            let calldataLength := mload(_calldata) // get length of calldata
 
-            // Copy the first part of the calldata before offset, by byte.
-             for { let i := 0 } lt(i, _amountOffset) { i := add(i, 1) } {
-                mstore8(add(newCalldataPtr, i), and(mload(add(calldataPtr, i)), 0xff))
+            // copy the first 4 bytes
+            let signature := mload(calldataPtr)
+            mstore8(newCalldataPtr, shr(248, signature))
+            mstore8(add(newCalldataPtr, 1), shr(240, signature))
+            mstore8(add(newCalldataPtr, 2), shr(232, signature))
+            mstore8(add(newCalldataPtr, 3), shr(224, signature))
+
+            // copy the remaining bytes of the first part by word
+             for { let i := 4 } lt(i, _amountOffset) { i := add(i, 32) } {
+                mstore(add(newCalldataPtr, i), mload(add(calldataPtr, i)))
              }
             
-            // Store the uint256 amount at the offset
+            // store the uint256 amount at the offset
             mstore(amountPtr, _amount)
             
-            // Copy the rest of the calldata after offset + 32. by byte
+            // copy the rest of the calldata after offset + 32 by word
             let offsetAfter := add(_amountOffset, 32)
-             for { let i := offsetAfter } lt(i, calldataLength) { i := add(i, 1) } {
-                mstore8(add(newCalldataPtr, i), and(mload(add(calldataPtr, i)), 0xff))
+             for { let i := offsetAfter } lt(i, calldataLength) { i := add(i, 32) } {
+                mstore(add(newCalldataPtr, i), mload(add(calldataPtr, i)))
              }
 
-            // Copy the length of the calldata
+            // copy the length of the calldata
             mstore(newCalldata, calldataLength)
         }
 
