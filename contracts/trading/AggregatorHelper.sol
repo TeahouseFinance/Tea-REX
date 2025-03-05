@@ -39,7 +39,7 @@ contract AggregatorHelper is IAggregatorHelper {
 
         uint256 balanceOut = _dst.balanceOf(address(this));
         if (balanceOut > _amountOut) {
-            _scrapSwap(_src, _dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
+            _scrapSwap(_dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
         }
 
         balanceOut = _dst.balanceOf(address(this));
@@ -53,7 +53,6 @@ contract AggregatorHelper is IAggregatorHelper {
     }
 
     function _scrapSwap(
-        ERC20PermitUpgradeable _src,
         ERC20PermitUpgradeable _dst,
         uint256 _amountIn,
         address _scrapRouter,
@@ -106,7 +105,7 @@ contract AggregatorHelper is IAggregatorHelper {
 
             // Copy the first part of the calldata before offset, by byte.
              for { let i := 0 } lt(i, _amountOffset) { i := add(i, 1) } {
-                mstore8(add(newCalldataPtr, i), mload8(add(calldataPtr, i)))
+                mstore8(add(newCalldataPtr, i), and(mload(add(calldataPtr, i)), 0xff))
              }
             
             // Store the uint256 amount at the offset
@@ -115,7 +114,7 @@ contract AggregatorHelper is IAggregatorHelper {
             // Copy the rest of the calldata after offset + 32. by byte
             let offsetAfter := add(_amountOffset, 32)
              for { let i := offsetAfter } lt(i, calldataLength) { i := add(i, 1) } {
-                mstore8(add(newCalldataPtr, i), mload8(add(calldataPtr, i)))
+                mstore8(add(newCalldataPtr, i), and(mload(add(calldataPtr, i)), 0xff))
              }
 
             // Copy the length of the calldata
