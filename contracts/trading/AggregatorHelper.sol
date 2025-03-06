@@ -23,7 +23,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
 
     event SetWhitelist(address sender, address[] router, bool[] isWhitelisted);    
 
-    bool checkWhitelist;
+    bool public checkWhitelist;
     mapping(address => bool) public routerWhitelist;    
     
     constructor(address initialOwner) Ownable(initialOwner) {
