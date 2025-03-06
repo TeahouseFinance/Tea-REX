@@ -19,8 +19,8 @@ contract AggregatorHelper is IAggregatorHelper {
     error IncorrectScrapAmountOffset();
 
     function swapExactOutput(
-        ERC20PermitUpgradeable _src,
-        ERC20PermitUpgradeable _dst,
+        address _src,
+        address _dst,
         uint256 _amountIn,
         uint256 _amountOut,
         address _aggregator,
@@ -29,8 +29,10 @@ contract AggregatorHelper is IAggregatorHelper {
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
     ) external {
-        _src.safeTransferFrom(msg.sender, address(this), _amountIn);
-        _src.approve(_aggregator, _amountIn);
+        ERC20PermitUpgradeable src = ERC20PermitUpgradeable(_src);
+        ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
+        src.safeTransferFrom(msg.sender, address(this), _amountIn);
+        src.approve(_aggregator, _amountIn);
         (bool success, bytes memory returndata) = _aggregator.call(_aggregatorCalldata);
         uint256 length = returndata.length;
         if (!success) {
@@ -40,21 +42,21 @@ contract AggregatorHelper is IAggregatorHelper {
             }
         }
 
-        _src.approve(_aggregator, 0);
+        src.approve(_aggregator, 0);
 
-        uint256 balanceOut = _dst.balanceOf(address(this));
+        uint256 balanceOut = dst.balanceOf(address(this));
         if (balanceOut > _amountOut) {
-            _scrapSwap(_dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
+            _scrapSwap(dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
         }
 
-        balanceOut = _dst.balanceOf(address(this));
+        balanceOut = dst.balanceOf(address(this));
         if (balanceOut != 0) {
             revert OutputScrapNotCleared();
         }
 
          // send tokens back to caller
-        _src.safeTransfer(msg.sender, _src.balanceOf(address(this)));
-        _dst.safeTransfer(msg.sender, _dst.balanceOf(address(this)));        
+        src.safeTransfer(msg.sender, src.balanceOf(address(this)));
+        dst.safeTransfer(msg.sender, dst.balanceOf(address(this)));        
     }
 
     function _scrapSwap(

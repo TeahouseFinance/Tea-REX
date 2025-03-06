@@ -3,8 +3,6 @@
 
 pragma solidity =0.8.26;
 
-import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-
 /// @title Swap helper contract for aggregators to support swapExactOutput
 /// @notice This contract calls an aggregator for a normal swap input call, and a second call to a
 /// @notice normal swap contract with the remaining tokens to swap the extra (scrap) dst tokens back
@@ -27,8 +25,8 @@ interface IAggregatorHelper {
     /// @dev as it's possible the amount of scrap tokens is too small and resulted in no source tokens,
     /// @dev so the caller is responsible of making sure the _scrapCalldata is properly set up.
     function swapExactOutput(
-        ERC20PermitUpgradeable _src,
-        ERC20PermitUpgradeable _dst,
+        address _src,
+        address _dst,
         uint256 _amountIn,
         uint256 _amountOut,
         address _aggregator,
