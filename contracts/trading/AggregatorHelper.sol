@@ -7,6 +7,10 @@ import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/
 import {IAggregatorHelper} from "../interfaces/trading/IAggregatorHelper.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @title Swap helper contract for aggregators to support swapExactOutput
+/// @notice This contract calls an aggregator for a normal swap input call, and a second call to a
+/// @notice normal swap contract with the remaining tokens to swap the extra dst tokens back to src token,
+/// @notice thus making sure that the amount of dst tokens is exactly the same as specified.
 contract AggregatorHelper is IAggregatorHelper {
     using SafeERC20 for ERC20PermitUpgradeable;
 
@@ -25,6 +29,7 @@ contract AggregatorHelper is IAggregatorHelper {
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
     ) external {
+        _src.safeTransferFrom(msg.sender, address(this), _amountIn);
         _src.approve(_aggregator, _amountIn);
         (bool success, bytes memory returndata) = _aggregator.call(_aggregatorCalldata);
         uint256 length = returndata.length;
