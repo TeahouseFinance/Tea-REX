@@ -132,7 +132,16 @@ async function deployContracts() {
 
     await swapRelayer.setWhitelist([ oracleSwap.target ], [ true ]);
 
-    return { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap };
+    // deploy AggregatorHelper and processor
+    const AggregatorHelper = await ethers.getContractFactory("AggregatorHelper");
+    const aggregatorHelper = await AggregatorHelper.deploy(owner);
+    await aggregatorHelper.setWhitelist([ oracleSwap.target ], [ true ]);
+    const AggregatorHelperProcessor = await ethers.getContractFactory("AggregatorHelperProcessor");
+    const aggregatorHelperProcessor = await AggregatorHelperProcessor.deploy();
+
+    await swapRelayer.setWhitelist([ aggregatorHelper.target ], [ true ]);
+
+    return { owner, treasury, manager, user, baseToken, targetToken, router, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap, aggregatorHelper, aggregatorHelperProcessor };
 }
 
 // get event
@@ -325,6 +334,54 @@ async function closePosition(tradingCore, user, market, positionId, swapFunction
             swapData
         );
     }
+}
+
+// close position using AggregatorHelper
+async function closePositionAggregator(tradingCore, user, market, positionId, aggregatorHelper, aggregatorHelperProcessor, oracleSwap) {
+    const token0 = await market.token0();
+    const token1 = await market.token1();
+    const isToken0Margin = await market.isToken0Margin();
+    const baseToken = isToken0Margin ? token0 : token1;
+    const targetToken = isToken0Margin ? token1 : token0;
+
+    const positionInfo = await market.getPosition(positionId);
+    const assetAmount = positionInfo.assetAmount;
+
+    // get current price
+    const prices = await market.getTokenPrices();
+    const basePrice = isToken0Margin ? prices.price0 : prices.price1;
+    const targetPrice = isToken0Margin ? prices.price1 : prices.price0;
+
+    // this function handles short positions only, repay all debts
+    // estimate how much baseToken is required to repay all debts, add 1% as safty margin
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    const inputAmount = debtOfPosition.debtAmount * targetPrice * 101n / (basePrice * 100n);
+
+    const oracleSwapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [ baseToken, targetToken, inputAmount, aggregatorHelper.target, 0 ]);
+    const scrapSwapData = oracleSwap.interface.encodeFunctionData("swapExactInput", [ targetToken, baseToken, 0, aggregatorHelper.target, 0 ]);
+    const swapData = aggregatorHelper.interface.encodeFunctionData("swapExactOutput",
+        [
+            baseToken,
+            targetToken,
+            inputAmount,
+            debtOfPosition.debtAmount,
+            oracleSwap.target,
+            oracleSwapData,
+            oracleSwap.target,
+            scrapSwapData,
+            32 * 2 + 4
+        ]);
+    
+    const assets = assetAmount + positionInfo.marginAmount;
+    return await tradingCore.connect(user).closePosition(
+        market,
+        positionId,
+        assets,
+        0,
+        aggregatorHelperProcessor,
+        aggregatorHelper,
+        swapData
+    );
 }
 
 // liquidate position
@@ -743,8 +800,68 @@ async function testShortPositionLiquidate(tradingCore, manager, user, baseToken,
     console.log("----------------");
 }
 
+async function testShortPositionAggregatorHelper(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, aggregatorHelper, aggregatorHelperProcessor, startPrice, endPrice, timespan) {
+    console.log("Test short position with AggregatorHelper:");
+
+    // get lending pool
+    const router = await ethers.getContractAt("Router", await tradingCore.router());
+    const pool = await ethers.getContractAt("Pool", await router.pool(targetToken, 2));
+    const tokensInPoolBefore = await targetToken.balanceOf(pool);
+
+    // adjust price
+    console.log("Start price:", startPrice);
+    await mockOracle.setTokenPrice(targetToken, startPrice);
+
+    // open position to short targetToken
+    const marginAmount = ethers.parseUnits("1000", 6);
+    const leverage = 5n;
+    const borrowAmount = marginAmount * leverage * 10n ** 36n / startPrice;
+    const tokensBeforeOpen = await baseToken.balanceOf(user);
+    await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, oracleSwapper(oracleSwap, oracleSwapProcessor));
+    const tokensAfterOpen = await baseToken.balanceOf(user);
+    console.log("token used for open:", tokensBeforeOpen - tokensAfterOpen);
+
+    // get positionId
+    const positions = await market.balanceOf(user);
+    const positionId = await market.tokenOfOwnerByIndex(user, positions - 1n);
+    console.log("Position TokenID:", positionId);
+    const positionInfo = await market.getPosition(positionId);
+    console.log(positionInfo);
+    const debtOfPosition = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position:", debtOfPosition.debtAmount);
+    const liquidationPrice = await tradingCore.getLiquidationPrice(market, positionId);
+    console.log("Liquidation price:", liquidationPrice);
+
+    // wait for some time
+    await helpers.time.increase(timespan);
+    
+    const debtOfPosition2 = await tradingCore.debtOfPosition(market, positionId);
+    console.log("Debt of position (after " + timespan + " seconds):", debtOfPosition2.debtAmount);
+
+    // adjust price
+    console.log("End price:", endPrice);
+    await mockOracle.setTokenPrice(targetToken, endPrice);
+
+    // close position using AggregatorHelper
+    const tokensBeforeClose = await baseToken.balanceOf(user);
+    const targetBeforeClose = await targetToken.balanceOf(user);
+    const tx = await closePositionAggregator(tradingCore, user, market, positionId, aggregatorHelper, aggregatorHelperProcessor, oracleSwap);
+    const tokensAfterClose = await baseToken.balanceOf(user);
+    const targetAfterClose = await targetToken.balanceOf(user);
+    const event = await getEvent(tradingCore, tx, "ClosePosition");
+    console.log("ClosePosition event:", event[0].args);
+
+    console.log("token received after close:", tokensAfterClose - tokensBeforeClose);
+    console.log("target token received after close:", targetAfterClose - targetBeforeClose);
+    const tokensInPoolAfter = await targetToken.balanceOf(pool);
+    console.log("token diff in pool:", tokensInPoolAfter - tokensInPoolBefore);
+    const positionInfo2 = await market.getPosition(positionId);
+    console.log(positionInfo2);    
+    console.log("----------------");
+}
+
 async function main() {
-    const { owner, treasury, manager, user, baseToken, targetToken, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap } = await deployContracts();
+    const { owner, treasury, manager, user, baseToken, targetToken, tradingCore, market, oracleSwapProcessor, mockOracle, oracleSwap, aggregatorHelper, aggregatorHelperProcessor } = await deployContracts();
 
     // test long position with profit
     await testLongPosition(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
@@ -796,7 +913,6 @@ async function main() {
         86400
     );
 
-
     // test long position with loss to be liquidated
     await testLongPositionLiquidate(tradingCore, manager, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap,
         2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
@@ -837,6 +953,13 @@ async function main() {
         3100n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
         86400 * 180
     );
+
+    // test short position using AggregatorHelper
+    await testShortPositionAggregatorHelper(tradingCore, user, baseToken, targetToken, market, oracleSwapProcessor, mockOracle, oracleSwap, aggregatorHelper, aggregatorHelperProcessor,
+        2500n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        2400n * 10n ** 36n * 10n ** 6n / 10n ** 18n,
+        86400
+    );    
 }
 
 

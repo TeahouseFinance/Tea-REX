@@ -76,13 +76,13 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         balanceOut = dst.balanceOf(address(this));
-        if (balanceOut != 0) {
+        if (balanceOut != _amountOut) {
             revert OutputScrapNotCleared();
         }
 
          // send tokens back to caller
         src.safeTransfer(msg.sender, src.balanceOf(address(this)));
-        dst.safeTransfer(msg.sender, dst.balanceOf(address(this)));        
+        dst.safeTransfer(msg.sender, balanceOut);
     }
 
     function _scrapSwap(
