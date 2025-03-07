@@ -20,6 +20,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     error OutputScrapNotCleared();
     error IncorrectScrapAmountSize();
     error IncorrectScrapAmountOffset();
+    error NoTokenReceived();
 
     event SetWhitelist(address sender, address[] router, bool[] isWhitelisted);    
 
@@ -71,6 +72,10 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         src.approve(_aggregator, 0);
 
         uint256 balanceOut = dst.balanceOf(address(this));
+        if (balanceOut == 0) {
+            revert NoTokenReceived();
+        }
+
         if (balanceOut > _amountOut) {
             _scrapSwap(dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
         }
@@ -80,8 +85,13 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             revert OutputScrapNotCleared();
         }
 
+        uint256 balanceSrc = src.balanceOf(address(this));
+        if (balanceSrc == 0) {
+            revert NoTokenReceived();
+        }
+
          // send tokens back to caller
-        src.safeTransfer(msg.sender, src.balanceOf(address(this)));
+        src.safeTransfer(msg.sender, balanceSrc);
         dst.safeTransfer(msg.sender, balanceOut);
     }
 

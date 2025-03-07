@@ -21,9 +21,6 @@ interface IAggregatorHelper {
     /// @param _scrapRouter swap contract for extra (scrap) destination tokens
     /// @param _scrapCalldata calldata for swapping extra destination tokens
     /// @param _scrapAmountOffset offset (in bytes) for the "amountIn" parameter in _scrapCalldata
-    /// @dev note that this contract does not check if the tokens swapped back go back to this contract,
-    /// @dev as it's possible the amount of scrap tokens is too small and resulted in no source tokens,
-    /// @dev so the caller is responsible of making sure the _scrapCalldata is properly set up.
     function swapExactOutput(
         address _src,
         address _dst,
