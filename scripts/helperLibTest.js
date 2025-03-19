@@ -514,6 +514,10 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, marke
         console.log(positionInfo2);    
     }
 
+    // show share price
+    const rates = await pool.getConversionRates();
+    console.log("Conversion rates:", rates);
+
     // close position
     const tokensBeforeClose = await baseToken.balanceOf(user);
     const targetBeforeClose = await targetToken.balanceOf(user);
