@@ -15,7 +15,9 @@ const SCRAP_ROUTER = '0x11DA6463D6Cb5a03411Dbf5ab6f6bc3997Ac7428';  // UniswapV3
 const SCRAP_ROUTER_FEE = 3000;
 
 const BASE_TOKEN = '0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1';
-const TARGET_TOKEN = '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c';
+const TARGET_TOKEN = '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c';    // WBTC
+//const TARGET_TOKEN = '0x160345fC359604fC6e70E3c5fAcbdE5F7A9342d8';      // WETH
+//const TARGET_TOKEN = '0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7';      // WSEI
 
 const TEST_AMOUNT = '1';
 
@@ -76,8 +78,12 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
         const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
         const finalOutputMin = BigInt(swapInfo.data[0][swapInfo.data[0].length - 1].amountOutMin);
 
-        // add 5% for safe margin
-        const newAmountIn = amount * 105n * debtAmount / finalOutputMin / 100n;
+        // add 2% for safe margin
+        let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
+        if (newAmountIn > amount) {
+            // should not be over amount
+            newAmountIn = amount;
+        }
         const newSwapInfo = await symphonyCalldata(fromToken, toToken, newAmountIn);
         const newfinalOutputMin = BigInt(newSwapInfo.data[0][newSwapInfo.data[0].length - 1].amountOutMin);
 
@@ -126,14 +132,15 @@ async function getMarket(tradingCore, baseToken, targetToken) {
 
 // open position to long targetToken
 async function openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
-    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
-    const { swapContract, swapProcessor, swapData } = await swapFunction(true, tradingCore.target, baseToken, targetToken, receivedAmount);
     const allowance = await baseToken.allowance(user, tradingCore);
     if (allowance < marginAmount) {
-        await baseToken.connect(user).approve(tradingCore, marginAmount);
+        const tx = await baseToken.connect(user).approve(tradingCore, marginAmount);
+        await tx.wait();
     }
 
     const market = await getMarket(tradingCore, baseToken, targetToken);
+    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+    const { swapContract, swapProcessor, swapData } = await swapFunction(true, tradingCore.target, baseToken, targetToken, receivedAmount);
     return await tradingCore.connect(user).openPosition(
         market,
         2,
@@ -151,14 +158,15 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
 
 // open position to short targetToken
 async function openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapFunction) {
-    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
-    const { swapContract, swapProcessor, swapData } = await swapFunction(true, tradingCore.target, targetToken, baseToken, receivedAmount);
     const allowance = await baseToken.allowance(user, tradingCore);
     if (allowance < marginAmount) {
-        await baseToken.connect(user).approve(tradingCore, marginAmount);
+        const tx = await baseToken.connect(user).approve(tradingCore, marginAmount);
+        await tx.wait();
     }
 
     const market = await getMarket(tradingCore, baseToken, targetToken);
+    const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
+    const { swapContract, swapProcessor, swapData } = await swapFunction(true, tradingCore.target, targetToken, baseToken, receivedAmount);
     return await tradingCore.connect(user).openPosition(
         market,
         2,
@@ -237,8 +245,16 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, swapp
     const marginAmount = ethers.parseUnits(TEST_AMOUNT, baseDecimals);
     const leverage = 5n;
     const borrowAmount = marginAmount * leverage;
-    const txOpen = await openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
-    await txOpen.wait();
+    let txOpen;
+    try {
+        txOpen = await openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
+    }
+    catch(error) {
+        // possibly reverted, try again
+        console.log("reverted, try again");
+        txOpen = await openLongPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
+    }
+    await txOpen.wait();    
 
     // get positionId
     const positions = await market.balanceOf(user);
@@ -253,7 +269,15 @@ async function testLongPosition(tradingCore, user, baseToken, targetToken, swapp
     console.log("Liquidation price:", liquidationPrice);
 
     // close position
-    const txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    let txClose;
+    try {
+        txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    }
+    catch(error) {
+        // possibly reverted, try again
+        console.log("reverted, try again");
+        txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    }
     await txClose.wait();
 
     const positionInfoAfterClose = await market.getPosition(positionId);
@@ -276,7 +300,15 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, swap
     const borrowAmount = isToken0Margin ? 
         marginAmount * leverage * prices.price0 / prices.price1 :
         marginAmount * leverage * prices.price1 / prices.price0;
-    const txOpen = await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
+    let txOpen;
+    try {
+        txOpen = await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
+    }
+    catch(error) {
+        // possibly reverted, try again
+        console.log("reverted, try again");
+        txOpen = await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
+    }
     await txOpen.wait();
 
     // get positionId
@@ -292,7 +324,15 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, swap
     console.log("Liquidation price:", liquidationPrice);
 
     // close position
-    const txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    let txClose;
+    try {
+        txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    }
+    catch(error) {
+        // possibly reverted, try again
+        console.log("reverted, try again");
+        txClose = await closePosition(tradingCore, user, market, positionId, swapper);
+    }
     await txClose.wait();
 
     const positionInfoAfterClose = await market.getPosition(positionId);
