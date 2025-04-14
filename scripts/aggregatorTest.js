@@ -10,7 +10,6 @@ const AGGREGATOR_HELPER = '0x5E87CCdb5aF23F1C1300B030998F376f968Ed452';
 const AGGREGATOR_HELPER_PROCESSOR = '0xcEB69875F0485BBb182997daBd30e1c39920A60a';
 
 const AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
-const AGGREGATOR_ROUTER = '0xAD3DF981018149CD90e5869d14Efe2516b108270';
 const SCRAP_ROUTER = '0x11DA6463D6Cb5a03411Dbf5ab6f6bc3997Ac7428';  // UniswapV3 Router
 const SCRAP_ROUTER_FEE = 3000;
 
@@ -24,15 +23,14 @@ const TEST_AMOUNT = '1';
 
 async function symphonyCalldata(fromToken, toToken, amountIn) {
     const slippage = '15';
-    const decimals = await fromToken.decimals();
-    const amountInUnits = ethers.formatUnits(amountIn, decimals);
     
     // Construct the URL
     const queryParams = new URLSearchParams({
         tokenIn: fromToken.target,
         tokenOut: toToken.target,
-        amountIn: amountInUnits,
+        amountIn: amountIn,
         calldata: 'true',
+        isRawAmount: 'true',
         slippage: slippage
     });
 
@@ -65,9 +63,10 @@ async function symphonyCalldata(fromToken, toToken, amountIn) {
 // generate swapData for Symphony aggregator
 async function symphonySwapper(input, receiver, fromToken, toToken, amount, debtAmount = 0n) {
     if (input) {
-        const swapContract = AGGREGATOR_ROUTER;
+        const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
+        const swapContract = swapInfo.routerAddress;
         const swapProcessor = "";
-        const swapData = (await symphonyCalldata(fromToken, toToken, amount)).calldata;
+        const swapData = swapInfo.calldata;
         return { swapContract, swapProcessor, swapData };
     }
     else {
@@ -76,7 +75,8 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
 
         // trying to estimate how much fromToken is required to received required amount
         const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
-        const finalOutputMin = BigInt(swapInfo.data[0][swapInfo.data[0].length - 1].amountOutMin);
+        const finalOutputMin = BigInt(swapInfo.amountOut);
+        const aggregatorRouter = swapInfo.routerAddress;
 
         // add 2% for safe margin
         let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
@@ -110,7 +110,7 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
                 toToken.target,
                 newAmountIn,
                 debtAmount,
-                AGGREGATOR_ROUTER,
+                aggregatorRouter,
                 newSwapInfo.calldata,
                 SCRAP_ROUTER,
                 scrapSwapData,
