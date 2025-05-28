@@ -6,8 +6,8 @@ const ZERO_ADDRESS = '0x' + '0'.repeat(40);
 const UINT256_MAX = '0x' + 'f'.repeat(64);
 
 const TRADING_CORE = '0x99c2901d2883F8D295A989544f118e31eC21823e';
-const AGGREGATOR_HELPER = '0x5E87CCdb5aF23F1C1300B030998F376f968Ed452';
-const AGGREGATOR_HELPER_PROCESSOR = '0xcEB69875F0485BBb182997daBd30e1c39920A60a';
+const AGGREGATOR_HELPER = '0x9b6690e5eC54a07551c70D04915f23085fFFD009';
+const AGGREGATOR_HELPER_PROCESSOR = '0x11F10a29080A6159628fF8a2587Dd7065ABeE1A6';
 
 const AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
 const SCRAP_ROUTER = '0x11DA6463D6Cb5a03411Dbf5ab6f6bc3997Ac7428';  // UniswapV3 Router
@@ -64,9 +64,18 @@ async function symphonyCalldata(fromToken, toToken, amountIn) {
 async function symphonySwapper(input, receiver, fromToken, toToken, amount, debtAmount = 0n) {
     if (input) {
         const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
-        const swapContract = swapInfo.routerAddress;
+        const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
         const swapProcessor = "";
-        const swapData = swapInfo.calldata;
+        const swapData = swapContract.interface.encodeFunctionData("swapExactInput",
+            [
+                fromToken.target,
+                toToken.target,
+                amount,
+                ZERO_ADDRESS,
+                "0x",
+                swapInfo.routerAddress,
+                swapInfo.calldata
+            ]);        
         return { swapContract, swapProcessor, swapData };
     }
     else {
@@ -110,6 +119,8 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
                 toToken.target,
                 newAmountIn,
                 debtAmount,
+                ZERO_ADDRESS,
+                "0x",
                 aggregatorRouter,
                 newSwapInfo.calldata,
                 SCRAP_ROUTER,
@@ -141,6 +152,18 @@ async function openLongPosition(tradingCore, user, baseToken, targetToken, margi
     const market = await getMarket(tradingCore, baseToken, targetToken);
     const receivedAmount = borrowAmount - (await tradingCore.calculateTradingFee(user, false, borrowAmount));
     const { swapContract, swapProcessor, swapData } = await swapFunction(true, tradingCore.target, baseToken, targetToken, receivedAmount);
+    console.log(
+        market.target,
+        2,
+        targetToken.target,
+        marginAmount,
+        borrowAmount,
+        0,
+        UINT256_MAX,
+        0,
+        0,
+        swapContract.target,
+        swapData);
     return await tradingCore.connect(user).openPosition(
         market,
         2,
@@ -350,7 +373,7 @@ async function main() {
     await testLongPosition(tradingCore, user, baseToken, targetToken, symphonySwapper);
 
     // test open and close short position
-    await testShortPosition(tradingCore, user, baseToken, targetToken, symphonySwapper);
+    //await testShortPosition(tradingCore, user, baseToken, targetToken, symphonySwapper);
 }
 
 

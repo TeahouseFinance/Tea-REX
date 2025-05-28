@@ -4,7 +4,6 @@
 pragma solidity =0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {IAggregatorHelper} from "../interfaces/trading/IAggregatorHelper.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,7 +13,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /// @notice normal swap contract with the remaining tokens to swap the extra dst tokens back to src token,
 /// @notice thus making sure that the amount of dst tokens is exactly the same as specified.
 contract AggregatorHelper is IAggregatorHelper, Ownable {
-    using Address for address;
     using SafeERC20 for ERC20PermitUpgradeable;
 
     bool public checkWhitelist;
@@ -22,6 +20,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     mapping(address => bool) public verifierWhitelist;
     mapping(address => bool) public callerWhitelist;
     uint256 public maxScraps;
+    uint256 public minAmountIn;
     
     constructor(address initialOwner) Ownable(initialOwner) {
         checkWhitelist = true;
@@ -31,6 +30,12 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         checkWhitelist = _checkWhitelist;
 
         emit SetCheckWhitelist(msg.sender, _checkWhitelist);
+    }
+
+    function setMinAmountIn(uint256 _minAmountIn) external onlyOwner {
+        minAmountIn = _minAmountIn;
+
+        emit SetMinAmountIn(msg.sender, _minAmountIn);
     }
 
     function setRouterWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external onlyOwner {
@@ -81,7 +86,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     }
 
     function retrieveNativeToken(uint256 _amount) external onlyOwner {
-        Address.sendValue(payable(msg.sender), _amount);
+        payable(msg.sender).transfer(_amount);
     }
 
     function swapExactInput(
@@ -99,9 +104,18 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             require(routerWhitelist[_router], NotWhitelisted());
         }
 
+        require(_amountIn >= minAmountIn, AmountInTooSmall());
+
         // call verifier if required, for oracles with pull model
         if (_verifier != address(0)) {
-            _verifier.functionCall(_verifierCalldata);
+            (bool vsuccess, bytes memory vreturndata) = _verifier.call(_verifierCalldata);
+            uint256 vlength = vreturndata.length;
+            if (!vsuccess) {
+                // call failed, propagate revert data
+                assembly ("memory-safe") {
+                    revert(add(vreturndata, 32), vlength)
+                }
+            }
         }   
 
         // call aggregator to swap tokens
@@ -109,7 +123,14 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
         src.safeTransferFrom(msg.sender, address(this), _amountIn);
         src.approve(_router, _amountIn);
-        _router.functionCall(_routerCalldata);
+        (bool success, bytes memory returndata) = _router.call(_routerCalldata);
+        uint256 length = returndata.length;
+        if (!success) {
+            // call failed, propagate revert data
+            assembly ("memory-safe") {
+                revert(add(returndata, 32), length)
+            }
+        }
         src.approve(_router, 0);
 
         uint256 balanceSrc = src.balanceOf(address(this));
@@ -144,9 +165,18 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             require(routerWhitelist[_router] && routerWhitelist[_scrapRouter], NotWhitelisted());
         }
 
+        require(_amountIn >= minAmountIn, AmountInTooSmall());
+
         // call verifier if required, for oracles with pull model
         if (_verifier != address(0)) {
-            _verifier.functionCall(_verifierCalldata);
+            (bool vsuccess, bytes memory vreturndata) = _verifier.call(_verifierCalldata);
+            uint256 vlength = vreturndata.length;
+            if (!vsuccess) {
+                // call failed, propagate revert data
+                assembly ("memory-safe") {
+                    revert(add(vreturndata, 32), vlength)
+                }
+            }
         }   
 
         // call aggregator to swap tokens
@@ -154,7 +184,14 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
         src.safeTransferFrom(msg.sender, address(this), _amountIn);
         src.approve(_router, _amountIn);
-        _router.functionCall(_routerCalldata);
+        (bool success, bytes memory returndata) = _router.call(_routerCalldata);
+        uint256 length = returndata.length;
+        if (!success) {
+            // call failed, propagate revert data
+            assembly ("memory-safe") {
+                revert(add(returndata, 32), length)
+            }
+        }
         src.approve(_router, 0);
 
         uint256 balanceOut = dst.balanceOf(address(this));
@@ -196,7 +233,14 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         bytes memory _adjustedCalldata = _adjustCalldata(_scrapCalldata, _amountIn, _scrapAmountOffset);
 
         _dst.approve(_scrapRouter, _amountIn);
-        _scrapRouter.functionCall(_adjustedCalldata);
+        (bool success, bytes memory returndata) = _scrapRouter.call(_adjustedCalldata);
+        uint256 length = returndata.length;
+        if (!success) {
+            // call failed, propagate revert data
+            assembly ("memory-safe") {
+                revert(add(returndata, 32), length)
+            }
+        }
         _dst.approve(_scrapRouter, 0);
     }
 

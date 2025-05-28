@@ -18,12 +18,14 @@ interface IAggregatorHelper {
     error IncorrectScrapAmountSize();
     error IncorrectScrapAmountOffset();
     error NoTokenReceived();
+    error AmountInTooSmall();
 
     event SetCheckWhitelist(address sender, bool checkWhitelist);
     event SetRouterWhitelist(address sender, address[] router, bool[] isWhitelisted);
     event SetVerifierWhitelist(address sender, address[] verifier, bool[] isWhitelisted);
     event SetCallerWhitelist(address sender, address[] caller, bool[] isWhitelisted);    
     event SetMaxScraps(address sender, uint256 maxScraps);
+    event SetMinAmountIn(address sender, uint256 minAmountIn);
 
     /// @notice Set whether to check whitelists
     /// @param _checkWhitelist true if want to check whitelists, false if not
