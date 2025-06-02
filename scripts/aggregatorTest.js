@@ -94,7 +94,7 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
             newAmountIn = amount;
         }
         const newSwapInfo = await symphonyCalldata(fromToken, toToken, newAmountIn);
-        const newfinalOutputMin = BigInt(newSwapInfo.data[0][newSwapInfo.data[0].length - 1].amountOutMin);
+        const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
 
         if (newfinalOutputMin < debtAmount) {
             throw Error("Not enough amount in");
