@@ -72,7 +72,7 @@ module.exports = {
       base: process.env.BASE_API_KEY,
       linea: process.env.LINEA_API_KEY,
       bsc: process.env.BSC_API_KEY,
-      seitest: process.env.SEITEST_API_KEY,
+      seitest: process.env.SEI_API_KEY,
       sei: process.env.SEI_API_KEY,
     },
     customChains: [
