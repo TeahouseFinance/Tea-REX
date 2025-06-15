@@ -25,10 +25,11 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     address public tradingCore;
     address public lendingPoolImplementation;
     uint32 public FEE_CAP;
-    FeeConfig public feeConfig;
+    FeeConfig public defaultFeeConfig;
     bool enableWhitelist;
 
     mapping(ERC20PermitUpgradeable => mapping(InterestRateModelType => Pool)) public pool;
+    mapping(IPool => FeeConfig) public feeConfig;
     mapping(InterestRateModelType => address) public interestRateModel;
     mapping(ERC20PermitUpgradeable => bool) public isAssetEnabled;
     mapping(address => bool) public whitelistedOperator;
@@ -73,17 +74,28 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         emit TradingCoreSet(msg.sender, _tradingCore);
     }
 
-    function setFeeConfig(address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
+    function setDefaultFeeConfig(address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
         if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
         if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
 
-        feeConfig = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
+        defaultFeeConfig = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
 
-        emit FeeConfigSet(msg.sender, _treasury, _borrowFee);
+        emit DeFaultFeeConfigSet(msg.sender, _treasury, _borrowFee);
+    }
+
+    function setFeeConfig(IPool _pool, address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
+        if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
+        if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
+
+        feeConfig[_pool] = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
+
+        emit FeeConfigSet(msg.sender, _pool, _treasury, _borrowFee);
     }
 
     function getFeeConfig() external view override returns (FeeConfig memory) {
-        return feeConfig;
+        FeeConfig memory _feeConfig = feeConfig[Pool(msg.sender)];
+
+        return _feeConfig.treasury == address(0) ? defaultFeeConfig : _feeConfig;
     }
 
     function setInterestRateModel(InterestRateModelType _modelType, address _model) external override onlyOwner {

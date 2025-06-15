@@ -17,7 +17,8 @@ interface IRouter {
     error NotInWhitelist();
     
     event TradingCoreSet(address indexed sender, address indexed tradingCore);
-    event FeeConfigSet(address indexed sender, address indexed treasury, uint32 indexed borrowFee);
+    event DeFaultFeeConfigSet(address indexed sender, address indexed treasury, uint32 indexed borrowFee);
+    event FeeConfigSet(address indexed sender, IPool pool, address indexed treasury, uint32 indexed borrowFee);
     event InterestRateModelSet(address indexed sender, InterestRateModelType indexed modelType, address indexed model);
     event LendingPoolCreated(address indexed poolAddress, address indexed underlyingAsset, InterestRateModelType indexed modelType);
 
@@ -60,11 +61,18 @@ interface IRouter {
     /// @param tradingCore Address of new trading core
     function setTradingCore(address tradingCore) external;
 
-    /// @notice Set new fee structure
+    /// @notice Set default fee structure
     /// @param treasury Fee treasury
     /// @param borrowFee Borrow fee rate in APY
     /// @param withdrawalFee A withdrawal fee to prevent exploits
-    function setFeeConfig(address treasury, uint32 borrowFee, uint32 withdrawalFee) external;
+    function setDefaultFeeConfig(address treasury, uint32 borrowFee, uint32 withdrawalFee) external;
+
+    /// @notice Set a fee structure for a pool
+    /// @param pool Lending pool address
+    /// @param treasury Fee treasury
+    /// @param borrowFee Borrow fee rate in APY
+    /// @param withdrawalFee A withdrawal fee to prevent exploits
+    function setFeeConfig(IPool pool, address treasury, uint32 borrowFee, uint32 withdrawalFee) external;
 
     /// @notice Get fee structure
     /// @return feeConfig Fee structure
