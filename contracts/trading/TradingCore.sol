@@ -135,8 +135,10 @@ contract TradingCore is
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
-        uint256 _longPositionSizeCap,
-        uint256 _shortPositionSizeCap
+        uint256 _token0PositionSizeCap,
+        uint256 _token1PositionSizeCap,
+        uint256 _minToken0PositionSize,
+        uint256 _minToken1PositionSize
     ) external override nonReentrant onlyOwner returns (
         address marketAddress
     ) {
@@ -159,8 +161,10 @@ contract TradingCore is
                 _openPositionLossRatioThreshold,
                 _liquidateLossRatioThreshold,
                 _liquidationDiscount,
-                _longPositionSizeCap,
-                _shortPositionSizeCap
+                _token0PositionSizeCap,
+                _token1PositionSizeCap,
+                _minToken0PositionSize,
+                _minToken1PositionSize
             )
         ));
         pairMarket[_token0][_token1] = MarketNFT(marketAddress);

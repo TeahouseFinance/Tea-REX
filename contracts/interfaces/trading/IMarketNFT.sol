@@ -18,6 +18,7 @@ interface IMarketNFT {
     error HighLossRatio();
     error BadCloseRate();
     error ExceedsMaxTotalPositionSize();
+    error SizeTooSmall();
     error InvalidPositionStatus();
     error CallerIsNotTradingCore();
     error PassivelyCloseConditionNotMet();
@@ -107,6 +108,12 @@ interface IMarketNFT {
     /// @param token1PositionSizeCap Size cap of token1
     function setPositionSizeCap(uint256 token0PositionSizeCap, uint256 token1PositionSizeCap) external;
     
+    /// @notice Set minimum position size for the market
+    /// @notice Only owner can call this function
+    /// @param minToken0PositionSize Min size of token0
+    /// @param minToken1PositionSize Min size of token1
+    function setMinPositionSize(uint256 minToken0PositionSize, uint256 minToken1PositionSize) external;
+
     /// @notice Return whether token0 is set as the margin
     /// @return isToken0Margin whether token0 is the margin
     function isToken0Margin() external view returns (bool);

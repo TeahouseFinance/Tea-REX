@@ -34,6 +34,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     uint24 public liquidationDiscount;
     uint256 public token0PositionSizeCap;
     uint256 public token1PositionSizeCap;
+    uint256 public minToken0PositionSize;
+    uint256 public minToken1PositionSize;
     uint256 public totalToken0PositionAmount;
     uint256 public totalToken1PositionAmount;
 
@@ -55,7 +57,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
         uint256 _token0PositionSizeCap,
-        uint256 _token1PositionSizeCap
+        uint256 _token1PositionSizeCap,
+        uint256 _minToken0PositionSize,
+        uint256 _minToken1PositionSize
     ) public initializer {
         __Ownable_init(_owner);
         __ERC721_init(
@@ -75,6 +79,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _setMaxLeverage(_maxLeverage);
         _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
         _setPositionSizeCap(_token0PositionSizeCap, _token1PositionSizeCap);
+        _setMinPositionSize(_minToken0PositionSize, _minToken1PositionSize);
     }
 
     function _update(
@@ -157,6 +162,15 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         
         token0PositionSizeCap = _token0PositionSizeCap;
         token1PositionSizeCap = _token1PositionSizeCap;
+    }
+
+    function setMinPositionSize(uint256 _minToken0PositionSize, uint256 _minToken1PositionSize) external override onlyOwner {
+        _setMinPositionSize(_minToken0PositionSize, _minToken1PositionSize);
+    }
+
+    function _setMinPositionSize(uint256 _minToken0PositionSize, uint256 _minToken1PositionSize) internal {
+        minToken0PositionSize = _minToken0PositionSize;
+        minToken1PositionSize = _minToken1PositionSize;
     }
 
     function getPosition(uint256 _positionId) external view override returns (Position memory position) {
@@ -601,10 +615,12 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             if (_isAssetToken0) {
                 totalToken0PositionAmount = totalToken0PositionAmount + _changeAmount;
                 if (totalToken0PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token0PositionSizeCap) revert ExceedsMaxTotalPositionSize();
+                if (_changeAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) < minToken0PositionSize) revert SizeTooSmall();
             }
             else {
                 totalToken1PositionAmount = totalToken1PositionAmount + _changeAmount;
                 if (totalToken1PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token1PositionSizeCap) revert ExceedsMaxTotalPositionSize();
+                if (_changeAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) < minToken1PositionSize) revert SizeTooSmall();
             }
         }
         else {

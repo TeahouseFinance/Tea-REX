@@ -69,8 +69,10 @@ interface ITradingCore {
     /// @param openPositionLossRatioThreshold Tolerance of loss ratio when opening position which loss ratio equals to [value(asset) - value(debt)] / value(margin)
     /// @param liquidateLossRatioThreshold Liquidation threshold of loss ratio, position can be liquidated after the loss ratio is greater than the threshold
     /// @param liquidationDiscount Position asset will be in auction mode with a discount ratio in order to liquidate in time if the liquidation condition is met
-    /// @param longPositionSizeCap Size cap of longing token0
-    /// @param shortPositionSizeCap Size cap of shorting token0
+    /// @param token0PositionSizeCap Size cap of token0
+    /// @param token1PositionSizeCap Size cap of token1
+    /// @param minToken0PositionSize Min size of token0
+    /// @param minToken1PositionSize Min size of token1
     /// @return marketAddress Address of the created market
     function createMarket(
         IAssetOracle oracle,
@@ -81,8 +83,10 @@ interface ITradingCore {
         uint24 openPositionLossRatioThreshold,
         uint24 liquidateLossRatioThreshold,
         uint24 liquidationDiscount,
-        uint256 longPositionSizeCap,
-        uint256 shortPositionSizeCap
+        uint256 token0PositionSizeCap,
+        uint256 token1PositionSizeCap,
+        uint256 minToken0PositionSize,
+        uint256 minToken1PositionSize
     ) external returns (
         address marketAddress
     );
