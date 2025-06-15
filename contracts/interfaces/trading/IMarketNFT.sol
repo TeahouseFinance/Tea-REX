@@ -89,8 +89,9 @@ interface IMarketNFT {
     function changeOracle(IAssetOracle oracle) external;
 
     /// @notice Set max leverage of the market
-    /// @param maxLeverage Max leverage of the market
-    function setMaxLeverage(uint32 maxLeverage) external;
+    /// @param maxToken0Leverage Max token0 position leverage
+    /// @param maxToken1Leverage Max token1 position leverage
+    function setMaxLeverage(uint32 maxToken0Leverage, uint32 maxToken1Leverage) external;
 
     /// @notice Set market params
     /// @param openPositionLossRatioThreshold Tolerance of loss ratio when opening position which loss ratio equals to [value(asset) - value(debt)] / value(margin)

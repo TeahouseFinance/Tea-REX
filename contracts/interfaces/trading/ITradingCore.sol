@@ -65,7 +65,8 @@ interface ITradingCore {
     /// @param token0 token0 of the trading pair
     /// @param token1 token1 of the trading pair
     /// @param isToken0Margin Whether token0 is margin or not
-    /// @param maxLeverage Max leverage of the market
+    /// @param maxToken0Leverage Max token0 position leverage of the market
+    /// @param maxToken1Leverage Max token1 position leverage of the market
     /// @param openPositionLossRatioThreshold Tolerance of loss ratio when opening position which loss ratio equals to [value(asset) - value(debt)] / value(margin)
     /// @param liquidateLossRatioThreshold Liquidation threshold of loss ratio, position can be liquidated after the loss ratio is greater than the threshold
     /// @param liquidationDiscount Position asset will be in auction mode with a discount ratio in order to liquidate in time if the liquidation condition is met
@@ -79,7 +80,8 @@ interface ITradingCore {
         ERC20PermitUpgradeable token0,
         ERC20PermitUpgradeable token1,
         bool isToken0Margin,
-        uint32 maxLeverage,
+        uint32 maxToken0Leverage,
+        uint32 maxToken1Leverage,
         uint24 openPositionLossRatioThreshold,
         uint24 liquidateLossRatioThreshold,
         uint24 liquidationDiscount,

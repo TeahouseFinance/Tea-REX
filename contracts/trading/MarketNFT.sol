@@ -28,7 +28,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     address public token0;
     address public token1;
     bool public isToken0Margin;
-    uint32 public maxLeverage;
+    uint32 public maxToken0Leverage;
+    uint32 public maxToken1Leverage;
     uint24 public openPositionLossRatioThreshold;
     uint24 public liquidateLossRatioThreshold;
     uint24 public liquidationDiscount;
@@ -52,7 +53,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
         bool _isToken0Margin,
-        uint32 _maxLeverage,
+        uint32 _maxToken0Leverage,
+        uint32 _maxToken1Leverage,
         uint24 _openPositionLossRatioThreshold,
         uint24 _liquidateLossRatioThreshold,
         uint24 _liquidationDiscount,
@@ -76,7 +78,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         isToken0Margin = _isToken0Margin;
         _changeOracle(_oracle);
 
-        _setMaxLeverage(_maxLeverage);
+        _setMaxLeverage(_maxToken0Leverage, _maxToken1Leverage);
         _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
         _setPositionSizeCap(_token0PositionSizeCap, _token1PositionSizeCap);
         _setMinPositionSize(_minToken0PositionSize, _minToken1PositionSize);
@@ -120,14 +122,16 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         oracle = _oracle;
     }
 
-    function setMaxLeverage(uint32 _maxLeverage) external override onlyOwner {
-        _setMaxLeverage(_maxLeverage);
+    function setMaxLeverage(uint32 _maxToken0Leverage, uint32 _maxToken1Leverage) external override onlyOwner {
+        _setMaxLeverage(_maxToken0Leverage, _maxToken1Leverage);
     }
 
-    function _setMaxLeverage(uint32 _maxLeverage) internal {
-        if (_maxLeverage == 0) revert ZeroNotAllowed();
+    function _setMaxLeverage(uint32 _maxToken0Leverage, uint32 _maxToken1Leverage) internal {
+        if (_maxToken0Leverage == 0) revert ZeroNotAllowed();
+        if (_maxToken1Leverage == 0) revert ZeroNotAllowed();
         
-        maxLeverage = _maxLeverage;
+        maxToken0Leverage = _maxToken0Leverage;
+        maxToken1Leverage = _maxToken1Leverage;
     }
 
     function setMarketRatioParams(
@@ -217,7 +221,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
         if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
         uint32 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint32();
-        if (leverage > maxLeverage) revert InvalidLeverage();
+        if (leverage > (_isLongToken0 ? maxToken0Leverage : maxToken1Leverage)) revert InvalidLeverage();
 
         _updateMarketStatus(
             _isLongToken0,
@@ -532,7 +536,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
             uint32 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint32();
             
-            if (leverage > maxLeverage) revert InvalidLeverage();
+            if (leverage > (_position.isLongToken0 ? maxToken0Leverage : maxToken1Leverage)) revert InvalidLeverage();
             if (lossRatio >= liquidateLossRatioThreshold) revert HighLossRatio();
         }
 
