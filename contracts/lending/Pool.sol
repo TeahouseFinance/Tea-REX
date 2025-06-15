@@ -28,7 +28,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     uint256 public RATE_MULTIPLIER;
     IRouter public router;
     ERC20PermitUpgradeable public underlyingAsset;
-    IRouter.InterestRateModelType interestRateModelType;
+    uint256 interestRateModelType;
     uint24 public reserveRatio;
     uint256 public supplyCap;
     uint256 public borrowCap;
@@ -48,7 +48,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     function initialize(
         address _owner,
         ERC20PermitUpgradeable _underlyingAsset,
-        IRouter.InterestRateModelType _interestRateModelType,
+        uint256 _interestRateModelType,
         uint256 _supplyCap,
         uint256 _borrowCap,
         uint24 _reserveRatio

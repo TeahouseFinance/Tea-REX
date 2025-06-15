@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {IAssetOracle} from "./IAssetOracle.sol";
-import {IRouter} from "../lending/IRouter.sol";
 
 interface IMarketNFT {
 
@@ -55,7 +54,7 @@ interface IMarketNFT {
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
     /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value
     /// @param marginAmount Margin amount of the position
-    /// @param interestRateModelType Position lending mode, refer to enum of IRouter.InterestRateModelType
+    /// @param interestRateModelType Position lending mode
     /// @param borrowId Position lending id
     /// @param assetAmount Asset amount of the position
     /// @param swappableAmount Swappable amount of the position when closing position, depending on the trading direction
@@ -68,7 +67,7 @@ interface IMarketNFT {
         uint24 stopLossRateTolerance;
         uint32 initialLeverage;
         uint256 marginAmount;
-        IRouter.InterestRateModelType interestRateModelType;
+        uint256 interestRateModelType;
         uint256 borrowId;
         uint256 assetAmount;
         uint256 swappableAmount;
@@ -132,7 +131,7 @@ interface IMarketNFT {
     /// @return positionId Position id
     function openPosition(
         address account,
-        IRouter.InterestRateModelType interestRateModelType,
+        uint256 interestRateModelType,
         uint256 borrowId,
         bool isLongToken0,
         uint256 marginAmount,

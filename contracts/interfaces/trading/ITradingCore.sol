@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {IAssetOracle} from "./IAssetOracle.sol";
-import {IRouter} from "../lending/IRouter.sol";
 import {IMarketNFT} from "./IMarketNFT.sol";
 import {ICalldataProcessor} from "./ICalldataProcessor.sol";
 
@@ -107,7 +106,7 @@ interface ITradingCore {
     /// @return positionId Position id, same as ERC721 token id
     function openPositionPermit(
         address market,
-        IRouter.InterestRateModelType interestRateModelType,
+        uint256 interestRateModelType,
         ERC20PermitUpgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,
@@ -140,7 +139,7 @@ interface ITradingCore {
     /// @return positionId Position id, same as ERC721 token id
     function openPosition(
         address market,
-        IRouter.InterestRateModelType interestRateModelType,
+        uint256 interestRateModelType,
         ERC20PermitUpgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,

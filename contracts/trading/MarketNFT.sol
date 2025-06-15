@@ -15,7 +15,6 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {IMarketNFT} from "../interfaces/trading/IMarketNFT.sol";
 import {ITradingCore} from "../interfaces/trading/ITradingCore.sol";
 import {IAssetOracle} from "../interfaces/trading/IAssetOracle.sol";
-import {IRouter} from "../interfaces/lending/IRouter.sol";
 import {Percent} from "../libraries/Percent.sol";
 
 //import "hardhat/console.sol";
@@ -166,7 +165,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
     function openPosition(
         address _account,
-        IRouter.InterestRateModelType _interestRateModelType,
+        uint256 _interestRateModelType,
         uint256 _borrowId, 
         bool _isLongToken0,
         uint256 _marginAmount,

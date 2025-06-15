@@ -170,7 +170,7 @@ contract TradingCore is
 
     function openPositionPermit(
         address _market,
-        IRouter.InterestRateModelType _interestRateModelType,
+        uint256 _interestRateModelType,
         ERC20PermitUpgradeable _longTarget,
         uint256 _marginAmount,
         uint256 _borrowAmount,
@@ -212,7 +212,7 @@ contract TradingCore is
 
     function openPosition(
         address _market,
-        IRouter.InterestRateModelType _interestRateModelType,
+        uint256 _interestRateModelType,
         ERC20PermitUpgradeable _longTarget,
         uint256 _marginAmount,
         uint256 _borrowAmount,
@@ -249,7 +249,7 @@ contract TradingCore is
 
     function _openPosition(
         MarketNFT _market,
-        IRouter.InterestRateModelType _interestRateModelType,
+        uint256 _interestRateModelType,
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
         ERC20PermitUpgradeable _margin,
@@ -752,7 +752,7 @@ contract TradingCore is
     function _repay(
         IRouter _router,
         ERC20PermitUpgradeable _underlyingAsset,
-        IRouter.InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _id,
         uint256 _underlyingAmount,
         bool _forceClose

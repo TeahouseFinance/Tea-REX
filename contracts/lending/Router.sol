@@ -28,9 +28,9 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     FeeConfig public defaultFeeConfig;
     bool enableWhitelist;
 
-    mapping(ERC20PermitUpgradeable => mapping(InterestRateModelType => Pool)) public pool;
+    mapping(ERC20PermitUpgradeable => mapping(uint256 => Pool)) public pool;
     mapping(IPool => FeeConfig) public feeConfig;
-    mapping(InterestRateModelType => address) public interestRateModel;
+    mapping(uint256 => address) public interestRateModel;
     mapping(ERC20PermitUpgradeable => bool) public isAssetEnabled;
     mapping(address => bool) public whitelistedOperator;
 
@@ -98,26 +98,25 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return _feeConfig.treasury == address(0) ? defaultFeeConfig : _feeConfig;
     }
 
-    function setInterestRateModel(InterestRateModelType _modelType, address _model) external override onlyOwner {
+    function setInterestRateModel(uint256 _modelType, address _model) external override onlyOwner {
         interestRateModel[_modelType] = _model;
 
         emit InterestRateModelSet(msg.sender, _modelType, _model);
     }
 
-    function getInterestRateModel(InterestRateModelType _modelType) external view override returns (address) {
+    function getInterestRateModel(uint256 _modelType) external view override returns (address) {
         return interestRateModel[_modelType];
     }
 
     function createLendingPool(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _supplyCap,
         uint256 _borrowCap,
         uint24 _reserveRatio
     ) external override nonReentrant onlyOwner returns (
         address proxyAddress
     ) {
-        if (_modelType == InterestRateModelType.Null || _modelType >= InterestRateModelType.End) revert InvalidInterestRateModelType();
         if (interestRateModel[_modelType] == address(0)) revert ModelNotSet();
         if (pool[_underlyingAsset][_modelType] != Pool(address(0))) revert PoolAlreadyExists();
 
@@ -139,18 +138,18 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         emit LendingPoolCreated(address(proxyAddress), address(_underlyingAsset), _modelType);
     }
 
-    function getLendingPool(ERC20PermitUpgradeable _underlyingAsset, InterestRateModelType _modelType) external view override returns (IPool) {
+    function getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _modelType) external view override returns (IPool) {
         return _getLendingPool(_underlyingAsset, _modelType);
     }
 
-    function _getLendingPool(ERC20PermitUpgradeable _underlyingAsset, InterestRateModelType _modelType) internal view returns (IPool lendingPool) {
+    function _getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _modelType) internal view returns (IPool lendingPool) {
         lendingPool = pool[_underlyingAsset][_modelType];
         if (lendingPool == Pool(address(0))) revert PoolNotExists();
     }
 
     function getSupplyRate(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType
+        uint256 _modelType
     ) external override view returns (
         uint256 rate
     ) {
@@ -166,7 +165,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function getBorrowRate(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType
+        uint256 _modelType
     ) external override view returns (
         uint256 rate
     ) {
@@ -182,7 +181,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function supply(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         address _supplyFor,
         uint256 _amount
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
@@ -194,7 +193,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function withdraw(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         address _withdrawTo,
         uint256 _amount
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
@@ -206,7 +205,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function borrow(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _amountToBorrow
     ) external override nonReentrant onlyTradingCore returns (
         address
@@ -219,7 +218,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function commitBorrow(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _amountToBorrow
     ) external override nonReentrant onlyTradingCore returns (
         uint256
@@ -229,7 +228,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function repay(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         address _account,
         uint256 _id,
         uint256 _amount,
@@ -243,7 +242,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function balanceOf(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         address _account
     ) external view override returns (
         uint256
@@ -253,7 +252,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function balanceOfUnderlying(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         address _account
     ) external view override returns (
         uint256
@@ -263,7 +262,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function debtOf(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _id
     ) external view override returns (
         uint256
@@ -273,7 +272,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function debtOfUnderlying(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType,
+        uint256 _modelType,
         uint256 _id
     ) external view override returns (
         uint256
@@ -283,7 +282,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function getConversionRates(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType
+        uint256 _modelType
     ) external view override returns (
         uint256 suppiedConversionRate,
         uint256 borrowedConversionRate
@@ -293,7 +292,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function collectInterestFeeAndCommit(
         ERC20PermitUpgradeable _underlyingAsset,
-        InterestRateModelType _modelType
+        uint256 _modelType
     ) external returns (
         uint256 interest,
         uint256 fee
