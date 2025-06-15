@@ -402,12 +402,13 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _decreasedDebtAmount,
         uint256 _tradingFee,
         uint256 _debtAmount
-    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
+    ) external override nonReentrant onlyTradingCore returns (
         bool isFullyClosed,
         uint256 decreasedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        if (_mode != CloseMode.Manager) _onlyNotPaused();
         Position memory position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
 

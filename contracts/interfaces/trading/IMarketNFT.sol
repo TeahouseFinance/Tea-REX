@@ -41,11 +41,13 @@ interface IMarketNFT {
     /// @param StopLoss Passively closed when the stop loss price is hit
     /// @param TakeProfit Passively closed when the take profit price is hit
     /// @param Liquidate Passively closed when the liquidation condition is met
+    /// @param Manager Manager actively de-leverage based on systematic risk analysis of the trading pair.
     enum CloseMode {
         Close,
         StopLoss,
         TakeProfit,
-        Liquidate
+        Liquidate,
+        Manager
     }
 
     /// @notice Position related data

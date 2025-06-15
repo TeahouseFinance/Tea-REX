@@ -18,6 +18,7 @@ interface ITradingCore {
     error MarketAlreadyCreated();
     error PairNotCreated();
     error NotPositionOwner();
+    error NotPositionManager();
     error PriceConditionNotMet();
     error IdenticalAddress();
     error SlippageTooLarge();
@@ -36,6 +37,7 @@ interface ITradingCore {
     event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
     event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
     event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event ManagerClose(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
 
     /// @notice Fee config structure
     /// @param treasury Fees go to this address
@@ -313,6 +315,38 @@ interface ITradingCore {
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function liquidate(
+        address market,
+        uint256 positionId,
+        uint256 assetTokenToSwap,
+        uint256 minDecreasedDebtAmount,
+        ICalldataProcessor calldataProcessor,
+        address swapRouter,
+        bytes calldata data
+    ) external returns (
+        bool isFullyClosed,
+        uint256 swappedAssetToken,
+        uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    );
+
+    /// @notice Position manager actively actively close position based on systematic risk analysis of the trading pair.
+    /// @notice Only position manager can call this function
+    /// @param market Market address
+    /// @param positionId Position id
+    /// @param assetTokenToSwap Amount of asset token to swap
+    /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
+    /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param swapRouter Swap router to be used
+    /// @param data Calldata for the assigned swap router
+    /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
+    /// @return swappedAssetToken Amount of the comsumed asset token
+    /// @return decreasedDebtAmount Amount of debt token from swapped asset token
+    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return owedAsset Asset tokens the position owner is owed
+    /// @return owedDebt Debt tokens the position owner is owed
+    function managerClose(
         address market,
         uint256 positionId,
         uint256 assetTokenToSwap,

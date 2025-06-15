@@ -47,6 +47,7 @@ contract TradingCore is
     
     mapping(ERC20PermitUpgradeable => mapping(ERC20PermitUpgradeable => MarketNFT)) public pairMarket;
     mapping(address => bool) public whitelistedOperator;
+    mapping(address => bool) public positionManager;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -415,6 +416,7 @@ contract TradingCore is
             address positionOwner
         ) = _beforeModifyOpeningPosition(_market, _positionId);
         if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
+        if (_mode == IMarketNFT.CloseMode.Manager && !positionManager[msg.sender]) revert NotPositionManager();
 
         FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
         (uint256 swappableAfterFee, uint256 tradingFee) = _getSwappableAfterFee(
@@ -477,6 +479,9 @@ contract TradingCore is
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
             emit Liquidate(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+        }
+        else if (_mode == IMarketNFT.CloseMode.Manager) {
+            emit ManagerClose(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
         }
     }
 
@@ -554,6 +559,34 @@ contract TradingCore is
     ) {
         return _closePosition(
             IMarketNFT.CloseMode.StopLoss,
+            _market,
+            _positionId,
+            _assetTokenToSwap,
+            _minDecreasedDebtAmount,
+            _calldataProcessor,
+            _swapRouter,
+            _data
+        );
+    }
+
+    function managerClose(
+        address _market,
+        uint256 _positionId,
+        uint256 _assetTokenToSwap,
+        uint256 _minDecreasedDebtAmount,
+        ICalldataProcessor _calldataProcessor,
+        address _swapRouter,
+        bytes calldata _data
+    ) external override nonReentrant returns (
+        bool isFullyClosed,
+        uint256 swappedAssetToken,
+        uint256 decreasedDebtAmount,
+        uint256 decreasedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    ) {
+        return _closePosition(
+            IMarketNFT.CloseMode.Manager,
             _market,
             _positionId,
             _assetTokenToSwap,
@@ -827,6 +860,15 @@ contract TradingCore is
         uint256 length = _accounts.length;
         for (uint256 i; i < length; ) {
             whitelistedOperator[_accounts[i]] = _isWhitelisted[i];
+
+            unchecked { ++i; }
+        }
+    }
+
+    function setPositionManager(address[] calldata _accounts, bool[] calldata _isManager) external onlyOwner {
+        uint256 length = _accounts.length;
+        for (uint256 i; i < length; ) {
+            positionManager[_accounts[i]] = _isManager[i];
 
             unchecked { ++i; }
         }
