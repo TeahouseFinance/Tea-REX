@@ -3,25 +3,46 @@
 pragma solidity =0.8.26;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IInterestRateModel} from "../interfaces/lending/IInterestRateModel.sol";
 import {Percent} from "../libraries/Percent.sol";
 
-contract VariableInterestRateModel is IInterestRateModel {
+contract VariableInterestRateModel is IInterestRateModel, Ownable {
     using Math for uint256;
 
-    uint256 constant BASE_RATE = 10000;
-    uint256 constant HIKED_RATE = 240000;
+    struct RateConfig {
+        uint256 baseRate;
+        uint256 hikedRate;
+    }
+
+    RateConfig public defaultRateConfig;
+    
+    mapping(address => RateConfig) public rateConfig;
+
+    constructor(address _initialOwner, RateConfig memory _defaultRateConfig) Ownable(_initialOwner) {
+        defaultRateConfig = _defaultRateConfig;
+    }
 
     function decimals() external pure returns (uint8) {
         return Percent.DECIMALS;
+    }
+
+    function set_rate_config(address _pool, RateConfig memory _rateConfig) external onlyOwner {
+        rateConfig[_pool] = _rateConfig;
+    }
+
+    function _get_rate_config() internal view returns (RateConfig memory) {
+        RateConfig memory _rateConfig = rateConfig[msg.sender];
+        
+        return (_rateConfig.baseRate + _rateConfig.hikedRate == 0) ? defaultRateConfig : _rateConfig;
     }
 
     function getSupplyRate(
         uint256 supplied,
         uint256 borrowed,
         uint24 reserveRatio
-    ) public pure override returns (
+    ) public view override returns (
         uint256 supplyRate
     ) {
         supplyRate = getSupplyRate(supplied, borrowed, reserveRatio, 0);
@@ -32,7 +53,7 @@ contract VariableInterestRateModel is IInterestRateModel {
         uint256 borrowed,
         uint24 reserveRatio,
         uint256 toSupply
-    ) public pure override returns (
+    ) public view override returns (
         uint256 supplyRate
     ) {
         if (supplied == 0) return 0;
@@ -48,7 +69,7 @@ contract VariableInterestRateModel is IInterestRateModel {
         uint256 supplied,
         uint256 borrowed,
         uint24 reserveRatio
-    ) public pure override returns (
+    ) public view override returns (
         uint256 borrowRate
     ) {
         borrowRate = getBorrowRate(supplied, borrowed, reserveRatio, 0);
@@ -59,12 +80,13 @@ contract VariableInterestRateModel is IInterestRateModel {
         uint256 borrowed,
         uint24 reserveRatio,
         uint256 toBorrow
-    ) public pure override returns (
+    ) public view override returns (
         uint256 borrowRate
     ) {
-        if (supplied == 0) return BASE_RATE;
+        RateConfig memory _rateConfig = _get_rate_config();
+        if (supplied == 0) return _rateConfig.baseRate;
 
-        borrowRate = BASE_RATE + HIKED_RATE.mulDiv(
+        borrowRate = _rateConfig.baseRate + _rateConfig.hikedRate.mulDiv(
             (borrowed + toBorrow) * Percent.MULTIPLIER,
             supplied * (Percent.MULTIPLIER - reserveRatio)
         );
