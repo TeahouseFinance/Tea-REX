@@ -16,6 +16,7 @@ interface IMarketNFT {
     error InvalidStopLoss();
     error InvalidStopLossRateTolerance();
     error HighLossRatio();
+    error LendingTypeNotAllowed();
     error BadCloseRate();
     error ExceedsMaxTotalPositionSize();
     error SizeTooSmall();
@@ -114,6 +115,23 @@ interface IMarketNFT {
     /// @param minToken0PositionSize Min size of token0
     /// @param minToken1PositionSize Min size of token1
     function setMinPositionSize(uint256 minToken0PositionSize, uint256 minToken1PositionSize) external;
+
+    /// @notice Set allowed lending types for token0 and token1
+    /// @notice Only owner can call this function
+    /// @param onlyAllowedToken0LendingTypes Enable token0 lending type checking or not
+    /// @param onlyAllowedToken1LendingTypes Enable token0 lending type checking or not
+    /// @param token0LendingTypes Lending types of token0
+    /// @param token1LendingTypes Lending types of token1
+    /// @param isToken0LendingTypesAllowed Permission of each token0 lending type
+    /// @param isToken1LendingTypesAllowed Permission of each token1 lending type
+    function setAllowedLendingTypes(
+        bool onlyAllowedToken0LendingTypes,
+        bool onlyAllowedToken1LendingTypes,
+        uint256[] calldata token0LendingTypes,
+        uint256[] calldata token1LendingTypes,
+        bool[] calldata isToken0LendingTypesAllowed,
+        bool[] calldata isToken1LendingTypesAllowed
+    ) external;
 
     /// @notice Return whether token0 is set as the margin
     /// @return isToken0Margin whether token0 is the margin

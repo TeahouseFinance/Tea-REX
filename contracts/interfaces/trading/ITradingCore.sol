@@ -67,6 +67,8 @@ interface ITradingCore {
     /// @param oracle Oracle to be used
     /// @param token0 token0 of the trading pair
     /// @param token1 token1 of the trading pair
+    /// @param onlyAllowedToken0LendingTypes Enable token0 lending type checking or not
+    /// @param onlyAllowedToken1LendingTypes Enable token0 lending type checking or not
     /// @param isToken0Margin Whether token0 is margin or not
     /// @param maxToken0Leverage Max token0 position leverage of the market
     /// @param maxToken1Leverage Max token1 position leverage of the market
@@ -77,11 +79,17 @@ interface ITradingCore {
     /// @param token1PositionSizeCap Size cap of token1
     /// @param minToken0PositionSize Min size of token0
     /// @param minToken1PositionSize Min size of token1
+    /// @param token0LendingTypes Lending types of token0
+    /// @param token1LendingTypes Lending types of token1
+    /// @param isToken0LendingTypesAllowed Permission of each token0 lending type
+    /// @param isToken1LendingTypesAllowed Permission of each token1 lending type
     /// @return marketAddress Address of the created market
     function createMarket(
         IAssetOracle oracle,
         ERC20PermitUpgradeable token0,
         ERC20PermitUpgradeable token1,
+        bool onlyAllowedToken0LendingTypes,
+        bool onlyAllowedToken1LendingTypes,
         bool isToken0Margin,
         uint32 maxToken0Leverage,
         uint32 maxToken1Leverage,
@@ -91,7 +99,11 @@ interface ITradingCore {
         uint256 token0PositionSizeCap,
         uint256 token1PositionSizeCap,
         uint256 minToken0PositionSize,
-        uint256 minToken1PositionSize
+        uint256 minToken1PositionSize,
+        uint256[] calldata token0LendingTypes,
+        uint256[] calldata token1LendingTypes,
+        bool[] calldata isToken0LendingTypesAllowed,
+        bool[] calldata isToken1LendingTypesAllowed
     ) external returns (
         address marketAddress
     );

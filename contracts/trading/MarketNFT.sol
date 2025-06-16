@@ -27,6 +27,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     IAssetOracle oracle;
     address public token0;
     address public token1;
+    bool public onlyAllowedToken0LendingTypes;
+    bool public onlyAllowedToken1LendingTypes;
     bool public isToken0Margin;
     uint32 public maxToken0Leverage;
     uint32 public maxToken1Leverage;
@@ -40,6 +42,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     uint256 public totalToken0PositionAmount;
     uint256 public totalToken1PositionAmount;
 
+    mapping(uint256 => bool) public allowedToken0LendingTypes;
+    mapping(uint256 => bool) public allowedToken1LendingTypes;
     mapping(uint256 => Position) public positions;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -52,6 +56,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         IAssetOracle _oracle,
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
+        bool _onlyAllowedToken0LendingTypes,
+        bool _onlyAllowedToken1LendingTypes,
         bool _isToken0Margin,
         uint32 _maxToken0Leverage,
         uint32 _maxToken1Leverage,
@@ -61,7 +67,11 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _token0PositionSizeCap,
         uint256 _token1PositionSizeCap,
         uint256 _minToken0PositionSize,
-        uint256 _minToken1PositionSize
+        uint256 _minToken1PositionSize,
+        uint256[] calldata _token0LendingTypes,
+        uint256[] calldata _token1LendingTypes,
+        bool[] calldata _isToken0LendingTypesAllowed,
+        bool[] calldata _isToken1LendingTypesAllowed
     ) public initializer {
         __Ownable_init(_owner);
         __ERC721_init(
@@ -82,6 +92,14 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _setMarketRatioParams(_openPositionLossRatioThreshold, _liquidateLossRatioThreshold, _liquidationDiscount);
         _setPositionSizeCap(_token0PositionSizeCap, _token1PositionSizeCap);
         _setMinPositionSize(_minToken0PositionSize, _minToken1PositionSize);
+        _setAllowedLendingTypes(
+            _onlyAllowedToken0LendingTypes,
+            _onlyAllowedToken1LendingTypes,
+            _token0LendingTypes,
+            _token1LendingTypes,
+            _isToken0LendingTypesAllowed,
+            _isToken1LendingTypesAllowed
+        );
     }
 
     function _update(
@@ -177,6 +195,50 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         minToken1PositionSize = _minToken1PositionSize;
     }
 
+    function setAllowedLendingTypes(
+        bool _onlyAllowedToken0LendingTypes,
+        bool _onlyAllowedToken1LendingTypes,
+        uint256[] calldata _token0LendingTypes,
+        uint256[] calldata _token1LendingTypes,
+        bool[] calldata _isToken0LendingTypesAllowed,
+        bool[] calldata _isToken1LendingTypesAllowed
+    ) external override onlyOwner {
+        _setAllowedLendingTypes(
+            _onlyAllowedToken0LendingTypes,
+            _onlyAllowedToken1LendingTypes,
+            _token0LendingTypes,
+            _token1LendingTypes,
+            _isToken0LendingTypesAllowed,
+            _isToken1LendingTypesAllowed
+        );
+    }
+
+    function _setAllowedLendingTypes(
+        bool _onlyAllowedToken0LendingTypes,
+        bool _onlyAllowedToken1LendingTypes,
+        uint256[] calldata _token0LendingTypes,
+        uint256[] calldata _token1LendingTypes,
+        bool[] calldata _isToken0LendingTypesAllowed,
+        bool[] calldata _isToken1LendingTypesAllowed
+    ) internal {
+        onlyAllowedToken0LendingTypes = _onlyAllowedToken0LendingTypes;
+        onlyAllowedToken1LendingTypes = _onlyAllowedToken1LendingTypes;
+
+        uint256 length = _token0LendingTypes.length;
+        for (uint256 i; i < length; ) {
+            allowedToken0LendingTypes[_token0LendingTypes[i]] = _isToken0LendingTypesAllowed[i];
+
+            unchecked { ++i; }
+        }
+
+        length = _token1LendingTypes.length;
+        for (uint256 i; i < length; ) {
+            allowedToken1LendingTypes[_token1LendingTypes[i]] = _isToken1LendingTypesAllowed[i];
+
+            unchecked { ++i; }
+        }
+    }
+
     function getPosition(uint256 _positionId) external view override returns (Position memory position) {
         return positions[_positionId];
     }
@@ -195,6 +257,13 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
         uint256 positionId
     ) {
+        if (_isLongToken0 && onlyAllowedToken1LendingTypes) {
+            if (!allowedToken1LendingTypes[_lendingType]) revert LendingTypeNotAllowed();
+        }
+        else if (!_isLongToken0 && onlyAllowedToken0LendingTypes) {
+            if (!allowedToken0LendingTypes[_lendingType]) revert LendingTypeNotAllowed();
+        }
+
         (
             uint8 oracleDecimals,
             address asset,       

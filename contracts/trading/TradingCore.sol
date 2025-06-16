@@ -147,6 +147,8 @@ contract TradingCore is
         IAssetOracle _oracle,
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
+        bool _onlyAllowedToken0LendingTypes,
+        bool _onlyAllowedToken1LendingTypes,
         bool _isToken0Margin,
         uint32 _maxToken0Leverage,
         uint32 _maxToken1Leverage,
@@ -156,7 +158,11 @@ contract TradingCore is
         uint256 _token0PositionSizeCap,
         uint256 _token1PositionSizeCap,
         uint256 _minToken0PositionSize,
-        uint256 _minToken1PositionSize
+        uint256 _minToken1PositionSize,
+        uint256[] calldata _token0LendingTypes,
+        uint256[] calldata _token1LendingTypes,
+        bool[] calldata _isToken0LendingTypesAllowed,
+        bool[] calldata _isToken1LendingTypesAllowed
     ) external override nonReentrant onlyOwner returns (
         address marketAddress
     ) {
@@ -174,6 +180,8 @@ contract TradingCore is
                 _oracle,
                 _token0,
                 _token1,
+                _onlyAllowedToken0LendingTypes,
+                _onlyAllowedToken1LendingTypes,
                 _isToken0Margin,
                 _maxToken0Leverage,
                 _maxToken1Leverage,
@@ -183,7 +191,11 @@ contract TradingCore is
                 _token0PositionSizeCap,
                 _token1PositionSizeCap,
                 _minToken0PositionSize,
-                _minToken1PositionSize
+                _minToken1PositionSize,
+                _token0LendingTypes,
+                _token1LendingTypes,
+                _isToken0LendingTypesAllowed,
+                _isToken1LendingTypesAllowed
             )
         ));
         pairMarket[_token0][_token1] = MarketNFT(marketAddress);
