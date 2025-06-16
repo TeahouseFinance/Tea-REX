@@ -239,7 +239,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             isLongToken0: _isLongToken0,
             isMarginAsset: isMarginAsset,
             stopLossRateTolerance: _stopLossRateTolerance,
-            initialLeverage: leverage,
             marginAmount: _marginAmount,
             interestRateModelType: _interestRateModelType,
             borrowId: _borrowId,

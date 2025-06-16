@@ -55,7 +55,6 @@ interface IMarketNFT {
     /// @param isLongToken0 Position trading direction, long token0/short token1 or not
     /// @param isMarginAsset Whether margin is same as position asset, depending on the trading direction
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
-    /// @param initialLeverage Initial leverage, equals to the debt vaule divided by the margin value
     /// @param marginAmount Margin amount of the position
     /// @param interestRateModelType Position lending mode
     /// @param borrowId Position lending id
@@ -68,7 +67,6 @@ interface IMarketNFT {
         bool isLongToken0;
         bool isMarginAsset;
         uint24 stopLossRateTolerance;
-        uint32 initialLeverage;
         uint256 marginAmount;
         uint256 interestRateModelType;
         uint256 borrowId;
