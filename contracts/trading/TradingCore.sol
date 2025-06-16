@@ -40,11 +40,12 @@ contract TradingCore is
 
     address public marketBeacon;
     IRouter public router;
-    FeeConfig public feeConfig;
+    FeeConfig public defaultFeeConfig;
     IFeePlugin public feePlugin;
     SwapRelayer public swapRelayer;
     bool enableWhitelist;
     
+    mapping(address => FeeConfig) public feeConfig;
     mapping(ERC20PermitUpgradeable => mapping(ERC20PermitUpgradeable => MarketNFT)) public pairMarket;
     mapping(address => bool) public whitelistedOperator;
     mapping(address => bool) public positionManager;
@@ -75,7 +76,7 @@ contract TradingCore is
         __ReentrancyGuard_init();
 
         FEE_CAP = _feeCap;
-        _setFeeConfig(_feeConfig);
+        _setDefaultFeeConfig(_feeConfig);
         _setFeePlugin(_feePlugin);
 
         marketBeacon = _beacon;
@@ -92,20 +93,32 @@ contract TradingCore is
         _unpause();
     }
 
-    function setFeeConfig(FeeConfig calldata _feeConfig) external onlyOwner {
-        _setFeeConfig(_feeConfig);
+    function setDefaultFeeConfig(FeeConfig calldata _feeConfig) external onlyOwner {
+        _setDefaultFeeConfig(_feeConfig);
     }
 
-    function _setFeeConfig(FeeConfig calldata _feeConfig) internal {
+    function _setDefaultFeeConfig(FeeConfig calldata _feeConfig) internal {
+        _checkFee(_feeConfig);
+
+        defaultFeeConfig = _feeConfig;
+
+        emit SetDefaultFeeConfig(msg.sender, block.timestamp, _feeConfig);
+    }
+
+    function setFeeConfig(address _market, FeeConfig calldata _feeConfig) external onlyOwner {
+        _checkFee(_feeConfig);
+
+        feeConfig[_market] = _feeConfig;
+
+        emit SetFeeConfig(msg.sender, block.timestamp, _market, _feeConfig);
+    }
+
+    function _checkFee(FeeConfig calldata _feeConfig) internal view {
         _zeroAddressNotAllowed(_feeConfig.treasury);
         if (
             _feeConfig.tradingFee > FEE_CAP ||
             _feeConfig.liquidationFee > FEE_CAP
         ) revert ExceedsFeeCap();
-
-        feeConfig = _feeConfig;
-
-        emit SetFeeConfig(msg.sender, block.timestamp, _feeConfig);
     }
 
     function setFeePlugin(address _feePlugin) external onlyOwner {
@@ -116,13 +129,16 @@ contract TradingCore is
         feePlugin = IFeePlugin(_feePlugin);
     }
 
-    function getFeeForAccount(address _account) external view returns (FeeConfig memory) {
-        return _getFeeForAccount(_account);
+    function getFeeForAccount(address _market, address _account) external view returns (FeeConfig memory) {
+        return _getFeeForAccount(_market, _account);
     }
 
-    function _getFeeForAccount(address _account) internal view returns (FeeConfig memory) {
+    function _getFeeForAccount(address _market, address _account) internal view returns (FeeConfig memory) {
         IFeePlugin _feePlugin = feePlugin;
-        FeeConfig memory _feeConfig = feeConfig;
+        FeeConfig memory _feeConfig = feeConfig[_market];
+        if (_feeConfig.treasury == address(0)) {
+            _feeConfig = defaultFeeConfig;
+        }
         
         return address(_feePlugin) == address(0) ? _feeConfig : feePlugin.getFeeForAccount(_account, _feeConfig);
     }
@@ -280,7 +296,7 @@ contract TradingCore is
         
         IRouter _router = router;
         address pool = _router.borrow(debt, _interestRateModelType, _borrowAmount);
-        FeeConfig memory _feeConfig = _getFeeForAccount(msg.sender);
+        FeeConfig memory _feeConfig = _getFeeForAccount(address(_market), msg.sender);
         uint256 tradingFee = _calculateTradingFee(false, _borrowAmount, _feeConfig);
         _collectTradingFee(debt, tradingFee, _feeConfig);
 
@@ -418,7 +434,7 @@ contract TradingCore is
         if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
         if (_mode == IMarketNFT.CloseMode.Manager && !positionManager[msg.sender]) revert NotPositionManager();
 
-        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
+        FeeConfig memory _feeConfig = _getFeeForAccount(_market, positionOwner);
         (uint256 swappableAfterFee, uint256 tradingFee) = _getSwappableAfterFee(
             _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
             _feeConfig,
@@ -677,7 +693,7 @@ contract TradingCore is
         MarketNFT market = MarketNFT(_market);
         IMarketNFT.Position memory position = market.getPosition(_positionId);
         address positionOwner = market.ownerOf(_positionId);
-        FeeConfig memory _feeConfig = _getFeeForAccount(positionOwner);
+        FeeConfig memory _feeConfig = _getFeeForAccount(_market, positionOwner);
 
         (swappableAfterFee, ) = _getSwappableAfterFee(
             _mode == IMarketNFT.CloseMode.TakeProfit ? position.assetAmount : position.swappableAmount,
@@ -687,13 +703,14 @@ contract TradingCore is
     }
 
     function calculateTradingFee(
+        address _market,
         address _account,
         bool _isLiquidation,
         uint256 _amount
     ) external override view returns (
         uint256 tradingFee
     ) {
-        tradingFee = _calculateTradingFee(_isLiquidation, _amount, _getFeeForAccount(_account));
+        tradingFee = _calculateTradingFee(_isLiquidation, _amount, _getFeeForAccount(_market, _account));
     }
 
     function _getMarketPair(

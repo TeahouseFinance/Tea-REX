@@ -28,7 +28,8 @@ interface ITradingCore {
     error InvalidMarketPair();
 
     event CreateMarket(address indexed sender, IMarketNFT indexed market, ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1);
-    event SetFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
+    event SetDefaultFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
+    event SetFeeConfig(address indexed sender, uint256 timestamp, address market, FeeConfig feeConfig);
     event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event ModifyPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
@@ -414,11 +415,13 @@ interface ITradingCore {
     );
 
     /// @notice Calculate trading fee
+    /// @param market Market address
     /// @param account Account of the position owner
     /// @param isLiquidation Whether close mode is liquidation or not
     /// @param amount Amount of asset token to swap
     /// @return tradingFee Amount of trading fee
     function calculateTradingFee(
+        address market,
         address account,
         bool isLiquidation,
         uint256 amount
