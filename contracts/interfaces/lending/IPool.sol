@@ -11,6 +11,7 @@ interface IPool {
     error InvalidPercentage();
     error DebtPositionIsClosed();
     error ZeroAmountNotAllowed();
+    error PositionClosed();
     error ExceedsCap();
     error NoUnborrowedUnderlying();
     error CallerIsNotRouter();
@@ -107,6 +108,13 @@ interface IPool {
     /// @param amountToBorrow Amount of underlying tokens to borrow
     /// @return id Borrow id of the lending position
     function commitBorrow(address account, uint256 amountToBorrow) external returns (uint256 id);
+
+    /// @notice Finish borrow accounting and check whether all conditions are met for this increased borrow
+    /// @notice Only lending router can call this function
+    /// @param account Account that borrows tokens
+    /// @param id Borrow id of the lending position
+    /// @param amountToBorrow Amount of underlying tokens to borrow
+    function commitBorrow(address account, uint256 id, uint256 amountToBorrow) external;
     
     /// @notice Repay debt for a lending position
     /// @param account Repaid token from this account

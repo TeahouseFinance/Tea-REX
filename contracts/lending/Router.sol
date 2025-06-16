@@ -229,6 +229,15 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return _getLendingPool(_underlyingAsset, _lendingType).commitBorrow(tradingCore, _amountToBorrow);
     }
 
+    function commitBorrow(
+        ERC20PermitUpgradeable _underlyingAsset,
+        uint256 _lendingType,
+        uint256 _id,
+        uint256 _amountToBorrow
+    ) external override nonReentrant onlyTradingCore {
+        return _getLendingPool(_underlyingAsset, _lendingType).commitBorrow(tradingCore, _id, _amountToBorrow);
+    }
+
     function repay(
         ERC20PermitUpgradeable _underlyingAsset,
         uint256 _lendingType,

@@ -176,6 +176,19 @@ interface IRouter {
     ) external returns (
         uint256 id
     );
+
+    /// @notice Finish borrow accounting and check whether all conditions are met for this borrow
+    /// @notice Only trading core can call this
+    /// @param underlyingAsset Address of the underlying token
+    /// @param lendingType Type of the lending pool
+    /// @param id Borrow id of the lending position
+    /// @param amountToBorrow Amount of underlying tokens to borrow
+    function commitBorrow(
+        ERC20PermitUpgradeable underlyingAsset,
+        uint256 lendingType,
+        uint256 id,
+        uint256 amountToBorrow
+    ) external;
     
     /// @notice Repay debt for a lending position
     /// @notice Only trading core can call this

@@ -278,6 +278,27 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     ) external override nonReentrant onlyNotPaused onlyRouter returns (
         uint256 id
     ) {
+        id = idCounter;
+        idCounter = idCounter + 1;
+        debtInfo[id] = DebtInfo({
+            isClosed: false,
+            borrowedTeaToken: _commitBorrow(_account, id, _amountToBorrow)
+        });
+    }
+
+    function commitBorrow(
+        address _account,
+        uint256 _id,
+        uint256 _amountToBorrow
+    ) external override nonReentrant onlyNotPaused onlyRouter {
+        DebtInfo memory _debtInfo = debtInfo[_id];
+        if (_debtInfo.isClosed) revert PositionClosed();
+
+        _debtInfo.borrowedTeaToken += _commitBorrow(_account, _id, _amountToBorrow);
+        debtInfo[_id] = _debtInfo;
+    }
+
+    function _commitBorrow(address _account, uint256 _id, uint256 _amountToBorrow) internal returns (uint256 borrowedTeaTokenAmount) {
         if (_amountToBorrow == 0) revert ZeroAmountNotAllowed();
         (, , uint256 newSuppliedConversionRate, uint256 newBorrowedConversionRate) = _collectInterestFeeAndCommit();
         uint256 _borrowedTeaToken = borrowedTeaToken;
@@ -285,16 +306,10 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 borrowedUnderlying = _toUnderlying(_borrowedTeaToken, newBorrowedConversionRate, false);
         _checkBorrowable(suppliedUnderlying, borrowedUnderlying, _amountToBorrow);
 
-        uint256 borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, true);
-        id = idCounter;
-        idCounter = idCounter + 1;
-        debtInfo[id] = DebtInfo({
-            isClosed: false,
-            borrowedTeaToken: borrowedTeaTokenAmount
-        });
+        borrowedTeaTokenAmount = _toTeaToken(_amountToBorrow, newBorrowedConversionRate, true);
         borrowedTeaToken = borrowedTeaToken + borrowedTeaTokenAmount;
 
-        emit Borrowed(_account, id, _amountToBorrow, borrowedTeaTokenAmount);
+        emit Borrowed(_account, _id, _amountToBorrow, borrowedTeaTokenAmount);
     }
 
     function repay(
@@ -429,7 +444,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     ) {
         uint256 timeElapsed = block.timestamp - lastAccumulateTimestamp;
         uint256 _borrowedTeaToken = borrowedTeaToken;
-        if (_borrowedTeaToken == 0) return (interest, fee, suppliedConversionRate, borrowedConversionRate);
+        if (timeElapsed == 0 || _borrowedTeaToken == 0) return (interest, fee, suppliedConversionRate, borrowedConversionRate);
         
         uint256 suppliedTeaToken = totalSupply();
         uint256 suppliedUnderlying = suppliedTeaToken.mulDiv(suppliedConversionRate, RATE_MULTIPLIER);
