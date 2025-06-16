@@ -14,13 +14,15 @@ import {ISwapRelayer} from "../interfaces/trading/ISwapRelayer.sol";
 contract SwapRelayer is ISwapRelayer, Ownable {
     using SafeERC20 for ERC20PermitUpgradeable;
 
-    bool checkWhitelist;
+    bool public checkWhitelist;
+    address public tradingCore;
     mapping(address => bool) public routerWhitelist;
 
     receive() external payable {}
 
-    constructor(address initialOwner) Ownable(initialOwner) {
+    constructor(address _initialOwner, address _tradingCore) Ownable(_initialOwner) {
         checkWhitelist = true;
+        tradingCore = _tradingCore;
     }
 
     function setCheckWhitelist(bool _checkWhitelist) external override onlyOwner {
@@ -46,6 +48,7 @@ contract SwapRelayer is ISwapRelayer, Ownable {
         address _swapRouter,
         bytes calldata _data
     ) external override {
+        if (msg.sender != tradingCore) revert NotTradingCore();
         if (checkWhitelist && !routerWhitelist[_swapRouter]) revert NotWhitelisted();
 
         _src.approve(_swapRouter, _amountIn);

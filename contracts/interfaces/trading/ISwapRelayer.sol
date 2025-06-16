@@ -9,6 +9,7 @@ interface ISwapRelayer {
 
     error LengthMismatch();
     error NotWhitelisted();
+    error NotTradingCore();
 
     event SetWhitelist(address sender, address[] router, bool[] isWhitelisted);
 
@@ -26,6 +27,7 @@ interface ISwapRelayer {
     function setWhitelist(address[] calldata router, bool[] calldata isWhitelisted) external;
 
     /// @notice Swap for caller
+    /// @notice Only trading core can call this
     /// @dev Source token should be transferred the swap relayer in advance
     /// @param srcToken Source token of the swap
     /// @param dstToken Destination token of the swap
