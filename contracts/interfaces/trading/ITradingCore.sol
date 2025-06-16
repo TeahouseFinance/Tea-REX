@@ -32,7 +32,7 @@ interface ITradingCore {
     event SetFeeConfig(address indexed sender, uint256 timestamp, address market, FeeConfig feeConfig);
     event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
-    event ModifyPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
+    event AdjustPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
     event AddMargin(IMarketNFT indexed market, uint256 indexed positionId, uint256 addedAmount);
     event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
     event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
@@ -180,7 +180,7 @@ interface ITradingCore {
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
-    function modifyPassiveClosePrice(
+    function adjustPassiveClosePrice(
         address market,
         uint256 positionId,
         uint256 takeProfit,

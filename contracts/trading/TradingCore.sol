@@ -341,22 +341,22 @@ contract TradingCore is
         );
 
         emit OpenPosition(_market, positionId);
-        emit ModifyPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
+        emit AdjustPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
 
-    function modifyPassiveClosePrice(
+    function adjustPassiveClosePrice(
         address _market,
         uint256 _positionId,
         uint256 _takeProfit,
         uint256 _stopLoss,
         uint24 _stopLossRateTolerance
     ) external override nonReentrant whenNotPaused {
-        (, , , MarketNFT market, , address positionOwner) = _beforeModifyOpeningPosition(_market, _positionId);
+        (, , , MarketNFT market, , address positionOwner) = _beforeAdjustOpeningPosition(_market, _positionId);
         if (positionOwner != msg.sender) revert NotPositionOwner();
 
-        market.modifyPassiveClosePrice(_positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
+        market.adjustPassiveClosePrice(_positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     
-        emit ModifyPassiveClosePrice(market, _positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
+        emit AdjustPassiveClosePrice(market, _positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
     
     function addMarginPermit(
@@ -375,7 +375,7 @@ contract TradingCore is
             MarketNFT market,
             IMarketNFT.Position memory position,
 
-        ) = _beforeModifyOpeningPosition(_market, _positionId);
+        ) = _beforeAdjustOpeningPosition(_market, _positionId);
 
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
         (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _addedAmount, _deadline, _v, _r, _s);
@@ -395,7 +395,7 @@ contract TradingCore is
             MarketNFT market,
             IMarketNFT.Position memory position,
 
-        ) = _beforeModifyOpeningPosition(_market, _positionId);
+        ) = _beforeAdjustOpeningPosition(_market, _positionId);
 
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
 
@@ -442,7 +442,7 @@ contract TradingCore is
             MarketNFT market,
             IMarketNFT.Position memory position,
             address positionOwner
-        ) = _beforeModifyOpeningPosition(_market, _positionId);
+        ) = _beforeAdjustOpeningPosition(_market, _positionId);
         if (_mode == IMarketNFT.CloseMode.Close && positionOwner != msg.sender) revert NotPositionOwner();
         if (_mode == IMarketNFT.CloseMode.Manager && !positionManager[msg.sender]) revert NotPositionManager();
 
@@ -831,7 +831,7 @@ contract TradingCore is
         _underlyingAsset.approve(pool, 0);
     }
 
-    function _beforeModifyOpeningPosition(
+    function _beforeAdjustOpeningPosition(
         address _market,
         uint256 _positionId
     ) internal returns (

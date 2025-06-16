@@ -175,7 +175,7 @@ interface IMarketNFT {
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
-    function modifyPassiveClosePrice(
+    function adjustPassiveClosePrice(
         uint256 positionId,
         uint256 takeProfit,
         uint256 stopLoss,

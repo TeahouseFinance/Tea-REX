@@ -55,13 +55,13 @@ Here's several operations of trading actions. We defined some notations to elabo
 function openPosition
 ```
 
-##### Modify Take-profit and Stop-loss Price
+##### Adjust Take-profit and Stop-loss Price
 
 1. Take-profit price must greater than $P_{A,D}$.
 2. Stop-loss price must less than $P_{A,D}$.
 
 ```solidity
-function modifyPassiveClosePrice
+function adjustPassiveClosePrice
 ```
 
 ##### Add Margin
