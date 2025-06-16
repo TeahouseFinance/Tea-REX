@@ -193,7 +193,7 @@ contract TradingCore is
 
     function openPositionPermit(
         address _market,
-        uint256 _interestRateModelType,
+        uint256 _lendingType,
         ERC20PermitUpgradeable _longTarget,
         uint256 _marginAmount,
         uint256 _borrowAmount,
@@ -217,7 +217,7 @@ contract TradingCore is
 
         positionId = _openPosition(
             market,
-            _interestRateModelType,
+            _lendingType,
             token0,
             token1,
             margin,
@@ -235,7 +235,7 @@ contract TradingCore is
 
     function openPosition(
         address _market,
-        uint256 _interestRateModelType,
+        uint256 _lendingType,
         ERC20PermitUpgradeable _longTarget,
         uint256 _marginAmount,
         uint256 _borrowAmount,
@@ -254,7 +254,7 @@ contract TradingCore is
 
         positionId = _openPosition(
             market,
-            _interestRateModelType,
+            _lendingType,
             token0,
             token1,
             margin,
@@ -272,7 +272,7 @@ contract TradingCore is
 
     function _openPosition(
         MarketNFT _market,
-        uint256 _interestRateModelType,
+        uint256 _lendingType,
         ERC20PermitUpgradeable _token0,
         ERC20PermitUpgradeable _token1,
         ERC20PermitUpgradeable _margin,
@@ -295,7 +295,7 @@ contract TradingCore is
             (false, _token1, _token0);
         
         IRouter _router = router;
-        address pool = _router.borrow(debt, _interestRateModelType, _borrowAmount);
+        address pool = _router.borrow(debt, _lendingType, _borrowAmount);
         FeeConfig memory _feeConfig = _getFeeForAccount(address(_market), msg.sender);
         uint256 tradingFee = _calculateTradingFee(false, _borrowAmount, _feeConfig);
         _collectTradingFee(debt, tradingFee, _feeConfig);
@@ -313,11 +313,11 @@ contract TradingCore is
         if (unusedAmount > 0) {
             debt.safeTransfer(pool, unusedAmount);
         }
-        uint256 borrowId = _router.commitBorrow(debt, _interestRateModelType, debtAmount);
+        uint256 borrowId = _router.commitBorrow(debt, _lendingType, debtAmount);
         _margin.safeTransferFrom(msg.sender, address(this), _marginAmount);
         positionId = _market.openPosition(
             msg.sender,
-            _interestRateModelType,
+            _lendingType,
             borrowId, 
             isLongToken0,
             _marginAmount,
@@ -444,7 +444,7 @@ contract TradingCore is
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
         if (address(_calldataProcessor) != address(0)) {
             _data = _calldataProcessor.processCalldata(
-                _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId),
+                _router.debtOfUnderlying(debt, position.lendingType, position.borrowId),
                 _data
             );
         }
@@ -471,14 +471,14 @@ contract TradingCore is
             swappedAssetToken,
             decreasedDebtAmount,
             tradingFee,
-            _router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId)
+            _router.debtOfUnderlying(debt, position.lendingType, position.borrowId)
         );
         _pay(asset, address(this), positionOwner, owedAsset);
         _pay(debt, address(this), positionOwner, owedDebt);
         _repay(
             _router,
             debt,
-            position.interestRateModelType,
+            position.lendingType,
             position.borrowId,
             position.isMarginAsset ? decreasedDebtAmount : decreasedDebtAmount + decreasedMarginAmount,
             market.getPosition(_positionId).swappableAmount == 0
@@ -653,7 +653,7 @@ contract TradingCore is
         IMarketNFT.Position memory position = MarketNFT(_market).getPosition(_positionId);
 
         (asset, debt) = _getPositionTokens(token0, token1, position);
-        debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
+        debtAmount = router.debtOfUnderlying(debt, position.lendingType, position.borrowId);
     }
 
     function liquidateAuctionPrice(
@@ -678,7 +678,7 @@ contract TradingCore is
         MarketNFT market = MarketNFT(_market);
         IMarketNFT.Position memory position = market.getPosition(_positionId);
         ERC20PermitUpgradeable debt = position.isLongToken0 ? token1 : token0;
-        uint256 debtAmount = router.debtOfUnderlying(debt, position.interestRateModelType, position.borrowId);
+        uint256 debtAmount = router.debtOfUnderlying(debt, position.lendingType, position.borrowId);
         
         price = market.getLiquidationPrice(_positionId, debtAmount);
     }
@@ -808,14 +808,14 @@ contract TradingCore is
     function _repay(
         IRouter _router,
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _id,
         uint256 _underlyingAmount,
         bool _forceClose
     ) internal {
-        address pool = address(_router.getLendingPool(_underlyingAsset, _modelType));
+        address pool = address(_router.getLendingPool(_underlyingAsset, _lendingType));
         _underlyingAsset.approve(pool, _underlyingAmount);
-        _router.repay(_underlyingAsset, _modelType, address(this), _id, _underlyingAmount, _forceClose);
+        _router.repay(_underlyingAsset, _lendingType, address(this), _id, _underlyingAmount, _forceClose);
         _underlyingAsset.approve(pool, 0);
     }
 
@@ -837,7 +837,7 @@ contract TradingCore is
         positionOwner = market.ownerOf(_positionId);
 
         ERC20PermitUpgradeable debt = position.isLongToken0 ? token1 : token0;
-        _router.collectInterestFeeAndCommit(debt, position.interestRateModelType);
+        _router.collectInterestFeeAndCommit(debt, position.lendingType);
     }
 
     function _updateAssetTokenToSwap(

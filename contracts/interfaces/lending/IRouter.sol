@@ -18,8 +18,8 @@ interface IRouter {
     event TradingCoreSet(address indexed sender, address indexed tradingCore);
     event DeFaultFeeConfigSet(address indexed sender, address indexed treasury, uint32 indexed borrowFee);
     event FeeConfigSet(address indexed sender, IPool pool, address indexed treasury, uint32 indexed borrowFee);
-    event InterestRateModelSet(address indexed sender, uint256 indexed modelType, address indexed model);
-    event LendingPoolCreated(address indexed poolAddress, address indexed underlyingAsset, uint256 indexed modelType);
+    event InterestRateModelSet(address indexed sender, uint256 indexed lendingType, address indexed model);
+    event LendingPoolCreated(address indexed poolAddress, address indexed underlyingAsset, uint256 indexed lendingType);
 
     /// @notice Fee config structure
     /// @param treasury Borrowed fee goes to this address
@@ -66,25 +66,25 @@ interface IRouter {
     function getFeeConfig() external view returns (FeeConfig memory feeConfig);
 
     /// @notice Set interest rate model for the specified model type
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param model Address of interest rate model
-    function setInterestRateModel(uint256 modelType, address model) external;
+    function setInterestRateModel(uint256 lendingType, address model) external;
 
     /// @notice Get interest rate model of the specified model type
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return model Address of interest rate model
-    function getInterestRateModel(uint256 modelType) external view returns (address model);
+    function getInterestRateModel(uint256 lendingType) external view returns (address model);
 
     /// @notice Create a new lending pool
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param supplyCap Supply cap of the lending pool
     /// @param borrowCap Borrow cap of the lending pool
     /// @param reserveRatio Reserve ratio of the lending pool
     /// @return proxyAddress Address of the created lending pool
     function createLendingPool(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         uint256 supplyCap,
         uint256 borrowCap,
         uint24 reserveRatio
@@ -99,32 +99,32 @@ interface IRouter {
 
     /// @notice Get address of the lending pool address
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return lendingPool Address of the lending pool
-    function getLendingPool(ERC20PermitUpgradeable underlyingAsset, uint256 modelType) external view returns (IPool lendingPool);
+    function getLendingPool(ERC20PermitUpgradeable underlyingAsset, uint256 lendingType) external view returns (IPool lendingPool);
     
     /// @notice Get current supplied yield rate
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return rate Current supplied yield rate
-    function getSupplyRate(ERC20PermitUpgradeable underlyingAsset, uint256 modelType) external view returns (uint256 rate);
+    function getSupplyRate(ERC20PermitUpgradeable underlyingAsset, uint256 lendingType) external view returns (uint256 rate);
 
     /// @notice Get current borrowed interest rate
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return rate Current borrowed interest rate
-    function getBorrowRate(ERC20PermitUpgradeable underlyingAsset, uint256 modelType) external view returns (uint256 rate);
+    function getBorrowRate(ERC20PermitUpgradeable underlyingAsset, uint256 lendingType) external view returns (uint256 rate);
 
     /// @notice Supply tokens to the lending pool and mint interest-bearing tokens
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param supplyFor Minted interest-bearing tokens go to this account
     /// @param amount Amount of underlying tokens to supply
     /// @return depositedUnderlying Actual supplied amount of underlying tokens
     /// @return mintedTeaToken Amount of minted interest-bearing tokens
     function supply(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         address supplyFor,
         uint256 amount
     ) external returns (
@@ -134,14 +134,14 @@ interface IRouter {
     
     /// @notice Withdraw tokens supplied before and burn interest-bearing tokens
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param withdrawTo Withdrawn tokens go to this account
     /// @param amount Expected burnt amount of interest-bearing tokens, actual burnt amount may be affected by current lending status
     /// @return withdrawnUnderlying Actual withdrawn amount of underlying tokens
     /// @return burntTeaToken Amount of burnt interest-bearing tokens
     function withdraw(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         address withdrawTo,
         uint256 amount
     ) external returns (
@@ -152,12 +152,12 @@ interface IRouter {
     /// @notice Borrow and transfer token directly without accounting, need to call commitBorrow to finish final accouting
     /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param amountToBorrow Amount of underlying tokens to borrow
     /// @return pool Address of the tokens borrowed from
     function borrow(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         uint256 amountToBorrow
     ) external returns (
         address pool
@@ -166,12 +166,12 @@ interface IRouter {
     /// @notice Finish borrow accounting and check whether all conditions are met for this borrow
     /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param amountToBorrow Amount of underlying tokens to borrow
     /// @return id Borrow id of the lending position
     function commitBorrow(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         uint256 amountToBorrow
     ) external returns (
         uint256 id
@@ -180,7 +180,7 @@ interface IRouter {
     /// @notice Repay debt for a lending position
     /// @notice Only trading core can call this
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param account Repaid token from this account
     /// @param id Borrow id of the lending position
     /// @param amount Amount of interest-bearing tokens to repay
@@ -189,7 +189,7 @@ interface IRouter {
     /// @return unrepaidUnderlyingAmount Unrepaid amount of underlying tokens
     function repay(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         address account,
         uint256 id,
         uint256 amount,
@@ -201,12 +201,12 @@ interface IRouter {
     
     /// @notice Get interest-bearing tokens supplied by the account
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param account Query account
     /// @return teaTokenAmount Amount of supplied interest-bearing tokens
     function balanceOf(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         address account
     ) external view returns (
         uint256 teaTokenAmount
@@ -214,12 +214,12 @@ interface IRouter {
     
     /// @notice Get underlying tokens supplied by the account
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param account Query account
     /// @return underlyingAmount Amount of supplied underlying tokens
     function balanceOfUnderlying(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         address account
     ) external view returns (
         uint256 underlyingAmount
@@ -227,12 +227,12 @@ interface IRouter {
     
     /// @notice Get interest-bearing tokens owed by the position
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param id Borrow id of the lending position
     /// @return teaTokenAmount Amount of borrowed interest-bearing tokens
     function debtOf(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         uint256 id
     ) external view returns (
         uint256 teaTokenAmount
@@ -240,12 +240,12 @@ interface IRouter {
     
     /// @notice Get underlying tokens owed by the account
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param id Borrow id of the lending position
     /// @return underlyingAmount Amount of borrowed underlying tokens
     function debtOfUnderlying(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType,
+        uint256 lendingType,
         uint256 id
     ) external view returns (
         uint256 underlyingAmount
@@ -253,12 +253,12 @@ interface IRouter {
 
     /// @notice Get supplied and borrowed interest-bearing token to underlying token conversion rate
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return suppiedConversionRate Supplied interest-bearing token to underlying token conversion rate
     /// @return borrowedConversionRate Borrowed interest-bearing token to underlying token conversion rate
     function getConversionRates(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType
+        uint256 lendingType
     ) external view returns (
         uint256 suppiedConversionRate,
         uint256 borrowedConversionRate
@@ -266,12 +266,12 @@ interface IRouter {
     
     /// @notice Collect interest and borrow fee, and do accouting.
     /// @param underlyingAsset Address of the underlying token
-    /// @param modelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @return interest Amount of interest
     /// @return fee Amount of borrow fee
     function collectInterestFeeAndCommit(
         ERC20PermitUpgradeable underlyingAsset,
-        uint256 modelType
+        uint256 lendingType
     ) external returns (
         uint256 interest,
         uint256 fee

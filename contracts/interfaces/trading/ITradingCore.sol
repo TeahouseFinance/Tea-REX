@@ -98,7 +98,7 @@ interface ITradingCore {
 
     /// @notice Open a position with user's signature
     /// @param market Market address
-    /// @param interestRateModelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param longTarget Long target, must be one of token0 or token1
     /// @param marginAmount Margin amount for the position
     /// @param borrowAmount Amount of borrowed token for swapping to asset token
@@ -115,7 +115,7 @@ interface ITradingCore {
     /// @return positionId Position id, same as ERC721 token id
     function openPositionPermit(
         address market,
-        uint256 interestRateModelType,
+        uint256 lendingType,
         ERC20PermitUpgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,
@@ -135,7 +135,7 @@ interface ITradingCore {
 
     /// @notice Open a position
     /// @param market Market address
-    /// @param interestRateModelType Type of the interest rate model
+    /// @param lendingType Type of the lending pool
     /// @param longTarget Long target, must be one of token0 or token1
     /// @param marginAmount Margin amount for the position
     /// @param borrowAmount Amount of borrowed token for swapping to asset token
@@ -148,7 +148,7 @@ interface ITradingCore {
     /// @return positionId Position id, same as ERC721 token id
     function openPosition(
         address market,
-        uint256 interestRateModelType,
+        uint256 lendingType,
         ERC20PermitUpgradeable longTarget,
         uint256 marginAmount,
         uint256 borrowAmount,

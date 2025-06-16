@@ -28,7 +28,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     uint256 public RATE_MULTIPLIER;
     IRouter public router;
     ERC20PermitUpgradeable public underlyingAsset;
-    uint256 interestRateModelType;
+    uint256 lendingType;
     uint24 public reserveRatio;
     uint256 public supplyCap;
     uint256 public borrowCap;
@@ -48,7 +48,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     function initialize(
         address _owner,
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _interestRateModelType,
+        uint256 _lendingType,
         uint256 _supplyCap,
         uint256 _borrowCap,
         uint24 _reserveRatio
@@ -64,7 +64,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
 
         router = IRouter(msg.sender);
         underlyingAsset = _underlyingAsset;
-        interestRateModelType = _interestRateModelType;
+        lendingType = _lendingType;
         DECIMALS_OFFSET = 18;
         DECIMALS_MULTIPLIER = 10 ** DECIMALS_OFFSET;
         RATE_MULTIPLIER = 10 ** 18;
@@ -125,7 +125,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
     }
 
     function _getInterestRateModel() internal view returns (IInterestRateModel) {
-        return IInterestRateModel(router.getInterestRateModel(interestRateModelType));
+        return IInterestRateModel(router.getInterestRateModel(lendingType));
     }
 
     function _toUnderlying(
@@ -436,7 +436,7 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
         uint256 borrowedUnderlying = _borrowedTeaToken.mulDiv(borrowedConversionRate, RATE_MULTIPLIER);
         uint256 _borrowedConversionRate = borrowedConversionRate;
 
-        uint256 interestRate = IInterestRateModel(router.getInterestRateModel(interestRateModelType)).getBorrowRate(
+        uint256 interestRate = IInterestRateModel(router.getInterestRateModel(lendingType)).getBorrowRate(
             suppliedUnderlying,
             borrowedUnderlying,
             reserveRatio

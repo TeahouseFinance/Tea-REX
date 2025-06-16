@@ -56,7 +56,7 @@ interface IMarketNFT {
     /// @param isMarginAsset Whether margin is same as position asset, depending on the trading direction
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
     /// @param marginAmount Margin amount of the position
-    /// @param interestRateModelType Position lending mode
+    /// @param lendingType Type of the lending pool
     /// @param borrowId Position lending id
     /// @param assetAmount Asset amount of the position
     /// @param swappableAmount Swappable amount of the position when closing position, depending on the trading direction
@@ -68,7 +68,7 @@ interface IMarketNFT {
         bool isMarginAsset;
         uint24 stopLossRateTolerance;
         uint256 marginAmount;
-        uint256 interestRateModelType;
+        uint256 lendingType;
         uint256 borrowId;
         uint256 assetAmount;
         uint256 swappableAmount;
@@ -127,7 +127,7 @@ interface IMarketNFT {
     /// @notice Open a position
     /// @notice Loss ratio must be not greater than openPositionLossRatioThreshold
     /// @param account Position owner
-    /// @param interestRateModelType Position lending mode
+    /// @param lendingType Type of the lending pool
     /// @param borrowId Position lending id
     /// @param isLongToken0 Position trading direction, long token0/short token1 or not
     /// @param marginAmount Margin amount of the position
@@ -139,7 +139,7 @@ interface IMarketNFT {
     /// @return positionId Position id
     function openPosition(
         address account,
-        uint256 interestRateModelType,
+        uint256 lendingType,
         uint256 borrowId,
         bool isLongToken0,
         uint256 marginAmount,

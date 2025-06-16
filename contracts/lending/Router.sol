@@ -101,27 +101,27 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         return _feeConfig.treasury == address(0) ? defaultFeeConfig : _feeConfig;
     }
 
-    function setInterestRateModel(uint256 _modelType, address _model) external override onlyOwner {
-        interestRateModel[_modelType] = _model;
+    function setInterestRateModel(uint256 _lendingType, address _model) external override onlyOwner {
+        interestRateModel[_lendingType] = _model;
 
-        emit InterestRateModelSet(msg.sender, _modelType, _model);
+        emit InterestRateModelSet(msg.sender, _lendingType, _model);
     }
 
-    function getInterestRateModel(uint256 _modelType) external view override returns (address) {
-        return interestRateModel[_modelType];
+    function getInterestRateModel(uint256 _lendingType) external view override returns (address) {
+        return interestRateModel[_lendingType];
     }
 
     function createLendingPool(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _supplyCap,
         uint256 _borrowCap,
         uint24 _reserveRatio
     ) external override nonReentrant onlyOwner returns (
         address proxyAddress
     ) {
-        if (interestRateModel[_modelType] == address(0)) revert ModelNotSet();
-        if (pool[_underlyingAsset][_modelType] != Pool(address(0))) revert PoolAlreadyExists();
+        if (interestRateModel[_lendingType] == address(0)) revert ModelNotSet();
+        if (pool[_underlyingAsset][_lendingType] != Pool(address(0))) revert PoolAlreadyExists();
 
         proxyAddress = address(new BeaconProxy(
             poolBeacon,
@@ -129,30 +129,30 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
                 Pool.initialize.selector,
                 owner(),
                 _underlyingAsset,
-                _modelType,
+                _lendingType,
                 _supplyCap,
                 _borrowCap,
                 _reserveRatio
             )
         ));
-        pool[_underlyingAsset][_modelType] = Pool(proxyAddress);
+        pool[_underlyingAsset][_lendingType] = Pool(proxyAddress);
         isAssetEnabled[_underlyingAsset] = true;
         
-        emit LendingPoolCreated(address(proxyAddress), address(_underlyingAsset), _modelType);
+        emit LendingPoolCreated(address(proxyAddress), address(_underlyingAsset), _lendingType);
     }
 
-    function getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _modelType) external view override returns (IPool) {
-        return _getLendingPool(_underlyingAsset, _modelType);
+    function getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _lendingType) external view override returns (IPool) {
+        return _getLendingPool(_underlyingAsset, _lendingType);
     }
 
-    function _getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _modelType) internal view returns (IPool lendingPool) {
-        lendingPool = pool[_underlyingAsset][_modelType];
+    function _getLendingPool(ERC20PermitUpgradeable _underlyingAsset, uint256 _lendingType) internal view returns (IPool lendingPool) {
+        lendingPool = pool[_underlyingAsset][_lendingType];
         if (lendingPool == Pool(address(0))) revert PoolNotExists();
     }
 
     function getSupplyRate(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType
+        uint256 _lendingType
     ) external override view returns (
         uint256 rate
     ) {
@@ -161,14 +161,14 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             uint256 borrowed,
             ,
             uint24 reserveRatio
-        ) = pool[_underlyingAsset][_modelType].getLendingStatus();
+        ) = pool[_underlyingAsset][_lendingType].getLendingStatus();
         
-        rate = IInterestRateModel(interestRateModel[_modelType]).getSupplyRate(supplied, borrowed, reserveRatio);
+        rate = IInterestRateModel(interestRateModel[_lendingType]).getSupplyRate(supplied, borrowed, reserveRatio);
     }
 
     function getBorrowRate(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType
+        uint256 _lendingType
     ) external override view returns (
         uint256 rate
     ) {
@@ -177,43 +177,43 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
             uint256 borrowed,
             ,
             uint24 reserveRatio
-        ) = pool[_underlyingAsset][_modelType].getLendingStatus();
+        ) = pool[_underlyingAsset][_lendingType].getLendingStatus();
         
-        rate = IInterestRateModel(interestRateModel[_modelType]).getBorrowRate(supplied, borrowed, reserveRatio);
+        rate = IInterestRateModel(interestRateModel[_lendingType]).getBorrowRate(supplied, borrowed, reserveRatio);
     }
 
     function supply(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         address _supplyFor,
         uint256 _amount
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256,
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).supply(msg.sender, _supplyFor, _amount);
+        return _getLendingPool(_underlyingAsset, _lendingType).supply(msg.sender, _supplyFor, _amount);
     }
 
     function withdraw(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         address _withdrawTo,
         uint256 _amount
     ) external override nonReentrant onlyWhitelistedOperator(msg.sender) returns (
         uint256,
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).withdraw(msg.sender, _withdrawTo, _amount);
+        return _getLendingPool(_underlyingAsset, _lendingType).withdraw(msg.sender, _withdrawTo, _amount);
     }
 
     function borrow(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _amountToBorrow
     ) external override nonReentrant onlyTradingCore returns (
         address
     ) {
-        IPool lendingPool = _getLendingPool(_underlyingAsset, _modelType);
+        IPool lendingPool = _getLendingPool(_underlyingAsset, _lendingType);
         lendingPool.borrow(tradingCore, _amountToBorrow);
 
         return address(lendingPool);
@@ -221,17 +221,17 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
 
     function commitBorrow(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _amountToBorrow
     ) external override nonReentrant onlyTradingCore returns (
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).commitBorrow(tradingCore, _amountToBorrow);
+        return _getLendingPool(_underlyingAsset, _lendingType).commitBorrow(tradingCore, _amountToBorrow);
     }
 
     function repay(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         address _account,
         uint256 _id,
         uint256 _amount,
@@ -240,67 +240,67 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
         uint256,
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).repay(_account, _id, _amount, _forceClose);
+        return _getLendingPool(_underlyingAsset, _lendingType).repay(_account, _id, _amount, _forceClose);
     }
 
     function balanceOf(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         address _account
     ) external view override returns (
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).balanceOf(_account);
+        return _getLendingPool(_underlyingAsset, _lendingType).balanceOf(_account);
     }
 
     function balanceOfUnderlying(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         address _account
     ) external view override returns (
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).balanceOfUnderlying(_account);
+        return _getLendingPool(_underlyingAsset, _lendingType).balanceOfUnderlying(_account);
     }
 
     function debtOf(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _id
     ) external view override returns (
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).debtOf(_id);
+        return _getLendingPool(_underlyingAsset, _lendingType).debtOf(_id);
     }
 
     function debtOfUnderlying(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType,
+        uint256 _lendingType,
         uint256 _id
     ) external view override returns (
         uint256
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).debtOfUnderlying(_id);
+        return _getLendingPool(_underlyingAsset, _lendingType).debtOfUnderlying(_id);
     }
 
     function getConversionRates(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType
+        uint256 _lendingType
     ) external view override returns (
         uint256 suppiedConversionRate,
         uint256 borrowedConversionRate
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).getConversionRates();
+        return _getLendingPool(_underlyingAsset, _lendingType).getConversionRates();
     }
 
     function collectInterestFeeAndCommit(
         ERC20PermitUpgradeable _underlyingAsset,
-        uint256 _modelType
+        uint256 _lendingType
     ) external returns (
         uint256 interest,
         uint256 fee
     ) {
-        return _getLendingPool(_underlyingAsset, _modelType).collectInterestFeeAndCommit();
+        return _getLendingPool(_underlyingAsset, _lendingType).collectInterestFeeAndCommit();
     }
 
     function setEnableWhitelist(bool _enableWhitelist) external onlyOwner {
