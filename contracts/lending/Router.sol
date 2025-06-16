@@ -75,8 +75,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     }
 
     function setDefaultFeeConfig(address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
-        if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
-        if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
+        _checkFee(_borrowFee, _withdrawalFee);
 
         defaultFeeConfig = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
 
@@ -84,12 +83,16 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, OwnableUpgradeable, 
     }
 
     function setFeeConfig(IPool _pool, address _treasury, uint32 _borrowFee, uint32 _withdrawalFee) external override onlyOwner {
-        if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
-        if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
+        _checkFee(_borrowFee, _withdrawalFee);
 
         feeConfig[_pool] = FeeConfig({ treasury: _treasury, borrowFee: _borrowFee, withdrawalFee: _withdrawalFee });
 
         emit FeeConfigSet(msg.sender, _pool, _treasury, _borrowFee);
+    }
+
+    function _checkFee(uint32 _borrowFee, uint32 _withdrawalFee) internal view {
+        if (_borrowFee > FEE_CAP) revert ExceedsFeeCap();
+        if (_withdrawalFee > FEE_CAP) revert ExceedsFeeCap();
     }
 
     function getFeeConfig() external view override returns (FeeConfig memory) {
