@@ -176,6 +176,7 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         }
     }
 
+    // from Chainlink's tutorial contract
     function _verifyReport(bytes memory unverifiedReport) internal {
         // ─── 1. & 2. Extract reportData and schema version ──
         (, bytes memory reportData) = abi.decode(
@@ -224,18 +225,22 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
             require(asset != address(0), InvalidFeedId());
 
             OracleInfo storage info = oracleInfo[asset];
-            info.lastPrice = report.price;
-            info.validFromTimestamp = report.validFromTimestamp;
-            info.expiresAt = report.expiresAt;
+            if (info.validFromTimestamp < report.validFromTimestamp) {
+                info.lastPrice = report.price;
+                info.validFromTimestamp = report.validFromTimestamp;
+                info.expiresAt = report.expiresAt;
+            })
         } else {
             ReportV4 memory report = abi.decode(verified, (ReportV4));
             address asset = assets[report.feedId];
             require(asset != address(0), InvalidFeedId());
 
             OracleInfo storage info = oracleInfo[asset];
-            info.lastPrice = report.price;
-            info.validFromTimestamp = report.validFromTimestamp;
-            info.expiresAt = report.expiresAt;
+            if (info.validFromTimestamp < report.validFromTimestamp) {
+                info.lastPrice = report.price;
+                info.validFromTimestamp = report.validFromTimestamp;
+                info.expiresAt = report.expiresAt;
+            }
         }    
     }
 }
