@@ -229,7 +229,7 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
                 info.lastPrice = report.price;
                 info.validFromTimestamp = report.validFromTimestamp;
                 info.expiresAt = report.expiresAt;
-            })
+            }
         } else {
             ReportV4 memory report = abi.decode(verified, (ReportV4));
             address asset = assets[report.feedId];
