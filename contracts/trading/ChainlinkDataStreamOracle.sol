@@ -87,12 +87,13 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         IVerifierProxy _verifierProxy,
         address _baseAsset,
         bytes32 _baseFeedId,
+        uint8 _basePriceDecimals,
         uint32 _priceTimeLimit
     ) Ownable(_owner) {
         verifierProxy = _verifierProxy;
         priceDecimals = _decimals;
         baseAsset = _baseAsset;
-        _addAsset(_baseAsset, _baseFeedId, _priceTimeLimit);
+        _addAsset(_baseAsset, _baseFeedId, _basePriceDecimals, _priceTimeLimit);
     }
 
     function decimals() external view returns (uint8) {
