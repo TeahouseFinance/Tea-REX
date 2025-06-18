@@ -24,6 +24,15 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
 
     // ----------------- Report schemas -----------------
     // More info: https://docs.chain.link/data-streams/reference/report-schema
+    struct ReportV2 {
+        bytes32 feedId;
+        uint32 validFromTimestamp;
+        uint32 observationsTimestamp;
+        uint192 nativeFee;
+        uint192 linkFee;
+        uint32 expiresAt;
+        int192 price;
+    }
     /**
      * @dev Data Streams report schema v3 (crypto streams).
      *      Prices, bids and asks use 8 or 18 decimals depending on the stream.
@@ -143,15 +152,15 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         OracleInfo storage baseInfo = oracleInfo[baseAsset];
 
         int256 assetPrice = assetInfo.lastPrice;
-        uint32 assetExpireTime = assetInfo.expiresAt;
+        uint32 assetUpdateTime = assetInfo.validFromTimestamp;
         int256 basePrice = baseInfo.lastPrice;
-        uint32 baseExpireTime = baseInfo.expiresAt;
+        uint32 baseUpdateTime = baseInfo.validFromTimestamp;
 
-        if (assetExpireTime + assetInfo.priceTimeLimit < block.timestamp) {
+        if (assetUpdateTime + assetInfo.priceTimeLimit < block.timestamp) {
             revert OraclePriceIsTooOld();
         }
 
-        if (baseExpireTime + baseInfo.priceTimeLimit < block.timestamp) {
+        if (baseUpdateTime + baseInfo.priceTimeLimit < block.timestamp) {
             revert OraclePriceIsTooOld();
         }
 
@@ -219,7 +228,19 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         );
 
         // ─── 5. Decode & store price ──
-        if (reportVersion == 3) {
+        if (reportVersion == 2) {
+            ReportV2 memory report = abi.decode(verified, (ReportV2));
+            address asset = assets[report.feedId];
+            require(asset != address(0), InvalidFeedId());
+
+            OracleInfo storage info = oracleInfo[asset];
+            if (info.validFromTimestamp < report.validFromTimestamp) {
+                info.lastPrice = report.price;
+                info.validFromTimestamp = report.validFromTimestamp;
+                info.expiresAt = report.expiresAt;
+            }
+        }
+        else if (reportVersion == 3) {
             ReportV3 memory report = abi.decode(verified, (ReportV3));
             address asset = assets[report.feedId];
             require(asset != address(0), InvalidFeedId());
