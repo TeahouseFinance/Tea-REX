@@ -69,7 +69,9 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         uint32 validFromTimestamp;
         uint32 expiresAt;
         uint32 priceTimeLimit;
-        uint8 tokenDecimals;
+        uint8 assetDecimals;
+        uint8 priceDecimals;
+        uint8 totalDecimals;
     }
 
     uint8 immutable private priceDecimals;
@@ -105,8 +107,8 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         return address(verifierProxy);
     }
 
-    function setAsset(address _asset, bytes32 _feedId, uint32 _priceTimeLimit) external onlyOwner {
-        _addAsset(_asset, _feedId, _priceTimeLimit);
+    function setAsset(address _asset, bytes32 _feedId, uint8 _priceDecimals, uint32 _priceTimeLimit) external onlyOwner {
+        _addAsset(_asset, _feedId, _priceDecimals, _priceTimeLimit);
     }
 
     function removeAsset(address _asset) external onlyOwner {
@@ -125,7 +127,7 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         whitelist[_verifier] = _allow;
     }
 
-    function _addAsset(address _asset, bytes32 _feedId, uint32 _priceTimeLimit) internal {
+    function _addAsset(address _asset, bytes32 _feedId, uint8 _priceDecimals, uint32 _priceTimeLimit) internal {
         require(address(_asset) != address(0), InvalidAssetAddress());
         require(assets[_feedId] == address(0), InvalidFeedId());
 
@@ -134,7 +136,9 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
 
         info.feedId = _feedId;
         info.priceTimeLimit = _priceTimeLimit;
-        info.tokenDecimals = IERC20Metadata(_asset).decimals();
+        info.assetDecimals = IERC20Metadata(_asset).decimals();
+        info.priceDecimals = _priceDecimals;
+        info.totalDecimals = info.assetDecimals + info.priceDecimals;
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {
@@ -167,8 +171,8 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         if (assetPrice < 0) revert OraclePriceIsInvalid();
         if (basePrice < 0) revert OraclePriceIsInvalid();
 
-        uint256 mulDecimals = baseInfo.tokenDecimals + priceDecimals;
-        uint256 divDecimals = assetInfo.tokenDecimals;
+        uint256 mulDecimals = baseInfo.totalDecimals + priceDecimals;
+        uint256 divDecimals = assetInfo.totalDecimals;
         if (mulDecimals > divDecimals) {
             price = Math.mulDiv(uint256(assetPrice), 10 ** (mulDecimals - divDecimals), uint256(basePrice));
         }
