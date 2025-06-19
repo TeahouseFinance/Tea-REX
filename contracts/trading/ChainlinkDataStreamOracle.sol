@@ -12,15 +12,22 @@ import {IVerifierFeeManager} from "../interfaces/3rdparty/IVerifierFeeManager.so
 import {Common} from "../libraries/3rdparty/Common.sol";
 
 
+/// @title Price oracle contract for Chainlink Data Streams
 contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
 
-    error InvalidAssetAddress();
+    error InvalidAddress();
     error InvalidFeedId();
     error OraclePriceIsInvalid();
     error OraclePriceIsTooOld();
-    error InvalidVerifierAddress();
     error NotWhitelisted();
     error InvalidReportVersion(uint16 version);
+
+    event AddAsset(address indexed asset, bytes32 feedId, uint8 priceDecimals, uint32 priceTimeLimit);
+    event RemoveAsset(address indexed asset, bytes32 feedId);
+    event ChangePriceTimeLimit(address indexed asset, uint32 priceTimeLimit);
+    event SetWhitelist(address indexed caller, bool allow);
+    event WithdrawTokens(address indexed token, uint256 amount, address receiver);
+    event VerifyReport(address indexed token, bytes32 feedId, int192 price, uint32 validFromTimestamp);
 
     // ----------------- Report schemas -----------------
     // More info: https://docs.chain.link/data-streams/reference/report-schema
@@ -33,6 +40,7 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         uint32 expiresAt;
         int192 price;
     }
+
     /**
      * @dev Data Streams report schema v3 (crypto streams).
      *      Prices, bids and asks use 8 or 18 decimals depending on the stream.
@@ -67,7 +75,6 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         bytes32 feedId;
         int192 lastPrice;
         uint32 validFromTimestamp;
-        uint32 expiresAt;
         uint32 priceTimeLimit;
         uint8 assetDecimals;
         uint8 priceDecimals;
@@ -76,7 +83,7 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
 
     uint8 immutable private priceDecimals;
     address immutable private baseAsset;
-    IVerifierProxy immutable verifierProxy;
+    IVerifierProxy immutable private verifierProxy;
     mapping(bytes32 => address) public assets;
     mapping(address => OracleInfo) public oracleInfo;
     mapping(address => bool) public whitelist;
@@ -113,23 +120,45 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
     }
 
     function removeAsset(address _asset) external onlyOwner {
-        require(_asset != address(0), InvalidAssetAddress());
-        require(_asset != address(baseAsset), InvalidAssetAddress());
+        require(_asset != address(0), InvalidAddress());
+        require(_asset != address(baseAsset), InvalidAddress());
 
         bytes32 feedId = oracleInfo[_asset].feedId;
-        require(feedId != bytes32(0), InvalidAssetAddress());
+        require(feedId != bytes32(0), InvalidFeedId());
 
         delete assets[feedId];
         delete oracleInfo[_asset];
+
+        emit RemoveAsset(_asset, feedId);
     }
 
-    function setWhitelist(address _verifier, bool _allow) external onlyOwner {
-        require(_verifier != address(0), InvalidVerifierAddress());
-        whitelist[_verifier] = _allow;
+    function changeAssetPriceTimeLimit(address _asset, uint32 _priceTimeLimit) external onlyOwner {
+        require(_asset != address(0), InvalidAddress());
+
+        OracleInfo storage info = oracleInfo[_asset];
+        info.priceTimeLimit = _priceTimeLimit;
+
+        emit ChangePriceTimeLimit(_asset, _priceTimeLimit);
+    }
+
+    function setWhitelist(address _caller, bool _allow) external onlyOwner {
+        require(_caller != address(0), InvalidAddress());
+        whitelist[_caller] = _allow;
+
+        emit SetWhitelist(_caller, _allow);
+    }
+
+    function withdrawTokens(address _token, uint256 _amount, address _receiver) external onlyOwner {
+        require(_token != address(0), InvalidAddress());
+        require(_receiver != address(0), InvalidAddress());
+
+        IERC20Metadata(_token).transfer(_receiver, _amount);
+
+        emit WithdrawTokens(_token, _amount, _receiver);
     }
 
     function _addAsset(address _asset, bytes32 _feedId, uint8 _priceDecimals, uint32 _priceTimeLimit) internal {
-        require(address(_asset) != address(0), InvalidAssetAddress());
+        require(address(_asset) != address(0), InvalidAddress());
         require(assets[_feedId] == address(0), InvalidFeedId());
 
         assets[_feedId] = _asset;
@@ -140,6 +169,8 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
         info.assetDecimals = IERC20Metadata(_asset).decimals();
         info.priceDecimals = _priceDecimals;
         info.totalDecimals = info.assetDecimals + info.priceDecimals;
+
+        emit AddAsset(_asset, _feedId, _priceDecimals, _priceTimeLimit);
     }
 
     function isOracleEnabled(address _asset) external view returns (bool) {
@@ -200,8 +231,6 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
 
         uint16 reportVersion = (uint16(uint8(reportData[0])) << 8) |
             uint16(uint8(reportData[1]));
-        if (reportVersion != 3 && reportVersion != 4)
-            revert InvalidReportVersion(reportVersion);
 
         // ─── 3. Fee handling ──
         IFeeManager feeManager = IFeeManager(
@@ -242,8 +271,9 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
             if (info.validFromTimestamp < report.validFromTimestamp) {
                 info.lastPrice = report.price;
                 info.validFromTimestamp = report.validFromTimestamp;
-                info.expiresAt = report.expiresAt;
             }
+
+            emit VerifyReport(asset, report.feedId, report.price, report.validFromTimestamp);
         }
         else if (reportVersion == 3) {
             ReportV3 memory report = abi.decode(verified, (ReportV3));
@@ -254,9 +284,11 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
             if (info.validFromTimestamp < report.validFromTimestamp) {
                 info.lastPrice = report.price;
                 info.validFromTimestamp = report.validFromTimestamp;
-                info.expiresAt = report.expiresAt;
             }
-        } else {
+
+            emit VerifyReport(asset, report.feedId, report.price, report.validFromTimestamp);
+        }
+        else if (reportVersion == 4) {
             ReportV4 memory report = abi.decode(verified, (ReportV4));
             address asset = assets[report.feedId];
             require(asset != address(0), InvalidFeedId());
@@ -265,8 +297,12 @@ contract ChainlinkDataStreamOracle is IAssetOracle, Ownable {
             if (info.validFromTimestamp < report.validFromTimestamp) {
                 info.lastPrice = report.price;
                 info.validFromTimestamp = report.validFromTimestamp;
-                info.expiresAt = report.expiresAt;
             }
-        }    
+
+            emit VerifyReport(asset, report.feedId, report.price, report.validFromTimestamp);
+        }
+        else {
+            revert InvalidReportVersion(reportVersion);
+        }
     }
 }

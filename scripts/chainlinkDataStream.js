@@ -15,12 +15,15 @@ function loadEnvVar(env, errorMsg) {
 const CHAINLINK_FQDN = 'https://api.dataengine.chain.link';
 const FEED_ID_BASE = '0x00038f83323b6b08116d1614cf33a9bd71ab5e0abf0c9f1b783a74a43e7bd992';  // USDC/USD
 const FEED_ID = '0x00026ec2b9c5b1d759b0116a90290a0d5e7c1c121d2c88fc15a26df188d8a4ae';  // SEIYAN/USD
-//const FEED_ID = '0x0003fb80bf0e043e7bcc6e9808c9f62e722117afddb2b760ad6c58f6cc614444';  // 1INCH/USD
+const ASSET_ADDRESS = '0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598'; // SEIYAN
+//const FEED_ID = '0x0003487e79423ea3c34f4edfc8bb112b0d0fbe054906644912b04bd5a3c6243b';  // SEI/USD
+//const ASSET_ADDRESS = '0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7'; // WSEI
 //const FEED_ID = '0x000415814a5915a37e6338e7626fee14392afe7cb65739d151966329c8935064';  // XAU/USD
+
+const ORACLE_ADDRESS = '0x532E08B5316bf5bC240d6251ff2b278a4f125B41';
 
 const chainlinkApiKey = loadEnvVar(process.env.CHAINLINK_API_KEY, "No CHAINLINK_API_KEY");
 const chainlinkApiSecret = loadEnvVar(process.env.CHAINLINK_API_SECRET, "No CHAINLINK_API_SECRET");
-
 
 function generateHMAC(method, path, body, apiKey, apiSecret) {
     // Generate timestamp (milliseconds since Unix epoch)
@@ -210,16 +213,27 @@ async function main() {
     // const result = await fetchSingleReportLatest(FEED_ID, chainlinkApiKey, chainlinkApiSecret);
     // console.log(result);
 
-    // const timestamp = Math.floor(Date.now() / 1000) - 5;    // give it 5 seconds window
+    // const timestamp = Math.floor(Date.now() / 1000) - 5;    // give it a 5 seconds window
     // console.log(timestamp);
     // const result = await fetchSingleReportTimestamp(FEED_ID, timestamp, chainlinkApiKey, chainlinkApiSecret);
     // console.log(result);
 
-    const timestamp = Math.floor(Date.now() / 1000) - 5;    // give it 5 seconds window
+    const timestamp = Math.floor(Date.now() / 1000) - 5;    // give it a 5 seconds window
     console.log(timestamp);
     const result = await fetchReportsTimestamp([ FEED_ID_BASE, FEED_ID ], timestamp, chainlinkApiKey, chainlinkApiSecret);
     console.log(result);
 
+    // verify reports
+    const oracle = await ethers.getContractAt("ChainlinkDataStreamOracle", ORACLE_ADDRESS);
+    const tx = await oracle.verifyReports([
+        result[0].response.fullReport,
+        result[1].response.fullReport,
+    ]);
+    await tx.wait();
+
+    // get price from oracle
+    const price = await oracle.getPrice(ASSET_ADDRESS);
+    console.log("Price:", price);
 }
 
 
