@@ -12,18 +12,32 @@ function loadEnvVar(env, errorMsg) {
 }
 
 
-const CHAINLINK_FQDN = 'https://api.dataengine.chain.link';
-const FEED_ID_BASE = '0x00038f83323b6b08116d1614cf33a9bd71ab5e0abf0c9f1b783a74a43e7bd992';  // USDC/USD
-const FEED_ID = '0x00026ec2b9c5b1d759b0116a90290a0d5e7c1c121d2c88fc15a26df188d8a4ae';  // SEIYAN/USD
-const ASSET_ADDRESS = '0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598'; // SEIYAN
-//const FEED_ID = '0x0003487e79423ea3c34f4edfc8bb112b0d0fbe054906644912b04bd5a3c6243b';  // SEI/USD
-//const ASSET_ADDRESS = '0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7'; // WSEI
-//const FEED_ID = '0x000415814a5915a37e6338e7626fee14392afe7cb65739d151966329c8935064';  // XAU/USD
+// mainnet
+// const CHAINLINK_FQDN = 'https://api.dataengine.chain.link';
+// const FEED_ID_BASE = '0x00038f83323b6b08116d1614cf33a9bd71ab5e0abf0c9f1b783a74a43e7bd992';  // USDC/USD
+// const FEED_ID = '0x00026ec2b9c5b1d759b0116a90290a0d5e7c1c121d2c88fc15a26df188d8a4ae';  // SEIYAN/USD
+// const ASSET_ADDRESS = '0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598'; // SEIYAN
+// //const FEED_ID = '0x0003487e79423ea3c34f4edfc8bb112b0d0fbe054906644912b04bd5a3c6243b';  // SEI/USD
+// //const ASSET_ADDRESS = '0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7'; // WSEI
+// //const FEED_ID = '0x000415814a5915a37e6338e7626fee14392afe7cb65739d151966329c8935064';  // XAU/USD
 
-const ORACLE_ADDRESS = '0x532E08B5316bf5bC240d6251ff2b278a4f125B41';
+// const ORACLE_ADDRESS = '0x532E08B5316bf5bC240d6251ff2b278a4f125B41';
 
-const chainlinkApiKey = loadEnvVar(process.env.CHAINLINK_API_KEY, "No CHAINLINK_API_KEY");
-const chainlinkApiSecret = loadEnvVar(process.env.CHAINLINK_API_SECRET, "No CHAINLINK_API_SECRET");
+// const chainlinkApiKey = loadEnvVar(process.env.CHAINLINK_API_KEY, "No CHAINLINK_API_KEY");
+// const chainlinkApiSecret = loadEnvVar(process.env.CHAINLINK_API_SECRET, "No CHAINLINK_API_SECRET");
+
+
+// testnet
+const CHAINLINK_FQDN = 'https://api.testnet-dataengine.chain.link';
+const FEED_ID_BASE = '0x0003dc85e8b01946bf9dfd8b0db860129181eb6105a8c8981d9f28e00b6f60d9';  // USDC/USD
+const FEED_ID = '0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117';  // SEI/USD
+const ASSET_ADDRESS = '0x878aD0bD8DB80A8C6Cc650EdEEd4B9941b571c5F'; // WSEI
+
+const ORACLE_ADDRESS = '0x1e97eb36FdCa3B0705fAB71228E2c92683147B39';
+
+const chainlinkApiKey = loadEnvVar(process.env.CHAINLINK_TEST_API_KEY, "No CHAINLINK_TEST_API_KEY");
+const chainlinkApiSecret = loadEnvVar(process.env.CHAINLINK_TEST_API_SECRET, "No CHAINLINK_TEST_API_SECRET");
+
 
 function generateHMAC(method, path, body, apiKey, apiSecret) {
     // Generate timestamp (milliseconds since Unix epoch)
