@@ -246,7 +246,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function openPosition(
         address _account,
         uint256 _lendingType,
-        uint256 _borrowId, 
+        uint256 _borrowId,
         bool _isLongToken0,
         uint256 _marginAmount,
         uint256 _debtAmount,
@@ -266,7 +266,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
         (
             uint8 oracleDecimals,
-            address asset,       
+            address asset,
             ,
             address margin,
             uint256 assetPrice,
@@ -286,11 +286,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
         uint256 assetValue = _getTokenValue(oracleDecimals, _assetAmount, assetPrice);
         uint256 marginValue = _getTokenValue(oracleDecimals, _marginAmount, marginPrice);
-        
-        uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
-        if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
-        uint32 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint32();
-        if (leverage > (_isLongToken0 ? maxToken0Leverage : maxToken1Leverage)) revert InvalidLeverage();
+        _checkLossRatio(marginValue, assetValue, debtValue);
+        _checkLeverage(_isLongToken0, marginValue, assetValue, debtValue);
 
         _updateMarketStatus(
             _isLongToken0,
@@ -318,6 +315,93 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         });
     }
 
+    function _checkLossRatio(uint256 _marginValue, uint256 _assetValue, uint256 _debtValue) internal view {
+        uint256 lossRatio = _calculateLossRatio(_marginValue, _assetValue, _debtValue);
+        if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
+    }
+
+    function _checkLeverage(bool _isLongToken0, uint256 _marginValue, uint256 _assetValue, uint256 _debtValue) internal view {
+        uint32 leverage = _debtValue.mulDiv(Percent.MULTIPLIER, _marginValue + _assetValue - _debtValue).toUint32();
+        if (leverage > (_isLongToken0 ? maxToken0Leverage : maxToken1Leverage)) revert InvalidLeverage();
+    }
+
+    function adjustPosition(
+        uint256 _positionId,
+        bool _isMarginIncreased,
+        bool _isSizeIncreased,
+        bool _isAdjustPassiveClosePrice,
+        uint256 _marginDelta,
+        uint256 _debtAmount,
+        uint256 _debtDelta,
+        uint256 _assetDelta,
+        uint256 _tradingFee,
+        uint256 _takeProfit,
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance
+    ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
+        bool isFullyClosed,
+        uint256 decreasedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    ) {
+        Position memory position = positions[_positionId];
+        if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
+
+        (uint8 oracleDecimals, , , , uint256 assetPrice, uint256 debtPrice, uint256 marginPrice) = _getTokensInfo(position.isLongToken0);
+        
+        if (_isAdjustPassiveClosePrice) {
+            position = _adjustPassiveClosePrice(
+                position,
+                _takeProfit,
+                _stopLoss,
+                _stopLossRateTolerance,
+                assetPrice,
+                debtPrice,
+                oracleDecimals
+            );
+        }
+
+        position = _adjustMargin(position, _isMarginIncreased, _marginDelta);
+        positions[_positionId] = position;
+
+        if (_assetDelta > 0) {
+            if (_isSizeIncreased) {
+                position.assetAmount = position.assetAmount + _assetDelta;
+                uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
+                uint256 debtDeltaValue = _getTokenValue(oracleDecimals, _debtDelta, debtPrice);
+                uint256 assetDeltaValue = _getTokenValue(oracleDecimals, _assetDelta, assetPrice);
+                uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
+                uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
+                _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue);
+                _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
+
+                _updateMarketStatus(
+                    position.isLongToken0,
+                    _isSizeIncreased,
+                    _assetDelta,
+                    assetPrice,
+                    oracleDecimals
+                );
+                positions[_positionId] = position;
+            }
+            else {
+                _checkCloseRate(position, _assetDelta, _tradingFee, _debtAmount, _debtDelta);
+                (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
+                    _positionId,
+                    _assetDelta,
+                    _debtDelta,
+                    _tradingFee,
+                    _debtAmount,
+                    true,
+                    oracleDecimals,
+                    assetPrice,
+                    debtPrice,
+                    marginPrice
+                );
+            }
+        }
+    }
+
     function adjustPassiveClosePrice(
         uint256 _positionId,
         uint256 _takeProfit,
@@ -337,7 +421,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             
         ) = _getTokensInfo(position.isLongToken0);
 
-        _checkPassiveCloseCondition(
+        positions[_positionId] = _adjustPassiveClosePrice(
+            position,
             _takeProfit,
             _stopLoss,
             _stopLossRateTolerance,
@@ -345,11 +430,33 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             debtPrice,
             oracleDecimals
         );
+    }
 
-        position.takeProfit = _takeProfit;
-        position.stopLoss = _stopLoss;
-        position.stopLossRateTolerance = _stopLossRateTolerance;
-        positions[_positionId] = position;
+    function _adjustPassiveClosePrice(
+        Position memory _position,
+        uint256 _takeProfit,
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance,
+        uint256 _assetPrice,
+        uint256 _debtPrice,
+        uint8 _oracleDecimals
+    ) internal pure returns (
+        Position memory
+    ) {
+        _checkPassiveCloseCondition(
+            _takeProfit,
+            _stopLoss,
+            _stopLossRateTolerance,
+            _assetPrice,
+            _debtPrice,
+            _oracleDecimals
+        );
+
+        _position.takeProfit = _takeProfit;
+        _position.stopLoss = _stopLoss;
+        _position.stopLossRateTolerance = _stopLossRateTolerance;
+        
+        return _position;
     }
 
     function _checkPassiveCloseCondition(
@@ -372,14 +479,38 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     ) external override nonReentrant onlyNotPaused onlyTradingCore {
         Position memory position = positions[_positionId];
         if (position.status != PositionStatus.Open) revert InvalidPositionStatus();
-
-        position.marginAmount = position.marginAmount + _addedAmount;
-        if (position.isMarginAsset) {
-            position.swappableAmount = position.swappableAmount + _addedAmount;
-        }
-        positions[_positionId] = position;
+        
+        positions[_positionId] = _adjustMargin(position, true, _addedAmount);
     }
 
+    function _adjustMargin(Position memory _position, bool _isIncrease, uint256 _amount) internal pure returns (Position memory) {
+        if (_amount > 0) {
+            if (_isIncrease) {
+                _position.marginAmount = _position.marginAmount + _amount;
+                if (_position.isMarginAsset) {
+                    _position.swappableAmount = _position.swappableAmount + _amount;
+                }
+            }
+            else {
+                _position.marginAmount = _position.marginAmount - _amount;
+                if (_position.isMarginAsset) {
+                    _position.swappableAmount = _position.swappableAmount - _amount;
+                }
+            }
+        }
+
+        return _position;
+    }
+
+    function previewPositionAfterMarginAdjustment(
+        Position memory _position,
+        bool _isIncrease,
+        uint256 _amount
+    ) external override pure returns (
+        Position memory
+    ) {
+        return _adjustMargin(_position, _isIncrease, _amount);
+    }
 
     function getLiquidationPrice(
         uint256 _positionId,
@@ -491,16 +622,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         ) = _getTokensInfo(position.isLongToken0);
 
         if (_mode != CloseMode.Liquidate) {
-            uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
-            if (
-                totalConsumedAssetToken * _debtAmount >= (
-                    position.isMarginAsset ? 
-                        // require: consumed / swappable < decreasedDebt / totalDebt
-                        position.swappableAmount * _decreasedDebtAmount : 
-                        // require: consumed / swappable < [decreasedDebt + (consumed / swappable) * m] / totalDebt
-                        position.swappableAmount * _decreasedDebtAmount + position.marginAmount * totalConsumedAssetToken
-                )
-            ) revert BadCloseRate();
+            _checkCloseRate(position, _swappedAssetToken, _tradingFee, _debtAmount, _decreasedDebtAmount);
         }
 
         if (_mode == CloseMode.TakeProfit) {
@@ -531,7 +653,6 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
 
         (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
             _positionId,
-            position,
             _swappedAssetToken,
             _decreasedDebtAmount,
             _tradingFee,
@@ -544,9 +665,27 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         );
     }
 
+    function _checkCloseRate(
+        Position memory _position,
+        uint256 _swappedAssetToken,
+        uint256 _tradingFee,
+        uint256 _debtAmount,
+        uint256 _decreasedDebtAmount
+    ) internal pure {
+        uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
+        if (
+            totalConsumedAssetToken * _debtAmount >= (
+                _position.isMarginAsset ? 
+                    // require: consumed / swappable < decreasedDebt / totalDebt
+                    _position.swappableAmount * _decreasedDebtAmount : 
+                    // require: consumed / swappable < [decreasedDebt + (consumed / swappable) * m] / totalDebt
+                    _position.swappableAmount * _decreasedDebtAmount + _position.marginAmount * totalConsumedAssetToken
+            )
+        ) revert BadCloseRate();
+    }
+
     function _afterFlatPosition(
         uint256 _positionId,
-        Position memory _position,
         uint256 _swappedAssetToken,
         uint256 _decreasedDebtAmount,
         uint256 _tradingFee,
@@ -562,16 +701,17 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 owedAsset,
         uint256 owedDebt
     ) {
-        uint256 positionAssetAmount = _position.assetAmount;
+        Position memory position = positions[_positionId];
+        uint256 positionAssetAmount = position.assetAmount;
         uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
-        _position.swappableAmount = _position.swappableAmount - totalConsumedAssetToken;
-        if (totalConsumedAssetToken > _position.assetAmount) {
-            decreasedMarginAmount = _position.marginAmount - _position.swappableAmount;
-            _position.marginAmount = _position.swappableAmount;
-            _position.assetAmount = 0;
+        position.swappableAmount = position.swappableAmount - totalConsumedAssetToken;
+        if (totalConsumedAssetToken > position.assetAmount) {
+            decreasedMarginAmount = position.marginAmount - position.swappableAmount;
+            position.marginAmount = position.swappableAmount;
+            position.assetAmount = 0;
         }
         else {
-            _position.assetAmount = _position.assetAmount - totalConsumedAssetToken;
+            position.assetAmount = position.assetAmount - totalConsumedAssetToken;
         }
 
         uint256 overRepaidDebt;
@@ -582,41 +722,39 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         }
         else {
             newDebtAmount = _debtAmount - _decreasedDebtAmount;
-            if (_position.assetAmount == 0 && !_position.isMarginAsset) {
-                decreasedMarginAmount = newDebtAmount > _position.marginAmount ? _position.marginAmount : newDebtAmount;
-                _position.marginAmount = _position.marginAmount - decreasedMarginAmount;
+            if (position.assetAmount == 0 && !position.isMarginAsset) {
+                decreasedMarginAmount = newDebtAmount > position.marginAmount ? position.marginAmount : newDebtAmount;
+                position.marginAmount = position.marginAmount - decreasedMarginAmount;
                 newDebtAmount = newDebtAmount - decreasedMarginAmount;
             }
         }
-        if (_position.swappableAmount == 0 || newDebtAmount == 0) {
+        if (position.swappableAmount == 0 || newDebtAmount == 0) {
             isFullyClosed = true;
         }
 
         if (isFullyClosed) {
-            (owedAsset, owedDebt) = _position.isMarginAsset ? 
-                (_position.assetAmount + _position.marginAmount, overRepaidDebt) : 
-                (_position.assetAmount, _position.marginAmount + overRepaidDebt);
-            _position.status = PositionStatus.Closed;
+            (owedAsset, owedDebt) = position.isMarginAsset ? 
+                (position.assetAmount + position.marginAmount, overRepaidDebt) : 
+                (position.assetAmount, position.marginAmount + overRepaidDebt);
+            position.status = PositionStatus.Closed;
         }
         else if (_ensureNotLiquidated) {
             uint256 debtValue = _getTokenValue(oracleDecimals, newDebtAmount, debtPrice);
-            uint256 assetValue = _getTokenValue(oracleDecimals, _position.assetAmount, assetPrice);
-            uint256 marginValue = _getTokenValue(oracleDecimals, _position.marginAmount, marginPrice);
-            uint256 lossRatio = _calculateLossRatio(marginValue, assetValue, debtValue);
-            uint32 leverage = debtValue.mulDiv(Percent.MULTIPLIER, marginValue).toUint32();
-            
-            if (leverage > (_position.isLongToken0 ? maxToken0Leverage : maxToken1Leverage)) revert InvalidLeverage();
-            if (lossRatio >= liquidateLossRatioThreshold) revert HighLossRatio();
+            uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
+            uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
+
+            _checkLossRatio(marginValue, assetValue, debtValue);
+            _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
         }
 
         _updateMarketStatus(
-            _position.isLongToken0,
+            position.isLongToken0,
             false,
             totalConsumedAssetToken > positionAssetAmount ? positionAssetAmount : totalConsumedAssetToken,
             assetPrice,
             oracleDecimals
         );
-        positions[_positionId] = _position;
+        positions[_positionId] = position;
     }
 
     function getTokenPrices() external override view returns (uint8 decimals, uint256 price0, uint256 price1) {

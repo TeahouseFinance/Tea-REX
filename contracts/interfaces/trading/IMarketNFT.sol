@@ -170,6 +170,44 @@ interface IMarketNFT {
         uint256 positionId
     );
 
+    /// @notice Adjust a position including increasing/decreasing margin and increasing/decreasing position size
+    /// @notice If inceasing a position, loss ratio must be not greater than openPositionLossRatioThreshold based on asset/debt changes and margin
+    /// @param positionId Position id
+    /// @param isMarginIncreased Whether the margin is increased or not
+    /// @param isAdjustPassiveClosePrice Whether set a new take profit/stop loss or not
+    /// @param isSizeIncreased Whether the position size is increased or not
+    /// @param marginDelta Changed amount of margin
+    /// @param debtAmount Debt amount of the position
+    /// @param debtDelta Changed amount of debt
+    /// @param assetDelta Changed amount of asset
+    /// @param tradingFee Platform trading fee
+    /// @param takeProfit Take profit price, the price is asset price in debt
+    /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
+    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return owedAsset Asset tokens the position owner is owed
+    /// @return owedDebt Debt tokens the position owner is owed
+    function adjustPosition(
+        uint256 positionId,
+        bool isMarginIncreased,
+        bool isSizeIncreased,
+        bool isAdjustPassiveClosePrice,
+        uint256 marginDelta,
+        uint256 debtAmount,
+        uint256 debtDelta,
+        uint256 assetDelta,
+        uint256 tradingFee,
+        uint256 takeProfit,
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance
+    ) external returns (
+        bool isFullyClosed,
+        uint256 decreasedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    );
+
     /// @notice Set take profit and stop loss price for the position
     /// @param positionId Position id
     /// @param takeProfit Take profit price, the price is asset price in debt
@@ -187,6 +225,13 @@ interface IMarketNFT {
     /// @param addedAmount Amount of margin asset to add
     function addMargin(uint256 positionId, uint256 addedAmount) external;
     
+    /// @notice Preview a position after margin adjustment
+    /// @param position Position to be adjusted
+    /// @param isIncrease Whether the margin is increased or not
+    /// @param amount Changed amount of margin
+    /// @return adjustedPosition Position after adjustment
+    function previewPositionAfterMarginAdjustment(Position memory position, bool isIncrease, uint256 amount) external returns (Position memory);
+
     /// @notice Close a position
     /// @notice Should not close with potentional risk of being not able to repay the debt, unless liquidation
     /// @notice When not liquidation, the decreased ratio of debt needs not to be less than the ratio of consumed asset token plus the same ratio of margin
@@ -198,7 +243,7 @@ interface IMarketNFT {
     /// @param positionId Position id
     /// @param swappedAssetToken Amount of the comsumed asset token
     /// @param decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @param tradingFee Plateform trading fee in form of asset token
+    /// @param tradingFee Platform trading fee in form of asset token
     /// @param debtAmount Amount of debt before closing position
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
