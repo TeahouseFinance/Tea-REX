@@ -108,7 +108,7 @@ function decodeReport(report) {
     const reportData = data[1];
 
     const reportVersion = parseInt(reportData.slice(0, 6), 16);
-    console.log(reportVersion);
+    //console.log(reportVersion);
 
     if (reportVersion == 2) {
         const decodedData = ethers.AbiCoder.defaultAbiCoder().decode(
