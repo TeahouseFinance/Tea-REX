@@ -340,7 +340,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint24 _stopLossRateTolerance
     ) external override nonReentrant onlyNotPaused onlyTradingCore returns (
         bool isFullyClosed,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -386,7 +386,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             }
             else {
                 _checkCloseRate(position, _assetDelta, _tradingFee, _debtAmount, _debtDelta);
-                (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
+                (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
                     _positionId,
                     _assetDelta,
                     _debtDelta,
@@ -603,7 +603,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 _debtAmount
     ) external override nonReentrant onlyTradingCore returns (
         bool isFullyClosed,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -651,7 +651,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             ) revert WorsePrice();
         }
 
-        (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
+        (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
             _positionId,
             _swappedAssetToken,
             _decreasedDebtAmount,
@@ -697,7 +697,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 marginPrice
     ) internal returns (
         bool isFullyClosed,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -706,7 +706,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 totalConsumedAssetToken = _swappedAssetToken + _tradingFee;
         position.swappableAmount = position.swappableAmount - totalConsumedAssetToken;
         if (totalConsumedAssetToken > position.assetAmount) {
-            decreasedMarginAmount = position.marginAmount - position.swappableAmount;
+            consumedMarginAmount = position.marginAmount - position.swappableAmount;
             position.marginAmount = position.swappableAmount;
             position.assetAmount = 0;
         }
@@ -723,9 +723,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         else {
             newDebtAmount = _debtAmount - _decreasedDebtAmount;
             if (position.assetAmount == 0 && !position.isMarginAsset) {
-                decreasedMarginAmount = newDebtAmount > position.marginAmount ? position.marginAmount : newDebtAmount;
-                position.marginAmount = position.marginAmount - decreasedMarginAmount;
-                newDebtAmount = newDebtAmount - decreasedMarginAmount;
+                consumedMarginAmount = newDebtAmount > position.marginAmount ? position.marginAmount : newDebtAmount;
+                position.marginAmount = position.marginAmount - consumedMarginAmount;
+                newDebtAmount = newDebtAmount - consumedMarginAmount;
             }
         }
         if (position.swappableAmount == 0 || newDebtAmount == 0) {

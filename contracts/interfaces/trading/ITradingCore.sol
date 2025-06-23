@@ -33,12 +33,13 @@ interface ITradingCore {
     event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
     event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event AdjustPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
-    event AddMargin(IMarketNFT indexed market, uint256 indexed positionId, uint256 addedAmount);
-    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
-    event ManagerClose(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 decreasedMarginAmount);
+    event AdjustMargin(IMarketNFT indexed market, uint256 indexed positionId, bool isIncreased, uint256 amount);
+    event AdjustPosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAmount, uint256 receivedAmount, uint256 consumedMarginAmount);
+    event ClosePosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 consumedMarginAmount);
+    event TakeProfit(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 consumedMarginAmount);
+    event StopLoss(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 consumedMarginAmount);
+    event Liquidate(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 consumedMarginAmount);
+    event ManagerClose(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAssetToken, uint256 decreasedDebtAmount, uint256 consumedMarginAmount);
 
     /// @notice Fee config structure
     /// @param treasury Fees go to this address
@@ -216,6 +217,61 @@ interface ITradingCore {
         uint256 addedAmount
     ) external;
 
+    /// @notice Adjust a position including increasing/decreasing margin and increasing/decreasing position size
+    /// @param market Market address
+    /// @param positionId Position id
+    /// @param isMarginIncreased Whether the margin is increased or not
+    /// @param isSizeIncreased Whether the position size is increased or not
+    /// @param isAdjustPassiveClosePrice Whether set a new take profit/stop loss or not
+    /// @param marginDelta Changed amount of margin
+    /// @param swapAmount Amount of src token to swap
+    /// @param minSwapReceived Minimum amount of dst token after swap, a slippage protection
+    /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param takeProfit Take profit price, the price is asset price in debt
+    /// @param stopLoss Stop loss price, the price is asset price in debt
+    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param swapRouter Swap router to be used
+    /// @param data Calldata for the assigned swap router
+    /// @param usePermit Whether use ERC20Permit for adding margin or not
+    /// @param deadline ERC20Permit deadline of approval
+    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
+    /// @return swappedAmount Amount of the swapped src token
+    /// @return receivedAmount Amount of the received dst token
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return owedAsset Asset tokens the position owner is owed
+    /// @return owedDebt Debt tokens the position owner is owed
+    function adjustPosition(
+        address market,
+        uint256 positionId,
+        bool isMarginIncreased,
+        bool isSizeIncreased,
+        bool isAdjustPassiveClosePrice,
+        uint256 marginDelta,
+        uint256 swapAmount,
+        uint256 minSwapReceived,
+        ICalldataProcessor calldataProcessor,
+        uint256 takeProfit,
+        uint256 stopLoss,
+        uint24 stopLossRateTolerance,
+        address swapRouter,
+        bytes memory data,
+        bool usePermit,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (
+        bool isFullyClosed,
+        uint256 swappedAmount,
+        uint256 receivedAmount,
+        uint256 consumedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    );
+
     /// @notice Close a positiom actively
     /// @notice Only position owner can do this
     /// @param market Market address
@@ -228,7 +284,7 @@ interface ITradingCore {
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return swappedAssetToken Amount of the comsumed asset token
     /// @return decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function closePosition(
@@ -243,7 +299,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -260,7 +316,7 @@ interface ITradingCore {
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return swappedAssetToken Amount of the comsumed asset token
     /// @return decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function takeProfit(
@@ -275,7 +331,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -292,7 +348,7 @@ interface ITradingCore {
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return swappedAssetToken Amount of the comsumed asset token
     /// @return decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function stopLoss(
@@ -307,7 +363,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -324,7 +380,7 @@ interface ITradingCore {
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return swappedAssetToken Amount of the comsumed asset token
     /// @return decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function liquidate(
@@ -339,7 +395,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );
@@ -356,7 +412,7 @@ interface ITradingCore {
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
     /// @return swappedAssetToken Amount of the comsumed asset token
     /// @return decreasedDebtAmount Amount of debt token from swapped asset token
-    /// @return decreasedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
+    /// @return consumedMarginAmount Amount of decreased margin amount, greater than zero when a position is closed with loss
     /// @return owedAsset Asset tokens the position owner is owed
     /// @return owedDebt Debt tokens the position owner is owed
     function managerClose(
@@ -371,7 +427,7 @@ interface ITradingCore {
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     );

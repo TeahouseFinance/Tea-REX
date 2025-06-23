@@ -415,7 +415,151 @@ contract TradingCore is
         _market.addMargin(_positionId, _addedAmount);
         (_position.isMarginAsset ? _asset : _debt).safeTransferFrom(msg.sender, address(this), _addedAmount);
 
-        emit AddMargin(_market, _positionId, _addedAmount);
+        emit AdjustMargin(_market, _positionId, true, _addedAmount);
+    }
+
+    function adjustPosition(
+        address _market,
+        uint256 _positionId,
+        bool _isMarginIncreased,
+        bool _isSizeIncreased,
+        bool _isAdjustPassiveClosePrice,
+        uint256 _marginDelta,
+        uint256 _swapAmount,
+        uint256 _minSwapReceived,
+        ICalldataProcessor _calldataProcessor,
+        uint256 _takeProfit,
+        uint256 _stopLoss,
+        uint24 _stopLossRateTolerance,
+        address _swapRouter,
+        bytes memory _data,
+        bool _usePermit,
+        uint256 _deadline,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) external override nonReentrant whenNotPaused returns (
+        bool isFullyClosed,
+        uint256 swappedAmount,
+        uint256 receivedAmount,
+        uint256 consumedMarginAmount,
+        uint256 owedAsset,
+        uint256 owedDebt
+    ) {
+        (
+            ERC20PermitUpgradeable token0,
+            ERC20PermitUpgradeable token1,
+            IRouter _router,
+            MarketNFT market,
+            IMarketNFT.Position memory position,
+            address positionOwner
+        ) = _beforeAdjustOpeningPosition(_market, _positionId);
+        if (positionOwner != msg.sender) revert NotPositionOwner();
+        (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
+
+        if (_marginDelta > 0) {
+            ERC20PermitUpgradeable margin = position.isMarginAsset ? asset : debt;
+            if (_isMarginIncreased) {
+                if (_usePermit) {
+                    (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _marginDelta, _deadline, _v, _r, _s);
+                }
+                margin.safeTransferFrom(msg.sender, address(this), _marginDelta);
+            }
+            else {
+                margin.safeTransfer(msg.sender, _marginDelta);
+            }
+            position = market.previewPositionAfterMarginAdjustment(position, _isMarginIncreased, _marginDelta);
+
+            emit AdjustMargin(market, _positionId, _isMarginIncreased, _marginDelta);
+        }
+
+        uint256 debtAmount = _router.debtOfUnderlying(debt, position.lendingType, position.borrowId);
+        uint256 debtDelta;
+        uint256 assetDelta;
+        uint256 tradingFee;
+        if (_swapAmount > 0) {
+            FeeConfig memory _feeConfig = _getFeeForAccount(_market, positionOwner);    
+            if (_isSizeIncreased) {
+                address pool = _router.borrow(debt, position.lendingType, _swapAmount);
+                _collectTradingFee(debt, tradingFee, _feeConfig);
+                tradingFee = _calculateTradingFee(false, _swapAmount, _feeConfig);
+
+                (debtDelta, assetDelta) = _swap(
+                    debt,
+                    asset,
+                    _swapAmount - tradingFee,
+                    _minSwapReceived,
+                    _swapRouter,
+                    _data
+                );
+                (swappedAmount, receivedAmount) = (debtDelta, assetDelta);
+                debtDelta = debtDelta + tradingFee;
+                uint256 unusedAmount = _swapAmount - debtDelta;
+                if (unusedAmount > 0) {
+                    debt.safeTransfer(pool, unusedAmount);
+                }
+                _router.commitBorrow(debt, position.lendingType, position.borrowId, debtDelta);
+                debtAmount = _router.debtOfUnderlying(debt, position.lendingType, position.borrowId);
+            }
+            else {
+                uint256 swappableAfterFee;
+                (swappableAfterFee, tradingFee) = _getSwappableAfterFee(position.swappableAmount, _feeConfig, false);
+                _swapAmount = _updateAssetTokenToSwap(_swapAmount, swappableAfterFee);
+                if (address(_calldataProcessor) != address(0)) {
+                    _data = _calldataProcessor.processCalldata(debtAmount, _data);
+                }
+
+                (assetDelta, debtDelta) = _swap(
+                    asset,
+                    debt,
+                    _swapAmount,
+                    _minSwapReceived,
+                    _swapRouter,
+                    _data
+                );
+                (swappedAmount, receivedAmount) = (assetDelta, debtDelta);
+
+                if (assetDelta == _swapAmount) {
+                    // To prevent from remaining small amount of asset in a position after mulDiv floor + ceil calculation
+                    _collectTradingFee(asset, tradingFee, _feeConfig);
+                }
+                else {
+                    tradingFee = _calculateAndCollectTradingFee(false, asset, assetDelta, _feeConfig);
+                }
+            }
+        }
+        
+        (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = market.adjustPosition(
+            _positionId,
+            _isMarginIncreased,
+            _isSizeIncreased,
+            _isAdjustPassiveClosePrice,
+            _marginDelta,
+            debtAmount,
+            debtDelta,
+            assetDelta,
+            tradingFee,
+            _takeProfit,
+            _stopLoss,
+            _stopLossRateTolerance
+        );
+        if (_swapAmount > 0 && !_isSizeIncreased) {
+            _pay(asset, address(this), positionOwner, owedAsset);
+            _pay(debt, address(this), positionOwner, owedDebt);
+            _repay(
+                _router,
+                debt,
+                position.lendingType,
+                position.borrowId,
+                position.isMarginAsset ? debtDelta : debtDelta + consumedMarginAmount,
+                market.getPosition(_positionId).swappableAmount == 0
+            );
+        }
+
+        if (_isAdjustPassiveClosePrice) {
+            emit AdjustPassiveClosePrice(market, _positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
+        }
+        emit AdjustPosition(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAmount, receivedAmount, consumedMarginAmount);
     }
 
     function _closePosition(
@@ -431,7 +575,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -477,7 +621,7 @@ contract TradingCore is
         else {
             tradingFee = _calculateAndCollectTradingFee(_mode == IMarketNFT.CloseMode.Liquidate, asset, swappedAssetToken, _feeConfig);
         }
-        (isFullyClosed, decreasedMarginAmount, owedAsset, owedDebt) = market.closePosition(
+        (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = market.closePosition(
             _mode,
             _positionId,
             swappedAssetToken,
@@ -492,24 +636,24 @@ contract TradingCore is
             debt,
             position.lendingType,
             position.borrowId,
-            position.isMarginAsset ? decreasedDebtAmount : decreasedDebtAmount + decreasedMarginAmount,
+            position.isMarginAsset ? decreasedDebtAmount : decreasedDebtAmount + consumedMarginAmount,
             market.getPosition(_positionId).swappableAmount == 0
         );
 
         if (_mode == IMarketNFT.CloseMode.Close) {
-            emit ClosePosition(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit ClosePosition(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, consumedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.TakeProfit) {
-            emit TakeProfit(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit TakeProfit(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, consumedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.StopLoss) {
-            emit StopLoss(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit StopLoss(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, consumedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Liquidate) {
-            emit Liquidate(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit Liquidate(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, consumedMarginAmount);
         }
         else if (_mode == IMarketNFT.CloseMode.Manager) {
-            emit ManagerClose(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, decreasedMarginAmount);
+            emit ManagerClose(market, _positionId, isFullyClosed, owedAsset, owedDebt, swappedAssetToken, decreasedDebtAmount, consumedMarginAmount);
         }
     }
 
@@ -525,7 +669,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -553,7 +697,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -581,7 +725,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -609,7 +753,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
@@ -637,7 +781,7 @@ contract TradingCore is
         bool isFullyClosed,
         uint256 swappedAssetToken,
         uint256 decreasedDebtAmount,
-        uint256 decreasedMarginAmount,
+        uint256 consumedMarginAmount,
         uint256 owedAsset,
         uint256 owedDebt
     ) {
