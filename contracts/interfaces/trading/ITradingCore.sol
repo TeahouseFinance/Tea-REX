@@ -63,6 +63,12 @@ interface ITradingCore {
     /// return isPaused All markets are paused or not
     function isAllMarketPaused() external view returns (bool);
 
+    /// @notice Get fee structure for a given market and an account
+    /// @param market Market address
+    /// @param account Account of the user
+    /// @return feeConfig Fee structure
+    function getFeeForAccount(address market, address account) external view returns (FeeConfig memory feeConfig);
+
     /// @notice Create a new trading pair market
     /// @notice Only owner can call this function
     /// @param oracle Oracle to be used
