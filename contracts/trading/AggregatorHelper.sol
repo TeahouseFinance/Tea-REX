@@ -201,21 +201,22 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
 
         if (balanceOut > _amountOut) {
             _scrapSwap(dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
+
+            balanceOut = dst.balanceOf(address(this));
+            if (balanceOut != _amountOut) {
+                revert OutputScrapNotCleared();
+            }
         }
 
-        balanceOut = dst.balanceOf(address(this));
-        if (balanceOut != _amountOut) {
-            revert OutputScrapNotCleared();
+        // send tokens back to caller
+        if (balanceOut != 0) {
+            dst.safeTransfer(msg.sender, balanceOut);            
         }
 
         uint256 balanceSrc = src.balanceOf(address(this));
-        if (balanceSrc == 0) {
-            revert NoTokenReceived();
+        if (balanceSrc != 0) {
+            src.safeTransfer(msg.sender, balanceSrc);
         }
-
-         // send tokens back to caller
-        src.safeTransfer(msg.sender, balanceSrc);
-        dst.safeTransfer(msg.sender, balanceOut);
     }
 
     function _scrapSwap(
