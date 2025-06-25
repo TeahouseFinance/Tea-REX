@@ -32,6 +32,7 @@ interface ITeaRexError {
     error IncorrectScrapAmountSize();
     error IncorrectScrapAmountOffset();
     error NoTokenReceived();
+    error NotEnoughAmountOut();
     error AmountInTooSmall();
 
     // IAssetOracle

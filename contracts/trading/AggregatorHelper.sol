@@ -199,6 +199,10 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             revert NoTokenReceived();
         }
 
+        if (balanceOut < _amountOut) {
+            revert NotEnoughAmountOut();
+        }
+
         if (balanceOut > _amountOut) {
             _scrapSwap(dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
 
@@ -209,9 +213,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         // send tokens back to caller
-        if (balanceOut != 0) {
-            dst.safeTransfer(msg.sender, balanceOut);            
-        }
+        dst.safeTransfer(msg.sender, balanceOut);            
 
         uint256 balanceSrc = src.balanceOf(address(this));
         if (balanceSrc != 0) {

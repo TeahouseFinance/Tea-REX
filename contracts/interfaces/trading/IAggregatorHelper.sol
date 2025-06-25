@@ -18,6 +18,7 @@ interface IAggregatorHelper {
     error IncorrectScrapAmountSize();
     error IncorrectScrapAmountOffset();
     error NoTokenReceived();
+    error NotEnoughAmountOut();
     error AmountInTooSmall();
 
     event SetCheckWhitelist(address sender, bool checkWhitelist);
