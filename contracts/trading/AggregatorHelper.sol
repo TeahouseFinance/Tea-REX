@@ -5,8 +5,9 @@ pragma solidity =0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import {IAggregatorHelper} from "../interfaces/trading/IAggregatorHelper.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAggregatorHelper} from "../interfaces/trading/IAggregatorHelper.sol";
+import {ICalldataProcessor} from "../interfaces/trading/ICalldataProcessor.sol";
 
 /// @title Swap helper contract for aggregators to support price oralces with pull mode, swapExactInput, and swapExactOutput
 /// @notice This contract calls an aggregator for a normal swap input call, and a second call to a
@@ -155,6 +156,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata,
+        address _calldataProcessor,
         address _scrapRouter,
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
@@ -177,14 +179,24 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
                     revert(add(vreturndata, 32), vlength)
                 }
             }
-        }   
+        }
+
 
         // call aggregator to swap tokens
         ERC20PermitUpgradeable src = ERC20PermitUpgradeable(_src);
         ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
         src.safeTransferFrom(msg.sender, address(this), _amountIn);
         src.approve(_router, _amountIn);
-        (bool success, bytes memory returndata) = _router.call(_routerCalldata);
+        bool success;
+        bytes memory returndata;
+        // if there's a calldataProcessor, process the calldata
+        if (address(_calldataProcessor) != address(0)) {
+            bytes memory _data = ICalldataProcessor(_calldataProcessor).processCalldata(_amountOut, _routerCalldata);
+            (success, returndata) = _router.call(_data);
+        }
+        else {
+            (success, returndata) = _router.call(_routerCalldata);
+        }
         uint256 length = returndata.length;
         if (!success) {
             // call failed, propagate revert data

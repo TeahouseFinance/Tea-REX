@@ -123,6 +123,7 @@ async function symphonySwapper(input, receiver, fromToken, toToken, amount, debt
                 "0x",
                 aggregatorRouter,
                 newSwapInfo.calldata,
+                ZERO_ADDRESS,
                 SCRAP_ROUTER,
                 scrapSwapData,
                 32 * 4 + 4      // amountIn is the 5th parameter

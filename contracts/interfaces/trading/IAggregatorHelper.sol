@@ -93,6 +93,7 @@ interface IAggregatorHelper {
     /// @param _verifierCalldata calldata for the verifier
     /// @param _router address of the swap router
     /// @param _routerCalldata calldata for the swap router
+    /// @param _calldataProcessor address of the calldata processor if swap for output amount is used, otherwise use zero
     /// @param _scrapRouter swap contract for extra (scrap) destination tokens
     /// @param _scrapCalldata calldata for swapping extra destination tokens
     /// @param _scrapAmountOffset offset (in bytes) for the "amountIn" parameter in _scrapCalldata
@@ -105,6 +106,7 @@ interface IAggregatorHelper {
         bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata,
+        address _calldataProcessor,
         address _scrapRouter,
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset

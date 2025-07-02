@@ -40,8 +40,6 @@ const UINT256_MAX = '0x' + 'f'.repeat(64);
 
 // testnet
 const CHAINLINK_FQDN = 'https://api.testnet-dataengine.chain.link';
-const FEED_ID_BASE = '0x0003dc85e8b01946bf9dfd8b0db860129181eb6105a8c8981d9f28e00b6f60d9';  // USDC/USD
-const FEED_ID = '0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117';  // SEI/USD
 
 const ORACLE_ADDRESS = '0x1e97eb36FdCa3B0705fAB71228E2c92683147B39';
 
@@ -50,8 +48,9 @@ const chainlinkApiSecret = loadEnvVar(process.env.CHAINLINK_TEST_API_SECRET, "No
 
 const TRADING_CORE = '0xF31900132dFf544Cfe536e76C38a357FF08183D9';
 const SWAP_ROUTER = '0x216d3e7520B09605B7c4243b59aD02Cc6E052F52';
-const AGGREGATOR_HELPER = '0x84cAe8810000AE8Ff8AC3F38452d1f2FB758F1C4';
-const AGGREGATOR_HELPER_PROCESSOR = '0xd130F15d0cC9EcA6916c3f2236B8E786A6919c23';
+const SWAP_ROUTER_PROCESSOR = '0x4F922F65EAB9315464420A3C7107AA5E65cAd728';
+const AGGREGATOR_HELPER = '0xcE489F9de3542b308e9049eD17d0a9321e036010';
+const AGGREGATOR_HELPER_PROCESSOR = '0x9f8630a3e8Ae62C57840ceD376E017A0458924A0';
 
 const BASE_TOKEN = '0x2ed994Fd3DC53bd4010652BFc00D980580823664';
 const TARGET_TOKEN = '0x878aD0bD8DB80A8C6Cc650EdEEd4B9941b571c5F';    // WSEI
@@ -404,11 +403,13 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, swap
 
     // open position to short targetToken
     const timestamp = Math.floor(Date.now() / 1000) - 2;    // give it a 5 seconds window
-    const prices = await fetchReportsTimestamp([ FEED_ID_BASE, FEED_ID ], timestamp, chainlinkApiKey, chainlinkApiSecret);
+    const oracle = await ethers.getContractAt("ChainlinkDataStreamOracle", ORACLE_ADDRESS);
+    const baseInfo = await oracle.oracleInfo(baseToken);
+    const targetInfo = await oracle.oracleInfo(targetToken);
+    const prices = await fetchReportsTimestamp([ baseInfo.feedId, targetInfo.feedId ], timestamp, chainlinkApiKey, chainlinkApiSecret);
     const marginAmount = TEST_AMOUNT;
     const leverage = 5n;
-    // NOTE: this assumes the decimals of the Chainlink price reports are the same (generally 18 decimals) which is not necessarily the case
-    const borrowAmount = marginAmount * leverage * 10n ** BigInt(targetDecimals) * prices[0].decodedReport.price / prices[1].decodedReport.price / 10n ** BigInt(baseDecimals);
+    const borrowAmount = marginAmount * leverage * 10n ** BigInt(targetInfo.totalDecimals) * prices[0].decodedReport.price / prices[1].decodedReport.price / 10n ** BigInt(baseInfo.totalDecimals);
     const txOpen = await openShortPosition(tradingCore, user, baseToken, targetToken, marginAmount, borrowAmount, swapper);
     await txOpen.wait();
 
@@ -436,29 +437,46 @@ async function testShortPosition(tradingCore, user, baseToken, targetToken, swap
 
 
 // swap data for OracleSwap
-async function oracleCalldata(fromToken, toToken, amount, receiver) {
+async function oracleCalldata(input, fromToken, toToken, amount, receiver) {
     const swapContract = await ethers.getContractAt("OracleSwap", SWAP_ROUTER);
-    const swapProcessor = "";
-    const swapData = swapContract.interface.encodeFunctionData("swapExactInput", [
-        fromToken,
-        toToken,
-        amount,
-        receiver,
-        0n
-    ]);
-    const amountOut = await swapContract.calculateOutAmount(fromToken, toToken, amount);
+    if (input) {
+        const swapProcessor = "";
+        const swapData = swapContract.interface.encodeFunctionData("swapExactInput", [
+            fromToken,
+            toToken,
+            amount,
+            receiver,
+            0n
+        ]);
+        const amountOut = await swapContract.calculateOutAmount(fromToken, toToken, amount);
 
-    return { swapContract, swapProcessor, swapData, amountOut };
+        return { swapContract, swapProcessor, swapData, amountOut };
+    }
+    else {
+        const swapProcessor = SWAP_ROUTER_PROCESSOR;
+        const swapData = swapContract.interface.encodeFunctionData("swapExactOutput", [
+            fromToken,
+            toToken,
+            amount,
+            receiver,
+            UINT256_MAX
+        ]);
+
+        return { swapContract, swapProcessor, swapData };
+    }
 }
 
 
 // Chainlink report data
-async function verifierCalldata() {
+async function verifierCalldata(baseToken, targetToken) {
     // fetch multiple reports at a specific timestamp
-    const timestamp = Math.floor(Date.now() / 1000) - 2;    // give it a 2 seconds window
-    const result = await fetchReportsTimestamp([ FEED_ID_BASE, FEED_ID ], timestamp, chainlinkApiKey, chainlinkApiSecret);
-
     const oracle = await ethers.getContractAt("ChainlinkDataStreamOracle", ORACLE_ADDRESS);
+    const baseInfo = await oracle.oracleInfo(baseToken);
+    const targetInfo = await oracle.oracleInfo(targetToken);
+
+    const timestamp = Math.floor(Date.now() / 1000) - 2;    // give it a 2 seconds window
+    const result = await fetchReportsTimestamp([ baseInfo.feedId, targetInfo.feedId ], timestamp, chainlinkApiKey, chainlinkApiSecret);
+
     const calldata = oracle.interface.encodeFunctionData("verifyReports",
         [[
             result[0].response.fullReport,
@@ -473,9 +491,9 @@ async function verifierCalldata() {
 // generate swapData for OracleSwap
 async function oracleSwapper(input, receiver, fromToken, toToken, amount, debtAmount = 0n) {
     if (input) {
-        const verifierInfo = await verifierCalldata();
+        const verifierInfo = await verifierCalldata(fromToken, toToken);
         const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
-        const swapInfo = await oracleCalldata(fromToken.target, toToken.target, amount, swapContract.target);
+        const swapInfo = await oracleCalldata(true, fromToken.target, toToken.target, amount, swapContract.target);
         const swapProcessor = "";
         const swapData = swapContract.interface.encodeFunctionData("swapExactInput",
             [
@@ -490,51 +508,53 @@ async function oracleSwapper(input, receiver, fromToken, toToken, amount, debtAm
         return { swapContract, swapProcessor, swapData };
     }
     else {
-        const verifierInfo = await verifierCalldata();
+        const verifierInfo = await verifierCalldata(fromToken, toToken);
         const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
         const swapProcessor = await ethers.getContractAt("AggregatorHelperProcessor", AGGREGATOR_HELPER_PROCESSOR);
 
-        // trying to estimate how much fromToken is required to received required amount
-        const swapInfo = await oracleCalldata(fromToken.target, toToken.target, amount, swapContract.target);
-        const finalOutputMin = BigInt(swapInfo.amountOut);
-        const aggregatorRouter = swapInfo.swapContract.target;
+        // // trying to estimate how much fromToken is required to received required amount
+        // const swapInfo = await oracleCalldata(fromToken.target, toToken.target, amount, swapContract.target);
+        // const finalOutputMin = BigInt(swapInfo.amountOut);
+        // const aggregatorRouter = swapInfo.swapContract.target;
 
-        // add 2% for safe margin
-        let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
-        if (newAmountIn > amount) {
-            // should not be over amount
-            newAmountIn = amount;
-        }
-        const newSwapInfo = await oracleCalldata(fromToken.target, toToken.target, newAmountIn, swapContract.target);
-        const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
+        // // add 2% for safe margin
+        // let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
+        // if (newAmountIn > amount) {
+        //     // should not be over amount
+        //     newAmountIn = amount;
+        // }
+        // const newSwapInfo = await oracleCalldata(fromToken.target, toToken.target, newAmountIn, swapContract.target);
+        // const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
 
-        if (newfinalOutputMin < debtAmount) {
-            throw Error("Not enough amount in");
-        }
+        // if (newfinalOutputMin < debtAmount) {
+        //     throw Error("Not enough amount in");
+        // }
 
-        // use a OracleSwap contract as scrap router
-        const scrapRouter = await ethers.getContractAt("OracleSwap", SWAP_ROUTER);
-        const scrapSwapData = scrapRouter.interface.encodeFunctionData("swapExactInput",
-             [
-                toToken.target,
-                fromToken.target,
-                0,  // amountIn
-                swapContract.target, // receiver
-                0,  // amountOutMin
-            ]);
+        // // use a OracleSwap contract as scrap router
+        // const scrapRouter = await ethers.getContractAt("OracleSwap", SWAP_ROUTER);
+        // const scrapSwapData = scrapRouter.interface.encodeFunctionData("swapExactInput",
+        //      [
+        //         toToken.target,
+        //         fromToken.target,
+        //         0,  // amountIn
+        //         swapContract.target, // receiver
+        //         0,  // amountOutMin
+        //     ]);
 
+        const swapInfo = await oracleCalldata(false, fromToken.target, toToken.target, amount, swapContract.target);
         const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
             [
                 fromToken.target,
                 toToken.target,
-                newAmountIn,
+                amount,
                 debtAmount,
                 verifierInfo.oracle.target,
                 verifierInfo.calldata,
-                aggregatorRouter,
-                newSwapInfo.swapData,
-                scrapRouter.target,
-                scrapSwapData,
+                swapInfo.swapContract.target,
+                swapInfo.swapData,
+                swapInfo.swapProcessor,
+                SWAP_ROUTER,
+                "0x",
                 32 * 2 + 4      // amountIn is the 3th parameter
             ]);
 
