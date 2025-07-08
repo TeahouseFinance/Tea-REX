@@ -20,8 +20,8 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     mapping(address => bool) public routerWhitelist;
     mapping(address => bool) public verifierWhitelist;
     mapping(address => bool) public callerWhitelist;
+    mapping(address => uint256) public minAmount;
     uint256 public maxScraps;
-    uint256 public minAmountIn;
     
     constructor(address initialOwner) Ownable(initialOwner) {
         checkWhitelist = true;
@@ -33,14 +33,14 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         emit SetCheckWhitelist(msg.sender, _checkWhitelist);
     }
 
-    function setMinAmountIn(uint256 _minAmountIn) external onlyOwner {
-        minAmountIn = _minAmountIn;
+    function setMinAmount(address _token, uint256 _minAmount) external onlyOwner {
+        minAmount[_token] = _minAmount;
 
-        emit SetMinAmountIn(msg.sender, _minAmountIn);
+        emit SetMinAmount(msg.sender, _token, _minAmount);
     }
 
     function setRouterWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external onlyOwner {
-        if (_router.length != _isWhitelisted.length) revert LengthMismatch();
+        require(_router.length == _isWhitelisted.length, LengthMismatch());
 
         for (uint256 i; i < _router.length; ) {
             routerWhitelist[_router[i]] = _isWhitelisted[i];
@@ -52,7 +52,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     }
 
     function setVerifierWhitelist(address[] calldata _verifier, bool[] calldata _isWhitelisted) external onlyOwner {
-        if (_verifier.length != _isWhitelisted.length) revert LengthMismatch();
+        require(_verifier.length == _isWhitelisted.length, LengthMismatch());
 
         for (uint256 i; i < _verifier.length; ) {
             verifierWhitelist[_verifier[i]] = _isWhitelisted[i];
@@ -64,7 +64,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     }
 
     function setCallerWhitelist(address[] calldata _caller, bool[] calldata _isWhitelisted) external onlyOwner {
-        if (_caller.length != _isWhitelisted.length) revert LengthMismatch();
+        require(_caller.length == _isWhitelisted.length, LengthMismatch());
 
         for (uint256 i; i < _caller.length; ) {
             callerWhitelist[_caller[i]] = _isWhitelisted[i];
@@ -105,18 +105,11 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             require(routerWhitelist[_router], NotWhitelisted());
         }
 
-        require(_amountIn >= minAmountIn, AmountInTooSmall());
+        require(_amountIn >= minAmount[_src], AmountInTooSmall());
 
         // call verifier if required, for oracles with pull model
         if (_verifier != address(0)) {
-            (bool vsuccess, bytes memory vreturndata) = _verifier.call(_verifierCalldata);
-            uint256 vlength = vreturndata.length;
-            if (!vsuccess) {
-                // call failed, propagate revert data
-                assembly ("memory-safe") {
-                    revert(add(vreturndata, 32), vlength)
-                }
-            }
+            _safeCall(_verifier, _verifierCalldata);
         }   
 
         // call aggregator to swap tokens
@@ -124,23 +117,14 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
         src.safeTransferFrom(msg.sender, address(this), _amountIn);
         src.approve(_router, _amountIn);
-        (bool success, bytes memory returndata) = _router.call(_routerCalldata);
-        uint256 length = returndata.length;
-        if (!success) {
-            // call failed, propagate revert data
-            assembly ("memory-safe") {
-                revert(add(returndata, 32), length)
-            }
-        }
+        _safeCall(_router, _routerCalldata);
         src.approve(_router, 0);
 
         uint256 balanceSrc = src.balanceOf(address(this));
         uint256 balanceDst = dst.balanceOf(address(this));
 
         // send tokens back to caller
-        if (balanceSrc >= maxScraps) {
-            revert InputAmountNotCleared();
-        }
+        require(balanceSrc < maxScraps, InputAmountNotCleared());
 
         if (balanceDst != 0) {
             dst.safeTransfer(msg.sender, balanceDst);
@@ -167,61 +151,37 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
             require(routerWhitelist[_router] && routerWhitelist[_scrapRouter], NotWhitelisted());
         }
 
-        require(_amountIn >= minAmountIn, AmountInTooSmall());
+        require(_amountOut >= minAmount[_dst], AmountOutTooSmall());
 
         // call verifier if required, for oracles with pull model
         if (_verifier != address(0)) {
-            (bool vsuccess, bytes memory vreturndata) = _verifier.call(_verifierCalldata);
-            uint256 vlength = vreturndata.length;
-            if (!vsuccess) {
-                // call failed, propagate revert data
-                assembly ("memory-safe") {
-                    revert(add(vreturndata, 32), vlength)
-                }
-            }
+            _safeCall(_verifier, _verifierCalldata);
         }
-
 
         // call aggregator to swap tokens
         ERC20PermitUpgradeable src = ERC20PermitUpgradeable(_src);
         ERC20PermitUpgradeable dst = ERC20PermitUpgradeable(_dst);
         src.safeTransferFrom(msg.sender, address(this), _amountIn);
         src.approve(_router, _amountIn);
-        bool success;
-        bytes memory returndata;
         // if there's a calldataProcessor, process the calldata
         if (address(_calldataProcessor) != address(0)) {
             bytes memory _data = ICalldataProcessor(_calldataProcessor).processCalldata(_amountOut, _routerCalldata);
-            (success, returndata) = _router.call(_data);
+            _safeCallMemory(_router, _data);
         }
         else {
-            (success, returndata) = _router.call(_routerCalldata);
-        }
-        uint256 length = returndata.length;
-        if (!success) {
-            // call failed, propagate revert data
-            assembly ("memory-safe") {
-                revert(add(returndata, 32), length)
-            }
+            _safeCall(_router, _routerCalldata);
         }
         src.approve(_router, 0);
 
         uint256 balanceOut = dst.balanceOf(address(this));
-        if (balanceOut == 0) {
-            revert NoTokenReceived();
-        }
-
-        if (balanceOut < _amountOut) {
-            revert NotEnoughAmountOut();
-        }
+        require(balanceOut > 0, NoTokenReceived());
+        require(balanceOut >= _amountOut, NotEnoughAmountOut());
 
         if (balanceOut > _amountOut) {
             _scrapSwap(dst, balanceOut - _amountOut, _scrapRouter, _scrapCalldata, _scrapAmountOffset);
 
             balanceOut = dst.balanceOf(address(this));
-            if (balanceOut != _amountOut) {
-                revert OutputScrapNotCleared();
-            }
+            require(balanceOut == _amountOut, OutputScrapNotCleared());
         }
 
         // send tokens back to caller
@@ -240,22 +200,11 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
     ) internal {
-        if (_scrapAmountOffset + 32 > _scrapCalldata.length) {
-            revert IncorrectScrapAmountOffset();
-        }
-
         // adjust call data
         bytes memory _adjustedCalldata = _adjustCalldata(_scrapCalldata, _amountIn, _scrapAmountOffset);
 
         _dst.approve(_scrapRouter, _amountIn);
-        (bool success, bytes memory returndata) = _scrapRouter.call(_adjustedCalldata);
-        uint256 length = returndata.length;
-        if (!success) {
-            // call failed, propagate revert data
-            assembly ("memory-safe") {
-                revert(add(returndata, 32), length)
-            }
-        }
+        _safeCallMemory(_scrapRouter, _adjustedCalldata);
         _dst.approve(_scrapRouter, 0);
     }
 
@@ -267,17 +216,13 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         uint256 dataLength = _calldata.length;
 
         // check for offset
-        if (_amountOffset + 32 > dataLength) {
-             revert IncorrectScrapAmountOffset();
-        }
-        if (_amountOffset % 32 != 4){
-             revert IncorrectScrapAmountOffset();
-        }
+        require(_amountOffset + 32 <= dataLength, IncorrectScrapAmountOffset());
+        require(_amountOffset % 32 == 4, IncorrectScrapAmountOffset());
 
         // create a copy of the calldata
         bytes memory newCalldata = new bytes(dataLength);
 
-        assembly {
+        assembly ("memory-safe") {
             let newCalldataPtr := add(newCalldata, 32)
 
             // store data length
@@ -295,5 +240,27 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         return newCalldata;
+    }
+
+    function _safeCall(address _contract, bytes calldata _calldata) internal {
+        (bool success, bytes memory returndata) = _contract.call(_calldata);
+        uint256 length = returndata.length;
+        if (!success) {
+            // call failed, propagate revert data
+            assembly ("memory-safe") {
+                revert(add(returndata, 32), length)
+            }
+        }
+    }
+
+    function _safeCallMemory(address _contract, bytes memory _calldata) internal {
+        (bool success, bytes memory returndata) = _contract.call(_calldata);
+        uint256 length = returndata.length;
+        if (!success) {
+            // call failed, propagate revert data
+            assembly ("memory-safe") {
+                revert(add(returndata, 32), length)
+            }
+        }        
     }
 }
