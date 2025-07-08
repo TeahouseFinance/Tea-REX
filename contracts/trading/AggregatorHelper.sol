@@ -124,7 +124,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         uint256 balanceDst = dst.balanceOf(address(this));
 
         // send tokens back to caller
-        require(balanceSrc < maxScraps, InputAmountNotCleared());
+        require(balanceSrc <= maxScraps, InputAmountNotCleared());
 
         if (balanceDst != 0) {
             dst.safeTransfer(msg.sender, balanceDst);
