@@ -9,7 +9,8 @@ const TRADING_CORE = '0x99c2901d2883F8D295A989544f118e31eC21823e';
 const AGGREGATOR_HELPER = '0x0a1E08fF15aD49203dd2566e40623C12380bd1eD';
 const AGGREGATOR_HELPER_PROCESSOR = '0x11F10a29080A6159628fF8a2587Dd7065ABeE1A6';
 
-const AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
+const SYMPHONY_AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
+const KAME_AGGREGATOR_FQDN = 'https://pyxis-sei.kitelabs.io/v1/swap';
 const SCRAP_ROUTER = '0x11DA6463D6Cb5a03411Dbf5ab6f6bc3997Ac7428';  // UniswapV3 Router
 const SCRAP_ROUTER_FEE = 3000;
 
@@ -34,7 +35,7 @@ async function symphonyCalldata(fromToken, toToken, amountIn) {
         slippage: slippage
     });
 
-    const url = `${AGGREGATOR_FQDN}?${queryParams.toString()}`;
+    const url = `${SYMPHONY_AGGREGATOR_FQDN}?${queryParams.toString()}`;
 
     try {
         const response = await fetch(url);
@@ -52,7 +53,12 @@ async function symphonyCalldata(fromToken, toToken, amountIn) {
             throw new Error(`HTTP error! Status: ${response.status}. Body: ${errorBody}`);
         }
 
-        return await response.json();
+        const results = await response.json();
+        return {
+            routerAddress: results.routerAddress,
+            calldata: results.calldata,
+            amountOut: results.amountOut,
+        };
 
     } catch (error) {
         console.error("Failed to fetch aggregator data:", error);
@@ -60,75 +66,122 @@ async function symphonyCalldata(fromToken, toToken, amountIn) {
     }    
 }
 
-// generate swapData for Symphony aggregator
-async function symphonySwapper(input, receiver, fromToken, toToken, amount, debtAmount = 0n) {
-    if (input) {
-        const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
-        const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
-        const swapProcessor = "";
-        const swapData = swapContract.interface.encodeFunctionData("swapExactInput",
-            [
-                fromToken.target,
-                toToken.target,
-                amount,
-                ZERO_ADDRESS,
-                "0x",
-                swapInfo.routerAddress,
-                swapInfo.calldata
-            ]);        
-        return { swapContract, swapProcessor, swapData };
-    }
-    else {
-        const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
-        const swapProcessor = await ethers.getContractAt("AggregatorHelperProcessor", AGGREGATOR_HELPER_PROCESSOR);
+async function kameCalldata(fromToken, toToken, amountIn) {
+    const slippage = '15';
+    
+    // Construct the URL
+    // kame's API requires addresses to be in lowercase
+    const queryParams = new URLSearchParams({
+        srcToken: fromToken.target.toLowerCase(),
+        dstToken: toToken.target.toLowerCase(),
+        amount: amountIn,
+        origin: AGGREGATOR_HELPER.toLowerCase(),
+        recipient: AGGREGATOR_HELPER.toLowerCase(),
+        slippage: slippage
+    });
 
-        // trying to estimate how much fromToken is required to received required amount
-        const swapInfo = await symphonyCalldata(fromToken, toToken, amount);
-        const finalOutputMin = BigInt(swapInfo.amountOut);
-        const aggregatorRouter = swapInfo.routerAddress;
+    const url = `${KAME_AGGREGATOR_FQDN}?${queryParams.toString()}`;
 
-        // add 2% for safe margin
-        let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
-        if (newAmountIn > amount) {
-            // should not be over amount
-            newAmountIn = amount;
-        }
-        const newSwapInfo = await symphonyCalldata(fromToken, toToken, newAmountIn);
-        const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
+    try {
+        const response = await fetch(url);
 
-        if (newfinalOutputMin < debtAmount) {
-            throw Error("Not enough amount in");
+        // Check if the request was successful (status code 2xx)
+        if (!response.ok) {
+            // Try to get more details from the response body if possible
+            let errorBody = '';
+            try {
+                errorBody = await response.text();
+            } catch (e) {
+                // Ignore if reading body fails
+            }
+
+            throw new Error(`HTTP error! Status: ${response.status}. Body: ${errorBody}`);
         }
 
-        // use a Uniswap V3SwapRouter contract as scrap router
-        const scrapRouter = await ethers.getContractAt("IV3SwapRouter", SCRAP_ROUTER);
-        const scrapSwapData = scrapRouter.interface.encodeFunctionData("exactInputSingle",
-             [[
-                toToken.target,
-                fromToken.target,
-                SCRAP_ROUTER_FEE,
-                swapContract.target,
-                0,  // amountIn
-                0,  // amountOutMin
-                0   // sqrtPriceLimitX96, set to 0 to ignore
-             ]]);
+        const results = await response.json();
+        return {
+            routerAddress: results.data.tx.to,
+            calldata: results.data.tx.data,
+            amountOut: results.data.dstAmount,
+        };
 
-        const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
-            [
-                fromToken.target,
-                toToken.target,
-                newAmountIn,
-                debtAmount,
-                ZERO_ADDRESS,
-                "0x",
-                aggregatorRouter,
-                newSwapInfo.calldata,
-                SCRAP_ROUTER,
-                scrapSwapData,
-                32 * 4 + 4      // amountIn is the 5th parameter
-            ]);
+    } catch (error) {
+        console.error("Failed to fetch aggregator data:", error);
+        throw error;
+    }    
+}
 
-        return { swapContract, swapProcessor, swapData };
+// generate swapData for aggregators
+function aggregatorSwapper(aggregatorCalldata) {
+    return async function swapper(input, receiver, fromToken, toToken, amount, debtAmount = 0n) {
+        if (input) {
+            const swapInfo = await aggregatorCalldata(fromToken, toToken, amount);
+            const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
+            const swapProcessor = "";
+            const swapData = swapContract.interface.encodeFunctionData("swapExactInput",
+                [
+                    fromToken.target,
+                    toToken.target,
+                    amount,
+                    ZERO_ADDRESS,
+                    "0x",
+                    swapInfo.routerAddress,
+                    swapInfo.calldata
+                ]);        
+            return { swapContract, swapProcessor, swapData };
+        }
+        else {
+            const swapContract = await ethers.getContractAt("AggregatorHelper", AGGREGATOR_HELPER);
+            const swapProcessor = await ethers.getContractAt("AggregatorHelperProcessor", AGGREGATOR_HELPER_PROCESSOR);
+
+            // trying to estimate how much fromToken is required to received required amount
+            const swapInfo = await aggregatorCalldata(fromToken, toToken, amount);
+            const finalOutputMin = BigInt(swapInfo.amountOut);
+            const aggregatorRouter = swapInfo.routerAddress;
+
+            // add 2% for safe margin
+            let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
+            if (newAmountIn > amount) {
+                // should not be over amount
+                newAmountIn = amount;
+            }
+            const newSwapInfo = await aggregatorCalldata(fromToken, toToken, newAmountIn);
+            const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
+
+            if (newfinalOutputMin < debtAmount) {
+                throw Error("Not enough amount in");
+            }
+
+            // use a Uniswap V3SwapRouter contract as scrap router
+            const scrapRouter = await ethers.getContractAt("IV3SwapRouter", SCRAP_ROUTER);
+            const scrapSwapData = scrapRouter.interface.encodeFunctionData("exactInputSingle",
+                [[
+                    toToken.target,
+                    fromToken.target,
+                    SCRAP_ROUTER_FEE,
+                    swapContract.target,
+                    0,  // amountIn
+                    0,  // amountOutMin
+                    0   // sqrtPriceLimitX96, set to 0 to ignore
+                ]]);
+
+            const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
+                [
+                    fromToken.target,
+                    toToken.target,
+                    newAmountIn,
+                    debtAmount,
+                    ZERO_ADDRESS,
+                    "0x",
+                    aggregatorRouter,
+                    newSwapInfo.calldata,
+                    SCRAP_ROUTER,
+                    scrapSwapData,
+                    32 * 4 + 4      // amountIn is the 5th parameter
+                ]);
+
+            return { swapContract, swapProcessor, swapData };
+        }
     }
 }
 
@@ -358,10 +411,12 @@ async function main() {
     const { tradingCore, baseToken, targetToken } = await initContracts();
 
     // test open and close long position
-    await testLongPosition(tradingCore, user, baseToken, targetToken, symphonySwapper);
+    await testLongPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(symphonyCalldata));
+    await testLongPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(kameCalldata));
 
     // test open and close short position
-    await testShortPosition(tradingCore, user, baseToken, targetToken, symphonySwapper);
+    await testShortPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(symphonyCalldata));
+    await testShortPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(kameCalldata));
 }
 
 
