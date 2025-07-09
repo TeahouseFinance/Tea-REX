@@ -9,7 +9,8 @@ const TRADING_CORE = '0x99c2901d2883F8D295A989544f118e31eC21823e';
 const AGGREGATOR_HELPER = '0x0a1E08fF15aD49203dd2566e40623C12380bd1eD';
 const AGGREGATOR_HELPER_PROCESSOR = '0x11F10a29080A6159628fF8a2587Dd7065ABeE1A6';
 
-const SYMPHONY_AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
+//const SYMPHONY_AGGREGATOR_FQDN = 'https://goapi.symphony.ag/route';
+const SYMPHONY_AGGREGATOR_FQDN = 'https://routeapi.symphony.ag/route';
 const KAME_AGGREGATOR_FQDN = 'https://pyxis-sei.kitelabs.io/v1/swap';
 const SCRAP_ROUTER = '0x11DA6463D6Cb5a03411Dbf5ab6f6bc3997Ac7428';  // UniswapV3 Router
 const SCRAP_ROUTER_FEE = 3000;
@@ -23,7 +24,7 @@ const TEST_AMOUNT = '1';
 
 
 async function symphonyCalldata(fromToken, toToken, amountIn) {
-    const slippage = '15';
+    const slippage = '100';
     
     // Construct the URL
     const queryParams = new URLSearchParams({
@@ -414,7 +415,7 @@ async function main() {
     await testLongPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(symphonyCalldata));
     await testLongPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(kameCalldata));
 
-    // test open and close short position
+    // // test open and close short position
     await testShortPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(symphonyCalldata));
     await testShortPosition(tradingCore, user, baseToken, targetToken, aggregatorSwapper(kameCalldata));
 }
