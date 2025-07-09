@@ -514,7 +514,7 @@ async function oracleSwapper(input, receiver, fromToken, toToken, amount, debtAm
         const swapProcessor = await ethers.getContractAt("AggregatorHelperProcessor", AGGREGATOR_HELPER_PROCESSOR);
 
         // // trying to estimate how much fromToken is required to received required amount
-        // const swapInfo = await oracleCalldata(fromToken.target, toToken.target, amount, swapContract.target);
+        // const swapInfo = await oracleCalldata(true, fromToken.target, toToken.target, amount, swapContract.target);
         // const finalOutputMin = BigInt(swapInfo.amountOut);
         // const aggregatorRouter = swapInfo.swapContract.target;
 
@@ -524,7 +524,7 @@ async function oracleSwapper(input, receiver, fromToken, toToken, amount, debtAm
         //     // should not be over amount
         //     newAmountIn = amount;
         // }
-        // const newSwapInfo = await oracleCalldata(fromToken.target, toToken.target, newAmountIn, swapContract.target);
+        // const newSwapInfo = await oracleCalldata(true, fromToken.target, toToken.target, newAmountIn, swapContract.target);
         // const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
 
         // if (newfinalOutputMin < debtAmount) {
@@ -541,6 +541,22 @@ async function oracleSwapper(input, receiver, fromToken, toToken, amount, debtAm
         //         swapContract.target, // receiver
         //         0,  // amountOutMin
         //     ]);
+
+        // const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
+        // [
+        //     fromToken.target,
+        //     toToken.target,
+        //     amount,
+        //     debtAmount,
+        //     verifierInfo.oracle.target,
+        //     verifierInfo.calldata,
+        //     swapInfo.swapContract.target,
+        //     swapInfo.swapData,
+        //     ZERO_ADDRESS,
+        //     scrapRouter.target,
+        //     scrapSwapData,
+        //     32 * 2 + 4      // amountIn is the 3th parameter
+        // ]);
 
         const swapInfo = await oracleCalldata(false, fromToken.target, toToken.target, amount, swapContract.target);
         const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
