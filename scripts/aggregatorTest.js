@@ -176,25 +176,11 @@ function aggregatorSwapper(aggregatorCalldata) {
                     "0x",
                     aggregatorRouter,
                     newSwapInfo.calldata,
+                    ZERO_ADDRESS,
                     SCRAP_ROUTER,
                     scrapSwapData,
                     32 * 4 + 4      // amountIn is the 5th parameter
                 ]);
-        const swapData = swapContract.interface.encodeFunctionData("swapExactOutput",
-            [
-                fromToken.target,
-                toToken.target,
-                newAmountIn,
-                debtAmount,
-                ZERO_ADDRESS,
-                "0x",
-                aggregatorRouter,
-                newSwapInfo.calldata,
-                ZERO_ADDRESS,
-                SCRAP_ROUTER,
-                scrapSwapData,
-                32 * 4 + 4      // amountIn is the 5th parameter
-            ]);
 
             return { swapContract, swapProcessor, swapData };
         }
