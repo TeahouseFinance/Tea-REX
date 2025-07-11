@@ -217,7 +217,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
 
         // check for offset
         require(_amountOffset + 32 <= dataLength, IncorrectScrapAmountOffset());
-        require(_amountOffset % 32 == 4, IncorrectScrapAmountOffset());
 
         // create a copy of the calldata
         bytes memory newCalldata = new bytes(dataLength);
