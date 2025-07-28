@@ -28,11 +28,11 @@ contract VariableInterestRateModel is IInterestRateModel, Ownable {
         return Percent.DECIMALS;
     }
 
-    function set_rate_config(address _pool, RateConfig memory _rateConfig) external onlyOwner {
+    function setRateConfig(address _pool, RateConfig memory _rateConfig) external onlyOwner {
         rateConfig[_pool] = _rateConfig;
     }
 
-    function _get_rate_config() internal view returns (RateConfig memory) {
+    function _getRateConfig() internal view returns (RateConfig memory) {
         RateConfig memory _rateConfig = rateConfig[msg.sender];
         
         return (_rateConfig.baseRate + _rateConfig.hikedRate == 0) ? defaultRateConfig : _rateConfig;
@@ -83,7 +83,7 @@ contract VariableInterestRateModel is IInterestRateModel, Ownable {
     ) public view override returns (
         uint256 borrowRate
     ) {
-        RateConfig memory _rateConfig = _get_rate_config();
+        RateConfig memory _rateConfig = _getRateConfig();
         if (supplied == 0) return _rateConfig.baseRate;
 
         borrowRate = _rateConfig.baseRate + _rateConfig.hikedRate.mulDiv(
