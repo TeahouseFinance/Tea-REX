@@ -98,7 +98,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata
-    ) external {
+    ) external returns (uint256 amountOut) {
         if (checkWhitelist) {
             require(callerWhitelist[msg.sender], NotWhitelisted());
             require(_verifier == address(0) || verifierWhitelist[_verifier], NotWhitelisted());
@@ -129,6 +129,8 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         if (balanceDst != 0) {
             dst.safeTransfer(msg.sender, balanceDst);
         }
+
+        return balanceDst;
     }
 
     function swapExactOutput(
@@ -144,7 +146,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         address _scrapRouter,
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
-    ) external {
+    ) external returns (uint256 amountIn) {
         if (checkWhitelist) {
             require(callerWhitelist[msg.sender], NotWhitelisted());
             require(_verifier == address(0) || verifierWhitelist[_verifier], NotWhitelisted());
@@ -191,6 +193,8 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         if (balanceSrc != 0) {
             src.safeTransfer(msg.sender, balanceSrc);
         }
+
+        return _amountIn - balanceSrc;
     }
 
     function _scrapSwap(

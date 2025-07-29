@@ -82,6 +82,9 @@ interface IAggregatorHelper {
     /// @param _verifierCalldata calldata for the verifier
     /// @param _router address of the swap router
     /// @param _routerCalldata calldata for the swap router
+    /// @return amountOut amount of destination token swapped
+    /// @notice returned amountOut is only accurate if the swap router returns tokens back to the AggregatorHelper contract
+    /// @notice it also does not take consideration of possible tokens already in the contract
     function swapExactInput(
         address _src,
         address _dst,
@@ -90,7 +93,7 @@ interface IAggregatorHelper {
         bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata
-    ) external;
+    ) external returns (uint256 amountOut);
 
     /// @notice Function to simulate an exact output swap
     /// @param _src source token
@@ -105,6 +108,9 @@ interface IAggregatorHelper {
     /// @param _scrapRouter swap contract for extra (scrap) destination tokens
     /// @param _scrapCalldata calldata for swapping extra destination tokens
     /// @param _scrapAmountOffset offset (in bytes) for the "amountIn" parameter in _scrapCalldata
+    /// @return amountIn amount of source token used
+    /// @notice returned amountOut is only accurate if the swap router returns tokens back to the AggregatorHelper contract
+    /// @notice it also does not take consideration of possible tokens already in the contract
     function swapExactOutput(
         address _src,
         address _dst,
@@ -118,6 +124,6 @@ interface IAggregatorHelper {
         address _scrapRouter,
         bytes calldata _scrapCalldata,
         uint256 _scrapAmountOffset
-    ) external;
+    ) external returns (uint256 amountIn);
 
 }
