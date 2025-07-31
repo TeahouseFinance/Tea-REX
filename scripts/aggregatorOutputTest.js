@@ -23,6 +23,30 @@ const TEST_AMOUNT = '5';
 const TEST_OUTPUT = '0.00125';
 
 
+async function uniswapCalldata(fromToken, toToken, amountIn) {
+
+    // use a Uniswap V3SwapRouter contract as scrap router
+    const scrapRouter = await ethers.getContractAt("IV3SwapRouter", SCRAP_ROUTER);
+    const scrapSwapData = scrapRouter.interface.encodeFunctionData("exactInputSingle",
+        [[
+            fromToken.target,
+            toToken.target,
+            SCRAP_ROUTER_FEE,
+            '0x' + '0'.repeat(39) + '1',    // send back to sender
+            amountIn,  // amountIn
+            0,  // amountOutMin
+            0   // sqrtPriceLimitX96, set to 0 to ignore
+        ]]);
+
+
+    return {
+        routerAddress: scrapRouter.target,
+        calldata: scrapSwapData,
+        amountOut: 0n,
+    };
+}
+
+
 async function symphonyCalldata(fromToken, toToken, amountIn) {
     const slippage = '100';
     
@@ -120,17 +144,28 @@ async function aggregatorSwapper(aggregatorCalldata, aggregatorHelper, fromToken
     const finalOutputMin = BigInt(swapInfo.amountOut);
     const aggregatorRouter = swapInfo.routerAddress;
 
-    // add 2% for safe margin
-    let newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
-    if (newAmountIn > amount) {
-        // should not be over amount
-        newAmountIn = amount;
-    }
-    const newSwapInfo = await aggregatorCalldata(fromToken, toToken, newAmountIn);
-    const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
+    let newAmountIn;
+    let newSwapInfo;
 
-    if (newfinalOutputMin < debtAmount) {
-        throw Error("Not enough amount in");
+    if (finalOutputMin == 0n) {
+        // no final output available, use all amount
+        newAmountIn = amount;
+        newSwapInfo = swapInfo;
+    }
+    else {
+        // add 2% for safe margin
+        newAmountIn = amount * 102n * debtAmount / finalOutputMin / 100n;
+        if (newAmountIn > amount) {
+            // should not be over amount
+            newAmountIn = amount;
+        }
+
+        newSwapInfo = await aggregatorCalldata(fromToken, toToken, newAmountIn);
+        const newfinalOutputMin = BigInt(newSwapInfo.amountOut);
+
+        if (newfinalOutputMin < debtAmount) {
+            throw Error("Not enough amount in");
+        }
     }
 
     // use a Uniswap V3SwapRouter contract as scrap router
@@ -211,11 +246,12 @@ async function main() {
     console.log("nativeInput:", nativeInput);
 
     // test aggregator output
+    //const aggregatorInput = await aggregatorSwapper(uniswapCalldata, aggregatorHelper, baseToken, targetToken, amountIn, amountOut);
     const aggregatorInput = await aggregatorSwapper(symphonyCalldata, aggregatorHelper, baseToken, targetToken, amountIn, amountOut);
     //const aggregatorInput = await aggregatorSwapper(kameCalldata, aggregatorHelper, baseToken, targetToken, amountIn, amountOut);
     console.log("aggregatorInput:", aggregatorInput);
 
-    console.log("Diff %:", Number(nativeInput - aggregatorInput) / Number(nativeInput) * 100);
+    console.log("Diff %:", Number(nativeInput - aggregatorInput) / Number(nativeInput) * 100, "%");
 
 }
 
