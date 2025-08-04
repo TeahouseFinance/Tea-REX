@@ -15,6 +15,11 @@ interface ISwapRelayer {
 
     receive() external payable;
 
+    /// @notice Set up trading core
+    /// @notice Only owner can call this function
+    /// @param tradingCore Address of trading core
+    function setTradingCore(address tradingCore) external;
+
     /// @notice Switch of router whitelist check
     /// @notice Only owner can call this function
     /// @param checkWhitelist Whether the whitelist mechanism is enabled

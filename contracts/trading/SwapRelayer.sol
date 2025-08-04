@@ -20,8 +20,11 @@ contract SwapRelayer is ISwapRelayer, Ownable {
 
     receive() external payable {}
 
-    constructor(address _initialOwner, address _tradingCore) Ownable(_initialOwner) {
+    constructor(address _initialOwner) Ownable(_initialOwner) {
         checkWhitelist = true;
+    }
+    
+    function setTradingCore(address _tradingCore) external override onlyOwner {
         tradingCore = _tradingCore;
     }
 
