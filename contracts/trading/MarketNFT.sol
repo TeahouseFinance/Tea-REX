@@ -286,7 +286,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
         uint256 assetValue = _getTokenValue(oracleDecimals, _assetAmount, assetPrice);
         uint256 marginValue = _getTokenValue(oracleDecimals, _marginAmount, marginPrice);
-        _checkLossRatio(marginValue, assetValue, debtValue);
+        _checkLossRatio(marginValue, assetValue, debtValue, openPositionLossRatioThreshold);
         _checkLeverage(_isLongToken0, marginValue, assetValue, debtValue);
 
         _updateMarketStatus(
@@ -315,9 +315,9 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         });
     }
 
-    function _checkLossRatio(uint256 _marginValue, uint256 _assetValue, uint256 _debtValue) internal view {
+    function _checkLossRatio(uint256 _marginValue, uint256 _assetValue, uint256 _debtValue, uint24 lossRatioThreshold) internal view {
         uint256 lossRatio = _calculateLossRatio(_marginValue, _assetValue, _debtValue);
-        if (lossRatio > openPositionLossRatioThreshold) revert HighLossRatio();
+        if (lossRatio > lossRatioThreshold) revert HighLossRatio();
     }
 
     function _checkLeverage(bool _isLongToken0, uint256 _marginValue, uint256 _assetValue, uint256 _debtValue) internal view {
@@ -372,7 +372,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
                 uint256 assetDeltaValue = _getTokenValue(oracleDecimals, _assetDelta, assetPrice);
                 uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
                 uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
-                _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue);
+                _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue, openPositionLossRatioThreshold);
                 _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
 
                 _updateMarketStatus(
@@ -743,7 +743,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
             uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
 
-            _checkLossRatio(marginValue, assetValue, debtValue);
+            _checkLossRatio(marginValue, assetValue, debtValue, liquidateLossRatioThreshold);
             _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
         }
 
