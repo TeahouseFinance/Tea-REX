@@ -31,7 +31,7 @@ interface ITradingCore {
     event SetDefaultFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
     event SetFeeConfig(address indexed sender, uint256 timestamp, address market, FeeConfig feeConfig);
     event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
-    event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
+    event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId, uint256 debtAmount, uint256 assetAmount);
     event AdjustPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
     event AdjustMargin(IMarketNFT indexed market, uint256 indexed positionId, bool isIncreased, uint256 amount);
     event AdjustPosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAmount, uint256 receivedAmount, uint256 consumedMarginAmount);

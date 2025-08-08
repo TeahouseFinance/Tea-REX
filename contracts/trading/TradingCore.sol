@@ -340,7 +340,7 @@ contract TradingCore is
             _stopLossRateTolerance
         );
 
-        emit OpenPosition(_market, positionId);
+        emit OpenPosition(_market, positionId, debtAmount, assetAmount);
         emit AdjustPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
 

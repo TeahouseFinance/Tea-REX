@@ -315,7 +315,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         });
     }
 
-    function _checkLossRatio(uint256 _marginValue, uint256 _assetValue, uint256 _debtValue, uint24 lossRatioThreshold) internal view {
+    function _checkLossRatio(uint256 _marginValue, uint256 _assetValue, uint256 _debtValue, uint24 lossRatioThreshold) internal pure {
         uint256 lossRatio = _calculateLossRatio(_marginValue, _assetValue, _debtValue);
         if (lossRatio > lossRatioThreshold) revert HighLossRatio();
     }
