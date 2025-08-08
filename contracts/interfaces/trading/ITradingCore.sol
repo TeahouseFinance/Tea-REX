@@ -31,7 +31,7 @@ interface ITradingCore {
     event SetDefaultFeeConfig(address indexed sender, uint256 timestamp, FeeConfig feeConfig);
     event SetFeeConfig(address indexed sender, uint256 timestamp, address market, FeeConfig feeConfig);
     event CollectTradingFee(ERC20PermitUpgradeable token, FeeConfig feeConfig, uint256 fee);
-    event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId, uint256 debtAmount, uint256 assetAmount);
+    event OpenPosition(IMarketNFT indexed market, uint256 indexed positionId);
     event AdjustPassiveClosePrice(IMarketNFT indexed market, uint256 indexed positionId, uint256 takeProfit, uint256 stopLoss, uint24 stopLossRateTolerance);
     event AdjustMargin(IMarketNFT indexed market, uint256 indexed positionId, bool isIncreased, uint256 amount);
     event AdjustPosition(IMarketNFT indexed market, uint256 indexed positionId, bool indexed isFullyClosed, uint256 assetReceived, uint256 debtReceived, uint256 swappedAmount, uint256 receivedAmount, uint256 consumedMarginAmount);
@@ -132,6 +132,8 @@ interface ITradingCore {
     /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @return positionId Position id, same as ERC721 token id
+    /// @return debtAmount Position debt amount
+    /// @return assetAmount Position asset amount
     function openPositionPermit(
         address market,
         uint256 lendingType,
@@ -149,7 +151,9 @@ interface ITradingCore {
         bytes32 r,
         bytes32 s
     ) external returns (
-        uint256 positionId
+        uint256 positionId,
+        uint256 debtAmount,
+        uint256 assetAmount
     );
 
     /// @notice Open a position
@@ -165,6 +169,8 @@ interface ITradingCore {
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return positionId Position id, same as ERC721 token id
+    /// @return debtAmount Position debt amount
+    /// @return assetAmount Position asset amount
     function openPosition(
         address market,
         uint256 lendingType,
@@ -178,7 +184,9 @@ interface ITradingCore {
         address swapRouter,
         bytes calldata data
     ) external returns (
-        uint256 positionId
+        uint256 positionId,
+        uint256 debtAmount,
+        uint256 assetAmount
     );
 
     /// @notice Set take profit and stop loss price for the position

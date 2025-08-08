@@ -220,14 +220,16 @@ contract TradingCore is
         bytes32 _r,
         bytes32 _s
     ) external override nonReentrant whenNotPaused returns (
-        uint256 positionId
+        uint256 positionId,
+        uint256 debtAmount,
+        uint256 assetAmount
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
         MarketNFT market = MarketNFT(_market);
         ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
         margin.permit(msg.sender, address(this), _marginAmount, _deadline, _v, _r, _s);
 
-        positionId = _openPosition(
+        (positionId, debtAmount, assetAmount) = _openPosition(
             market,
             _lendingType,
             token0,
@@ -258,13 +260,15 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant whenNotPaused returns (
-        uint256 positionId
+        uint256 positionId,
+        uint256 debtAmount,
+        uint256 assetAmount
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
         MarketNFT market = MarketNFT(_market);
         ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
 
-        positionId = _openPosition(
+        (positionId, debtAmount, assetAmount) = _openPosition(
             market,
             _lendingType,
             token0,
@@ -298,7 +302,9 @@ contract TradingCore is
         address _swapRouter,
         bytes calldata _data
     ) internal returns (
-        uint256 positionId
+        uint256 positionId,
+        uint256 debtAmount,
+        uint256 assetAmount
     ) {
         if (_longTarget != _token0 && _longTarget != _token1) revert InvalidAsset();
 
@@ -312,7 +318,7 @@ contract TradingCore is
         uint256 tradingFee = _calculateTradingFee(false, _borrowAmount, _feeConfig);
         _collectTradingFee(debt, tradingFee, _feeConfig);
 
-        (uint256 debtAmount, uint256 assetAmount) = _swap(
+        (debtAmount, assetAmount) = _swap(
             debt,
             asset,
             _borrowAmount - tradingFee,
@@ -340,7 +346,7 @@ contract TradingCore is
             _stopLossRateTolerance
         );
 
-        emit OpenPosition(_market, positionId, debtAmount, assetAmount);
+        emit OpenPosition(_market, positionId);
         emit AdjustPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
 
