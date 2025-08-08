@@ -15,10 +15,7 @@ describe("TeaRex Trading Core", function () {
     let globalTokens = null;
     
     before(async function () {
-        console.log("🚀 部署全域tokens以確保穩定的地址順序...");
         globalTokens = await deployTokenFixture();
-        console.log(`📍 Token地址順序: token0=${await globalTokens.token0.getAddress()}, token1=${await globalTokens.token1.getAddress()}`);
-        console.log(`📍 BaseToken(6 decimals)=${await globalTokens.baseToken.getAddress()}, TargetToken(18 decimals)=${await globalTokens.targetToken.getAddress()}`);
     });
 
     async function getPermitSignature(user, token, spenderAddress, value, deadline) {
@@ -892,14 +889,6 @@ describe("TeaRex Trading Core", function () {
             const borrowAmount = ethers.parseUnits("6000", 6);
             const stopLossPrice = 2850n * 10n ** 36n * 10n ** 6n / 10n ** 18n;
             const stopLossRateTolerance = 10000;
-            
-            console.log("🔍 Stop Loss Test Debug:");
-            console.log("  openPositionLossRatioThreshold:", await market.openPositionLossRatioThreshold());
-            console.log("  liquidateLossRatioThreshold:", await market.liquidateLossRatioThreshold());
-            console.log("  marginAmount:", marginAmount.toString());
-            console.log("  borrowAmount:", borrowAmount.toString());
-            console.log("  stopLossPrice:", stopLossPrice.toString());
-            
             const { positionId } = await openLongPosition(baseToken, targetToken, user, tradingCore, oracleSwapRouter, market, marginAmount, borrowAmount, UINT256_MAX, stopLossPrice, stopLossRateTolerance);
             const positionInfo = await market.getPosition(positionId);
             const assetAmount = positionInfo.assetAmount;
@@ -931,17 +920,6 @@ describe("TeaRex Trading Core", function () {
             const positionInfoBefore = await market.getPosition(positionId);
             const debtInfo = await tradingCore.debtOfPosition(await market.getAddress(), positionId);
             const prices = await market.getTokenPrices();
-            
-            console.log("  Before stopLoss:");
-            console.log("    positionInfo.marginAmount:", positionInfoBefore.marginAmount.toString());
-            console.log("    positionInfo.assetAmount:", positionInfoBefore.assetAmount.toString());
-            console.log("    debtAmount:", debtInfo[2].toString());
-            console.log("    oracle decimals:", prices[0]);
-            console.log("    token0 price:", prices[1].toString());
-            console.log("    token1 price:", prices[2].toString());
-            console.log("    isLongToken0:", positionInfoBefore.isLongToken0);
-            console.log("    isToken0Margin:", await market.isToken0Margin());
-            
             expect(await tradingCore.connect(manager).stopLoss(
                 await market.getAddress(),
                 positionId,
