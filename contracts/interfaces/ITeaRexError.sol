@@ -34,6 +34,7 @@ interface ITeaRexError {
     error NoTokenReceived();
     error NotEnoughAmountOut();
     error AmountInTooSmall();
+    error AmountOutTooSmall();
 
     // IAssetOracle
     error AssetNotEnabled();

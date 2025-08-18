@@ -3,70 +3,12 @@
 
 pragma solidity =0.8.26;
 
+import {IV2SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV2SwapRouter.sol";
+import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import {IMulticallExtended} from "@uniswap/swap-router-contracts/contracts/interfaces/IMulticallExtended.sol";
 import {ICalldataProcessor} from "../interfaces/trading/ICalldataProcessor.sol";
 
-/// @title Router token swapping functionality
-/// @notice Functions for swapping tokens via Dragonswap V2
-interface IV2SwapRouter {
-    struct ExactInputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    /// @notice Swaps `amountIn` of one token for as much as possible of another token
-    /// @dev Setting `amountIn` to 0 will cause the contract to look up its own balance,
-    /// and swap the entire amount, enabling contracts to send tokens before calling this function.
-    /// @param params The parameters necessary for the swap, encoded as `ExactInputSingleParams` in calldata
-    /// @return amountOut The amount of the received token
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
-
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
-    /// @dev Setting `amountIn` to 0 will cause the contract to look up its own balance,
-    /// and swap the entire amount, enabling contracts to send tokens before calling this function.
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
-    /// @return amountOut The amount of the received token
-    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
-
-    struct ExactOutputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 amountOut;
-        uint256 amountInMaximum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    /// @notice Swaps as little as possible of one token for `amountOut` of another token
-    /// that may remain in the router after the swap.
-    /// @param params The parameters necessary for the swap, encoded as `ExactOutputSingleParams` in calldata
-    /// @return amountIn The amount of the input token
-    function exactOutputSingle(ExactOutputSingleParams calldata params) external payable returns (uint256 amountIn);
-
-    struct ExactOutputParams {
-        bytes path;
-        address recipient;
-        uint256 amountOut;
-        uint256 amountInMaximum;
-    }
-
-    /// @notice Swaps as little as possible of one token for `amountOut` of another along the specified path (reversed)
-    /// that may remain in the router after the swap.
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
-    /// @return amountIn The amount of the input token
-    function exactOutput(ExactOutputParams calldata params) external payable returns (uint256 amountIn);
+interface ISwapRouter02 is IV2SwapRouter, IV3SwapRouter, IMulticallExtended {
 }
 
 /// replace 
@@ -77,15 +19,20 @@ contract DragonswapProcessor is ICalldataProcessor {
     function processCalldata(uint256 amount, bytes calldata data) external pure returns (bytes memory processedCalldata) {
         bytes4 selector = bytes4(data[:4]);
 
-        if (selector == IV2SwapRouter.exactOutputSingle.selector) {
-            (IV2SwapRouter.ExactOutputSingleParams memory params) = abi.decode(data[4:], (IV2SwapRouter.ExactOutputSingleParams));
+        if (selector == IV3SwapRouter.exactOutputSingle.selector) {
+            (ISwapRouter02.ExactOutputSingleParams memory params) = abi.decode(data[4:], (IV3SwapRouter.ExactOutputSingleParams));
             params.amountOut = amount;
-            return abi.encodeCall(IV2SwapRouter.exactOutputSingle, (params));
+            return abi.encodeCall(IV3SwapRouter.exactOutputSingle, (params));
         }
-        else if (selector == IV2SwapRouter.exactOutput.selector) {
-            (IV2SwapRouter.ExactOutputParams memory params) = abi.decode(data[4:], (IV2SwapRouter.ExactOutputParams));
+        else if (selector == IV3SwapRouter.exactOutput.selector) {
+            (IV3SwapRouter.ExactOutputParams memory params) = abi.decode(data[4:], (IV3SwapRouter.ExactOutputParams));
             params.amountOut = amount;
-            return abi.encodeCall(IV2SwapRouter.exactOutput, (params));
+            return abi.encodeCall(IV3SwapRouter.exactOutput, (params));
+        }
+        else if (selector == IV2SwapRouter.swapTokensForExactTokens.selector) {
+            (uint256 amountOut, uint256 amountInMax, address[] memory path, address to) = abi.decode(data[4:], (uint256, uint256, address[], address));
+            amountOut = amount;
+            return abi.encodeCall(IV2SwapRouter.swapTokensForExactTokens, (amountOut, amountInMax, path, to));
         }
         else {
             revert InvalidCalldata();
