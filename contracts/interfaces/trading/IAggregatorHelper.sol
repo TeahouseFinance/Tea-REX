@@ -78,8 +78,6 @@ interface IAggregatorHelper {
     /// @param _src source token
     /// @param _dst destination token
     /// @param _amountIn amount of source tokens to swap
-    /// @param _verifier address of the verifier
-    /// @param _verifierCalldata calldata for the verifier
     /// @param _router address of the swap router
     /// @param _routerCalldata calldata for the swap router
     /// @return amountOut amount of destination token swapped
@@ -89,8 +87,6 @@ interface IAggregatorHelper {
         address _src,
         address _dst,
         uint256 _amountIn,
-        address _verifier,
-        bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata
     ) external returns (uint256 amountOut);
@@ -100,8 +96,6 @@ interface IAggregatorHelper {
     /// @param _dst destination token
     /// @param _amountIn maximum amount of source tokens to swap
     /// @param _amountOut expected amount of destination tokens
-    /// @param _verifier address of the verifier
-    /// @param _verifierCalldata calldata for the verifier
     /// @param _router address of the swap router
     /// @param _routerCalldata calldata for the swap router
     /// @param _calldataProcessor address of the calldata processor if swap for output amount is used, otherwise use zero
@@ -116,8 +110,6 @@ interface IAggregatorHelper {
         address _dst,
         uint256 _amountIn,
         uint256 _amountOut,
-        address _verifier,
-        bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata,
         address _calldataProcessor,

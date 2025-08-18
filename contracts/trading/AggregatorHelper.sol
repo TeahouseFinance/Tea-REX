@@ -18,7 +18,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
 
     bool public checkWhitelist;
     mapping(address => bool) public routerWhitelist;
-    mapping(address => bool) public verifierWhitelist;
     mapping(address => bool) public callerWhitelist;
     mapping(address => uint256) public minAmount;
     uint256 public maxScraps;
@@ -49,18 +48,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         emit SetRouterWhitelist(msg.sender, _router, _isWhitelisted);
-    }
-
-    function setVerifierWhitelist(address[] calldata _verifier, bool[] calldata _isWhitelisted) external onlyOwner {
-        require(_verifier.length == _isWhitelisted.length, LengthMismatch());
-
-        for (uint256 i; i < _verifier.length; ) {
-            verifierWhitelist[_verifier[i]] = _isWhitelisted[i];
-
-            unchecked { ++i; }
-        }
-
-        emit SetVerifierWhitelist(msg.sender, _verifier, _isWhitelisted);
     }
 
     function setCallerWhitelist(address[] calldata _caller, bool[] calldata _isWhitelisted) external onlyOwner {
@@ -94,8 +81,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         address _src,
         address _dst,
         uint256 _amountIn,
-        address _verifier,
-        bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata
     ) external returns (uint256 amountOut) {
@@ -106,11 +91,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         require(_amountIn >= minAmount[_src], AmountInTooSmall());
-
-        // call verifier if required, for oracles with pull model
-        if (_verifier != address(0)) {
-            _safeCall(_verifier, _verifierCalldata);
-        }   
 
         // call aggregator to swap tokens
         ERC20PermitUpgradeable src = ERC20PermitUpgradeable(_src);
@@ -138,8 +118,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         address _dst,
         uint256 _amountIn,
         uint256 _amountOut,
-        address _verifier,
-        bytes calldata _verifierCalldata,
         address _router,
         bytes calldata _routerCalldata,
         address _calldataProcessor,
@@ -154,11 +132,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         }
 
         require(_amountOut >= minAmount[_dst], AmountOutTooSmall());
-
-        // call verifier if required, for oracles with pull model
-        if (_verifier != address(0)) {
-            _safeCall(_verifier, _verifierCalldata);
-        }
 
         // call aggregator to swap tokens
         ERC20PermitUpgradeable src = ERC20PermitUpgradeable(_src);

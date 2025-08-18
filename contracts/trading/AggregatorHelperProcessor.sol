@@ -19,17 +19,15 @@ contract AggregatorHelperProcessor is ICalldataProcessor {
                 address dst,
                 uint256 amountIn,
                 uint256 amountOut,
-                address verifier,
-                bytes memory verifierCalldata,
                 address aggregator,
                 bytes memory aggregatorCalldata,
                 address calldataProcessor,
                 address scrapRouter,
                 bytes memory scrapCalldata,
                 uint256 scrapAmountOffset
-            ) = abi.decode(data[4:], (address, address, uint256, uint256, address, bytes, address, bytes, address, address, bytes, uint256));
+            ) = abi.decode(data[4:], (address, address, uint256, uint256, address, bytes, address, address, bytes, uint256));
             amountOut = amount;
-            return abi.encodeCall(IAggregatorHelper.swapExactOutput, (src, dst, amountIn, amountOut, verifier, verifierCalldata, aggregator, aggregatorCalldata, calldataProcessor, scrapRouter, scrapCalldata, scrapAmountOffset));
+            return abi.encodeCall(IAggregatorHelper.swapExactOutput, (src, dst, amountIn, amountOut, aggregator, aggregatorCalldata, calldataProcessor, scrapRouter, scrapCalldata, scrapAmountOffset));
         }
         else {
             revert InvalidCalldata();
