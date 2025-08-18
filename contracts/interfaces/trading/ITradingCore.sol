@@ -115,47 +115,6 @@ interface ITradingCore {
         address marketAddress
     );
 
-    /// @notice Open a position with user's signature
-    /// @param market Market address
-    /// @param lendingType Type of the lending pool
-    /// @param longTarget Long target, must be one of token0 or token1
-    /// @param marginAmount Margin amount for the position
-    /// @param borrowAmount Amount of borrowed token for swapping to asset token
-    /// @param minAssetAmount Minimum asset swap after swap, a slippage protection
-    /// @param takeProfit Take profit price, the price is asset price in debt
-    /// @param stopLoss Stop loss price, the price is asset price in debt
-    /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
-    /// @param swapRouter Swap router to be used
-    /// @param data Calldata for the assigned swap router
-    /// @param deadline ERC20Permit deadline of approval
-    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    /// @return positionId Position id, same as ERC721 token id
-    /// @return debtAmount Position debt amount
-    /// @return assetAmount Position asset amount
-    function openPositionPermit(
-        address market,
-        uint256 lendingType,
-        ERC20PermitUpgradeable longTarget,
-        uint256 marginAmount,
-        uint256 borrowAmount,
-        uint256 minAssetAmount,
-        uint256 takeProfit,
-        uint256 stopLoss,
-        uint24 stopLossRateTolerance,
-        address swapRouter,
-        bytes calldata data,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (
-        uint256 positionId,
-        uint256 debtAmount,
-        uint256 assetAmount
-    );
-
     /// @notice Open a position
     /// @param market Market address
     /// @param lendingType Type of the lending pool
@@ -166,8 +125,15 @@ interface ITradingCore {
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
+    /// @param usePermit Whether use ERC20Permit or not
+    /// @param deadline ERC20Permit deadline of approval
+    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
     /// @return positionId Position id, same as ERC721 token id
     /// @return debtAmount Position debt amount
     /// @return assetAmount Position asset amount
@@ -181,8 +147,15 @@ interface ITradingCore {
         uint256 takeProfit,
         uint256 stopLoss,
         uint24 stopLossRateTolerance,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
-        bytes calldata data
+        bytes calldata data,
+        bool usePermit,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external returns (
         uint256 positionId,
         uint256 debtAmount,
@@ -195,40 +168,36 @@ interface ITradingCore {
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     function adjustPassiveClosePrice(
         address market,
         uint256 positionId,
         uint256 takeProfit,
         uint256 stopLoss,
-        uint24 stopLossRateTolerance
-    ) external;
-
-    /// @notice Add margin for a position in order to prevent getting liquidated with user's signature
-    /// @param market Market address
-    /// @param positionId Position id
-    /// @param addedAmount Amount of margin asset to add
-    /// @param deadline ERC20Permit deadline of approval
-    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
-    function addMarginPermit(
-        address market,
-        uint256 positionId,
-        uint256 addedAmount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        uint24 stopLossRateTolerance,
+        address verifier,
+        bytes calldata verifierData
     ) external;
 
     /// @notice Add margin for a position in order to prevent getting liquidated
     /// @param market Market address
     /// @param positionId Position id
     /// @param addedAmount Amount of margin asset to add
+    /// @param usePermit Whether use ERC20Permit or not
+    /// @param deadline ERC20Permit deadline of approval
+    /// @param v Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param r Secp256k1 signature from the token owner over the EIP712-formatted function argument
+    /// @param s Secp256k1 signature from the token owner over the EIP712-formatted function argument
     function addMargin(
         address market,
         uint256 positionId,
-        uint256 addedAmount
+        uint256 addedAmount,
+        bool usePermit,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external;
 
     /// @notice Adjust a position including increasing/decreasing margin and increasing/decreasing position size
@@ -244,6 +213,8 @@ interface ITradingCore {
     /// @param takeProfit Take profit price, the price is asset price in debt
     /// @param stopLoss Stop loss price, the price is asset price in debt
     /// @param stopLossRateTolerance Stop loss price slippage or market rate tolerance
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @param usePermit Whether use ERC20Permit for adding margin or not
@@ -270,6 +241,8 @@ interface ITradingCore {
         uint256 takeProfit,
         uint256 stopLoss,
         uint24 stopLossRateTolerance,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes memory data,
         bool usePermit,
@@ -293,6 +266,8 @@ interface ITradingCore {
     /// @param assetTokenToSwap Amount of asset token to swap
     /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
     /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
@@ -307,6 +282,8 @@ interface ITradingCore {
         uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -325,6 +302,8 @@ interface ITradingCore {
     /// @param assetTokenToSwap Amount of asset token to swap
     /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
     /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
@@ -339,6 +318,8 @@ interface ITradingCore {
         uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -357,6 +338,8 @@ interface ITradingCore {
     /// @param assetTokenToSwap Amount of asset token to swap
     /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
     /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
@@ -371,6 +354,8 @@ interface ITradingCore {
         uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -389,6 +374,8 @@ interface ITradingCore {
     /// @param assetTokenToSwap Amount of asset token to swap
     /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
     /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
@@ -403,6 +390,8 @@ interface ITradingCore {
         uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes calldata data
     ) external returns (
@@ -421,6 +410,8 @@ interface ITradingCore {
     /// @param assetTokenToSwap Amount of asset token to swap
     /// @param minDecreasedDebtAmount Minimum amount of debt token after swap, a slippage protection
     /// @param calldataProcessor Address of the calldata modifier for modifying the swap calldata
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @param swapRouter Swap router to be used
     /// @param data Calldata for the assigned swap router
     /// @return isFullyClosed Whether a position is fully closed or not, fully closed if asset or debt of a position go to zero
@@ -435,6 +426,8 @@ interface ITradingCore {
         uint256 assetTokenToSwap,
         uint256 minDecreasedDebtAmount,
         ICalldataProcessor calldataProcessor,
+        address verifier,
+        bytes calldata verifierData,
         address swapRouter,
         bytes calldata data
     ) external returns (

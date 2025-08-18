@@ -11,7 +11,8 @@ interface ISwapRelayer {
     error NotWhitelisted();
     error NotTradingCore();
 
-    event SetWhitelist(address sender, address[] router, bool[] isWhitelisted);
+    event SetRouterWhitelist(address sender, address[] routers, bool[] isWhitelisted);
+    event SetVerifierWhitelist(address sender, address[] verifiers, bool[] isWhitelisted);
 
     receive() external payable;
 
@@ -27,9 +28,15 @@ interface ISwapRelayer {
 
     /// @notice Set up router whitelist
     /// @notice Only owner can call this function
-    /// @param router Addresses of routers
+    /// @param routers Addresses of routers
     /// @param isWhitelisted Setting for routers
-    function setWhitelist(address[] calldata router, bool[] calldata isWhitelisted) external;
+    function setRouterWhitelist(address[] calldata routers, bool[] calldata isWhitelisted) external;
+
+    /// @notice Set up oracle verifier whitelist
+    /// @notice Only owner can call this function
+    /// @param verifiers Addresses of verifiers
+    /// @param isWhitelisted Setting for verifiers
+    function setVerifierWhitelist(address[] calldata verifiers, bool[] calldata isWhitelisted) external;
 
     /// @notice Swap for caller
     /// @notice Only trading core can call this
@@ -47,4 +54,9 @@ interface ISwapRelayer {
         bytes calldata data
     ) external;
 
+    /// @notice Verify oracle price
+    /// @notice Only trading core can call this
+    /// @param verifier Verifier to be used
+    /// @param data Calldata for the oracle verifier
+    function verify(address verifier, bytes calldata data) external;
 }

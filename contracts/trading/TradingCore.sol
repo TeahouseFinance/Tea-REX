@@ -85,10 +85,12 @@ contract TradingCore is
         enableWhitelist = true;
     }
 
+    /// @inheritdoc ITradingCore
     function pause() external override onlyOwner {
         _pause();
     }
 
+    /// @inheritdoc ITradingCore
     function unpause() external override onlyOwner {
         _unpause();
     }
@@ -129,6 +131,7 @@ contract TradingCore is
         feePlugin = IFeePlugin(_feePlugin);
     }
 
+    /// @inheritdoc ITradingCore
     function getFeeForAccount(address _market, address _account) external view returns (FeeConfig memory) {
         return _getFeeForAccount(_market, _account);
     }
@@ -143,6 +146,7 @@ contract TradingCore is
         return address(_feePlugin) == address(0) ? _feeConfig : feePlugin.getFeeForAccount(_account, _feeConfig);
     }
 
+    /// @inheritdoc ITradingCore
     function createMarket(
         IAssetOracle _oracle,
         ERC20PermitUpgradeable _token0,
@@ -203,7 +207,8 @@ contract TradingCore is
         emit CreateMarket(msg.sender, IMarketNFT(marketAddress), _token0, _token1);
     }
 
-    function openPositionPermit(
+    /// @inheritdoc ITradingCore
+    function openPosition(
         address _market,
         uint256 _lendingType,
         ERC20PermitUpgradeable _longTarget,
@@ -213,8 +218,11 @@ contract TradingCore is
         uint256 _takeProfit,
         uint256 _stopLoss,
         uint24 _stopLossRateTolerance,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data,
+        bool _usePermit,
         uint256 _deadline,
         uint8 _v,
         bytes32 _r,
@@ -227,46 +235,11 @@ contract TradingCore is
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
         MarketNFT market = MarketNFT(_market);
         ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
-        margin.permit(msg.sender, address(this), _marginAmount, _deadline, _v, _r, _s);
+        if (_usePermit) {
+            margin.permit(msg.sender, address(this), _marginAmount, _deadline, _v, _r, _s);
+        }
 
-        (positionId, debtAmount, assetAmount) = _openPosition(
-            market,
-            _lendingType,
-            token0,
-            token1,
-            margin,
-            _longTarget,
-            _marginAmount,
-            _borrowAmount,
-            _minAssetAmount,
-            _takeProfit,
-            _stopLoss,
-            _stopLossRateTolerance,
-            _swapRouter,
-            _data
-        );
-    }
-
-    function openPosition(
-        address _market,
-        uint256 _lendingType,
-        ERC20PermitUpgradeable _longTarget,
-        uint256 _marginAmount,
-        uint256 _borrowAmount,
-        uint256 _minAssetAmount,
-        uint256 _takeProfit,
-        uint256 _stopLoss,
-        uint24 _stopLossRateTolerance,
-        address _swapRouter,
-        bytes calldata _data
-    ) external override nonReentrant whenNotPaused returns (
-        uint256 positionId,
-        uint256 debtAmount,
-        uint256 assetAmount
-    ) {
-        (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
-        MarketNFT market = MarketNFT(_market);
-        ERC20PermitUpgradeable margin = market.isToken0Margin() ? token0 : token1;
+        _verify(_verifier, _verifierData);
 
         (positionId, debtAmount, assetAmount) = _openPosition(
             market,
@@ -350,25 +323,32 @@ contract TradingCore is
         emit AdjustPassiveClosePrice(_market, positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
 
+    /// @inheritdoc ITradingCore
     function adjustPassiveClosePrice(
         address _market,
         uint256 _positionId,
         uint256 _takeProfit,
         uint256 _stopLoss,
-        uint24 _stopLossRateTolerance
+        uint24 _stopLossRateTolerance,
+        address _verifier,
+        bytes calldata _verifierData
     ) external override nonReentrant whenNotPaused {
         (, , , MarketNFT market, , address positionOwner) = _beforeAdjustOpeningPosition(_market, _positionId);
         if (positionOwner != msg.sender) revert NotPositionOwner();
+
+        _verify(_verifier, _verifierData);
 
         market.adjustPassiveClosePrice(_positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     
         emit AdjustPassiveClosePrice(market, _positionId, _takeProfit, _stopLoss, _stopLossRateTolerance);
     }
     
-    function addMarginPermit(
+    /// @inheritdoc ITradingCore
+    function addMargin(
         address _market,
         uint256 _positionId,
         uint256 _addedAmount,
+        bool _usePermit,
         uint256 _deadline,
         uint8 _v,
         bytes32 _r,
@@ -384,26 +364,9 @@ contract TradingCore is
         ) = _beforeAdjustOpeningPosition(_market, _positionId);
 
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
-        (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _addedAmount, _deadline, _v, _r, _s);
-
-        _addMargin(market, asset, debt, _positionId, position, _addedAmount);
-    }
-
-    function addMargin(
-        address _market,
-        uint256 _positionId,
-        uint256 _addedAmount
-    ) external override nonReentrant whenNotPaused {
-        (
-            ERC20PermitUpgradeable token0,
-            ERC20PermitUpgradeable token1,
-            ,
-            MarketNFT market,
-            IMarketNFT.Position memory position,
-
-        ) = _beforeAdjustOpeningPosition(_market, _positionId);
-
-        (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
+        if (_usePermit) {
+            (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _addedAmount, _deadline, _v, _r, _s);
+        }
 
         _addMargin(market, asset, debt, _positionId, position, _addedAmount);
     }
@@ -424,6 +387,7 @@ contract TradingCore is
         emit AdjustMargin(_market, _positionId, true, _addedAmount);
     }
 
+    /// @inheritdoc ITradingCore
     function adjustPosition(
         address _market,
         uint256 _positionId,
@@ -437,6 +401,8 @@ contract TradingCore is
         uint256 _takeProfit,
         uint256 _stopLoss,
         uint24 _stopLossRateTolerance,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes memory _data,
         bool _usePermit,
@@ -462,6 +428,8 @@ contract TradingCore is
         ) = _beforeAdjustOpeningPosition(_market, _positionId);
         if (positionOwner != msg.sender) revert NotPositionOwner();
         (ERC20PermitUpgradeable asset, ERC20PermitUpgradeable debt) = _getPositionTokens(token0, token1, position);
+
+        _verify(_verifier, _verifierData);
 
         if (_marginDelta > 0) {
             ERC20PermitUpgradeable margin = position.isMarginAsset ? asset : debt;
@@ -663,12 +631,15 @@ contract TradingCore is
         }
     }
 
+    /// @inheritdoc ITradingCore
     function closePosition(
         address _market,
         uint256 _positionId,
         uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant whenNotPaused returns (
@@ -679,6 +650,8 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        _verify(_verifier, _verifierData);
+
         return _closePosition(
             IMarketNFT.CloseMode.Close,
             _market,
@@ -691,12 +664,15 @@ contract TradingCore is
         );
     }
 
+    /// @inheritdoc ITradingCore
     function takeProfit(
         address _market,
         uint256 _positionId,
         uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
@@ -707,6 +683,8 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        _verify(_verifier, _verifierData);
+
         return _closePosition(
             IMarketNFT.CloseMode.TakeProfit,
             _market,
@@ -719,12 +697,15 @@ contract TradingCore is
         );
     }
 
+    /// @inheritdoc ITradingCore
     function stopLoss(
         address _market,
         uint256 _positionId,
         uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
@@ -735,6 +716,8 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        _verify(_verifier, _verifierData);
+
         return _closePosition(
             IMarketNFT.CloseMode.StopLoss,
             _market,
@@ -747,12 +730,15 @@ contract TradingCore is
         );
     }
 
+    /// @inheritdoc ITradingCore
     function managerClose(
         address _market,
         uint256 _positionId,
         uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant returns (
@@ -763,6 +749,8 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        _verify(_verifier, _verifierData);
+
         return _closePosition(
             IMarketNFT.CloseMode.Manager,
             _market,
@@ -775,12 +763,15 @@ contract TradingCore is
         );
     }
 
+    /// @inheritdoc ITradingCore
     function liquidate(
         address _market,
         uint256 _positionId,
         uint256 _assetTokenToSwap,
         uint256 _minDecreasedDebtAmount,
         ICalldataProcessor _calldataProcessor,
+        address _verifier,
+        bytes calldata _verifierData,
         address _swapRouter,
         bytes calldata _data
     ) external override nonReentrant whenNotPaused onlyWhitelistedOperator(msg.sender) returns (
@@ -791,6 +782,8 @@ contract TradingCore is
         uint256 owedAsset,
         uint256 owedDebt
     ) {
+        _verify(_verifier, _verifierData);
+
         return _closePosition(
             IMarketNFT.CloseMode.Liquidate,
             _market,
@@ -803,6 +796,7 @@ contract TradingCore is
         );
     }
     
+    /// @inheritdoc ITradingCore
     function debtOfPosition(
         address _market,
         uint256 _positionId
@@ -818,6 +812,7 @@ contract TradingCore is
         debtAmount = router.debtOfUnderlying(debt, position.lendingType, position.borrowId);
     }
 
+    /// @inheritdoc ITradingCore
     function liquidateAuctionPrice(
         address _market,
         ERC20PermitUpgradeable _longTarget
@@ -830,6 +825,7 @@ contract TradingCore is
         price = MarketNFT(_market).liquidateAuctionPrice(_longTarget == token0);
     }
 
+    /// @inheritdoc ITradingCore
     function getLiquidationPrice(
         address _market,
         uint256 _positionId
@@ -845,6 +841,7 @@ contract TradingCore is
         price = market.getLiquidationPrice(_positionId, debtAmount);
     }
 
+    /// @inheritdoc ITradingCore
     function getClosePositionSwappableAfterFee(
         address _market,
         uint256 _positionId,
@@ -864,6 +861,7 @@ contract TradingCore is
         ); 
     }
 
+    /// @inheritdoc ITradingCore
     function calculateTradingFee(
         address _market,
         address _account,
@@ -965,6 +963,12 @@ contract TradingCore is
         srcAmount = srcBalanceBefore - srcBalanceAfter;
         dstAmount = dstBalanceAfter - dstBalanceBefore;
         if (_minDstAmount != 0 && dstAmount < _minDstAmount) revert SlippageTooLarge();
+    }
+
+    function _verify(address _verifier, bytes calldata _data) internal {
+        if (_verifier != address(0)) {
+            swapRelayer.verify(_verifier, _data);
+        }
     }
 
     function _repay(
