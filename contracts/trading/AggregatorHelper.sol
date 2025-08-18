@@ -86,7 +86,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     ) external returns (uint256 amountOut) {
         if (checkWhitelist) {
             require(callerWhitelist[msg.sender], NotWhitelisted());
-            require(_verifier == address(0) || verifierWhitelist[_verifier], NotWhitelisted());
             require(routerWhitelist[_router], NotWhitelisted());
         }
 
@@ -127,7 +126,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     ) external returns (uint256 amountIn) {
         if (checkWhitelist) {
             require(callerWhitelist[msg.sender], NotWhitelisted());
-            require(_verifier == address(0) || verifierWhitelist[_verifier], NotWhitelisted());
             require(routerWhitelist[_router] && routerWhitelist[_scrapRouter], NotWhitelisted());
         }
 

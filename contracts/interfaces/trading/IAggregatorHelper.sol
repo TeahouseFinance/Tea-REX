@@ -46,12 +46,6 @@ interface IAggregatorHelper {
     /// @notice only owner can call this function
     function setRouterWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external;
 
-    /// @notice Set whitelist address for verifier
-    /// @param _verifier array of addresses of the verifiers
-    /// @param _isWhitelisted array of bools for each verifier to be whitelisted (true if whitelist and false if not)
-    /// @notice only owner can call this function
-    function setVerifierWhitelist(address[] calldata _verifier, bool[] calldata _isWhitelisted) external;
-
     /// @notice Set whitelist address for caller
     /// @param _caller array of addresses of the callers
     /// @param _isWhitelisted array of bools for each caller to be whitelisted (true if whitelist and false if not)
