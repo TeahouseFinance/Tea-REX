@@ -11,13 +11,13 @@ interface ITeaRexError {
     error InvalidPercentage();
     error DebtPositionIsClosed();
     error ZeroAmountNotAllowed();
+    error PositionClosed();
     error ExceedsCap();
     error NoUnborrowedUnderlying();
     error CallerIsNotRouter();
 
     // IRouter
     error ExceedsFeeCap();
-    error InvalidInterestRateModelType();
     error ModelNotSet();
     error PoolAlreadyExists();
     error PoolNotExists();
@@ -39,6 +39,9 @@ interface ITeaRexError {
     // IAssetOracle
     error AssetNotEnabled();
 
+    // ICalldataProcessor
+    error InvalidCalldata();
+
     // IMarketNFT
     error InvalidLeverage();
     error InvalidThreshold();
@@ -48,42 +51,51 @@ interface ITeaRexError {
     error InvalidStopLoss();
     error InvalidStopLossRateTolerance();
     error HighLossRatio();
+    error LendingTypeNotAllowed();
     error BadCloseRate();
     error ExceedsMaxTotalPositionSize();
+    error SizeTooSmall();
     error InvalidPositionStatus();
-    // error CallerIsNotTradingCore();
+    //error CallerIsNotTradingCore();
     error PassivelyCloseConditionNotMet();
     error NoTakeProfit();
     error NoStopLoss();
     error WorsePrice();
 
     // ISwapRelayer
-    // error LengthMismatch();
-    // error NotWhitelisted();
+    //error LengthMismatch();
+    //error NotWhitelisted();
+    error NotTradingCore();
 
     // ITradingCore
-    // error ExceedsFeeCap();
-    // error ZeroNotAllowed();
+    //error ExceedsFeeCap();
+    //error ZeroNotAllowed();
     error WrongTokenOrder();
-    // error AssetNotEnabled();
+    //error AssetNotEnabled();
     error MarketAlreadyCreated();
     error PairNotCreated();
     error NotPositionOwner();
+    error NotPositionManager();
     error PriceConditionNotMet();
     error IdenticalAddress();
     error SlippageTooLarge();
     error AmountExceedsLimit();
-    // error NotInWhitelist();
+    //error NotInWhitelist();
     error InvalidAsset();
     error InvalidMarketPair();
 
-    // AggregatorHelperProcessor
-    error InvalidCalldata();
+    // ChainlinkDataStreamOracle
+    error InvalidAddress();
+    error InvalidFeedId();
+    error OraclePriceIsInvalid();
+    error OraclePriceIsTooOld();
+    //error NotWhitelisted();
+    error InvalidReportVersion(uint16 version);
 
     // ChainlinkOracle
     error InvalidAssetAddress();
-    error OraclePriceIsInvalid();
-    error OraclePriceIsTooOld();
+    //error OraclePriceIsInvalid();
+    //error OraclePriceIsTooOld();
 
     // SEINativeOracle
     // error InvalidAssetAddress();

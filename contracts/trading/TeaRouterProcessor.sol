@@ -19,8 +19,6 @@ interface ITeaRouter {
 /// replace 
 contract TeaRouterProcessor is ICalldataProcessor {
 
-    error InvalidCalldata();
-
     function processCalldata(uint256 amount, bytes calldata data) external pure returns (bytes memory processedCalldata) {
         bytes4 selector = bytes4(data[:4]);
 

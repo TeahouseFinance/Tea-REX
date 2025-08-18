@@ -3,6 +3,8 @@
 pragma solidity ^0.8.0;
 
 interface ICalldataProcessor {
+
+    error InvalidCalldata();
     
     /// @notice Modify the exact output amount of the given calldata
     /// @param amount Expect exact output amount
