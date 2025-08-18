@@ -815,12 +815,16 @@ contract TradingCore is
     /// @inheritdoc ITradingCore
     function liquidateAuctionPrice(
         address _market,
-        ERC20PermitUpgradeable _longTarget
-    ) external view returns (
+        ERC20PermitUpgradeable _longTarget,
+        address _verifier,
+        bytes calldata _verifierData
+    ) external returns (
         uint256 price
     ) {
         (ERC20PermitUpgradeable token0, ERC20PermitUpgradeable token1) = _getMarketPair(_market);
         if (_longTarget != token0 && _longTarget != token1) revert InvalidAsset();
+
+        _verify(_verifier, _verifierData);
 
         price = MarketNFT(_market).liquidateAuctionPrice(_longTarget == token0);
     }

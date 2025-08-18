@@ -457,11 +457,16 @@ interface ITradingCore {
     /// @notice Get current liquidation auction price for all positions that meet the liquidation condition
     /// @param market Market address
     /// @param longTarget Long target of the market
+    /// @param verifier Verifier for price oracle, use address(0) if not needed
+    /// @param verifierData Calldata for price oracle verifier
     /// @return price Position asset auction price in debt
+    /// @dev This function should be called using staticCall to avoid paying gas
     function liquidateAuctionPrice(
         address market,
-        ERC20PermitUpgradeable longTarget
-    ) external view returns (
+        ERC20PermitUpgradeable longTarget,
+        address verifier,
+        bytes calldata verifierData
+    ) external returns (
         uint256 price
     );
 
