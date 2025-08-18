@@ -26,18 +26,21 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         checkWhitelist = true;
     }
 
+    /// @inheritdoc IAggregatorHelper
     function setCheckWhitelist(bool _checkWhitelist) external onlyOwner {
         checkWhitelist = _checkWhitelist;
 
         emit SetCheckWhitelist(msg.sender, _checkWhitelist);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function setMinAmount(address _token, uint256 _minAmount) external onlyOwner {
         minAmount[_token] = _minAmount;
 
         emit SetMinAmount(msg.sender, _token, _minAmount);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function setRouterWhitelist(address[] calldata _router, bool[] calldata _isWhitelisted) external onlyOwner {
         require(_router.length == _isWhitelisted.length, LengthMismatch());
 
@@ -50,6 +53,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         emit SetRouterWhitelist(msg.sender, _router, _isWhitelisted);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function setCallerWhitelist(address[] calldata _caller, bool[] calldata _isWhitelisted) external onlyOwner {
         require(_caller.length == _isWhitelisted.length, LengthMismatch());
 
@@ -62,21 +66,25 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         emit SetCallerWhitelist(msg.sender, _caller, _isWhitelisted);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function setMaxScraps(uint256 _maxScraps) external onlyOwner {
         maxScraps = _maxScraps;
 
         emit SetMaxScraps(msg.sender, _maxScraps);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function retrieveTokens(address _token, uint256 _amount) external onlyOwner {
         ERC20PermitUpgradeable token = ERC20PermitUpgradeable(_token);
         token.safeTransfer(msg.sender, _amount);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function retrieveNativeToken(uint256 _amount) external onlyOwner {
         payable(msg.sender).transfer(_amount);
     }
 
+    /// @inheritdoc IAggregatorHelper
     function swapExactInput(
         address _src,
         address _dst,
@@ -112,6 +120,7 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
         return balanceDst;
     }
 
+    /// @inheritdoc IAggregatorHelper
     function swapExactOutput(
         address _src,
         address _dst,
