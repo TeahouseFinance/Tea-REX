@@ -435,7 +435,7 @@ contract TradingCore is
             ERC20PermitUpgradeable margin = position.isMarginAsset ? asset : debt;
             if (_isMarginIncreased) {
                 if (_usePermit) {
-                    (position.isMarginAsset ? asset : debt).permit(msg.sender, address(this), _marginDelta, _deadline, _v, _r, _s);
+                    margin.permit(msg.sender, address(this), _marginDelta, _deadline, _v, _r, _s);
                 }
                 margin.safeTransferFrom(msg.sender, address(this), _marginDelta);
             }

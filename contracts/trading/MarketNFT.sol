@@ -364,41 +364,39 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         position = _adjustMargin(position, _isMarginIncreased, _marginDelta);
         positions[_positionId] = position;
 
-        if (_assetDelta > 0) {
-            if (_isSizeIncreased) {
-                position.assetAmount = position.assetAmount + _assetDelta;
-                uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
-                uint256 debtDeltaValue = _getTokenValue(oracleDecimals, _debtDelta, debtPrice);
-                uint256 assetDeltaValue = _getTokenValue(oracleDecimals, _assetDelta, assetPrice);
-                uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
-                uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
-                _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue, openPositionLossRatioThreshold);
-                _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
+        if (_isSizeIncreased) {
+            position.assetAmount = position.assetAmount + _assetDelta;
+            uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
+            uint256 debtDeltaValue = _getTokenValue(oracleDecimals, _debtDelta, debtPrice);
+            uint256 assetDeltaValue = _getTokenValue(oracleDecimals, _assetDelta, assetPrice);
+            uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
+            uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
+            _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue, openPositionLossRatioThreshold);
+            _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
 
-                _updateMarketStatus(
-                    position.isLongToken0,
-                    _isSizeIncreased,
-                    _assetDelta,
-                    assetPrice,
-                    oracleDecimals
-                );
-                positions[_positionId] = position;
-            }
-            else {
-                _checkCloseRate(position, _assetDelta, _tradingFee, _debtAmount, _debtDelta);
-                (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
-                    _positionId,
-                    _assetDelta,
-                    _debtDelta,
-                    _tradingFee,
-                    _debtAmount,
-                    true,
-                    oracleDecimals,
-                    assetPrice,
-                    debtPrice,
-                    marginPrice
-                );
-            }
+            _updateMarketStatus(
+                position.isLongToken0,
+                _isSizeIncreased,
+                _assetDelta,
+                assetPrice,
+                oracleDecimals
+            );
+            positions[_positionId] = position;
+        }
+        else {
+            _checkCloseRate(position, _assetDelta, _tradingFee, _debtAmount, _debtDelta);
+            (isFullyClosed, consumedMarginAmount, owedAsset, owedDebt) = _afterFlatPosition(
+                _positionId,
+                _assetDelta,
+                _debtDelta,
+                _tradingFee,
+                _debtAmount,
+                true,
+                oracleDecimals,
+                assetPrice,
+                debtPrice,
+                marginPrice
+            );
         }
     }
 
