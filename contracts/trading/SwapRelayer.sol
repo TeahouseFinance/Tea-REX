@@ -53,7 +53,7 @@ contract SwapRelayer is ISwapRelayer, Ownable {
         if (_verifiers.length != _isWhitelisted.length) revert LengthMismatch();
 
         for (uint256 i; i < _verifiers.length; ) {
-            routerWhitelist[_verifiers[i]] = _isWhitelisted[i];
+            verifierWhitelist[_verifiers[i]] = _isWhitelisted[i];
 
             unchecked { ++i; }
         }
