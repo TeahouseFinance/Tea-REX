@@ -364,7 +364,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         position = _adjustMargin(position, _isMarginIncreased, _marginDelta);
         positions[_positionId] = position;
 
-        if (_isSizeIncreased) {
+        if (_isSizeIncreased || _assetDelta == 0) {
             position.assetAmount = position.assetAmount + _assetDelta;
             uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
             uint256 debtDeltaValue = _getTokenValue(oracleDecimals, _debtDelta, debtPrice);
