@@ -372,6 +372,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             uint256 debtValue = _getTokenValue(oracleDecimals, _debtAmount, debtPrice);
             uint256 assetValue = _getTokenValue(oracleDecimals, position.assetAmount, assetPrice);
             _checkLossRatio(marginValue, assetDeltaValue, debtDeltaValue, openPositionLossRatioThreshold);
+            _checkLossRatio(marginValue, assetValue, debtValue, openPositionLossRatioThreshold);
             _checkLeverage(position.isLongToken0, marginValue, assetValue, debtValue);
 
             _updateMarketStatus(
