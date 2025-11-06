@@ -86,9 +86,11 @@ contract VariableInterestRateModel is IInterestRateModel, Ownable {
         RateConfig memory _rateConfig = _getRateConfig();
         if (supplied == 0) return _rateConfig.baseRate;
 
-        borrowRate = _rateConfig.baseRate + _rateConfig.hikedRate.mulDiv(
+        uint256 _hikedRate = _rateConfig.hikedRate.mulDiv(
             (borrowed + toBorrow) * Percent.MULTIPLIER,
             supplied * (Percent.MULTIPLIER - reserveRatio)
         );
+
+        borrowRate = _rateConfig.baseRate + (_hikedRate > _rateConfig.hikedRate ? _rateConfig.hikedRate : _hikedRate);
     }
 }
