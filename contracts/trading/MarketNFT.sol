@@ -292,6 +292,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _updateMarketStatus(
             _isLongToken0,
             true,
+            0,
             _assetAmount,
             assetPrice,
             oracleDecimals
@@ -365,7 +366,8 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         positions[_positionId] = position;
 
         if (_isSizeIncreased || _assetDelta == 0) {
-            position.assetAmount = position.assetAmount + _assetDelta;
+            uint256 initialAmount = position.assetAmount;
+            position.assetAmount = initialAmount + _assetDelta;
             uint256 marginValue = _getTokenValue(oracleDecimals, position.marginAmount, marginPrice);
             uint256 debtDeltaValue = _getTokenValue(oracleDecimals, _debtDelta, debtPrice);
             uint256 assetDeltaValue = _getTokenValue(oracleDecimals, _assetDelta, assetPrice);
@@ -378,6 +380,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
             _updateMarketStatus(
                 position.isLongToken0,
                 _isSizeIncreased,
+                initialAmount,
                 _assetDelta,
                 assetPrice,
                 oracleDecimals
@@ -749,6 +752,7 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
         _updateMarketStatus(
             position.isLongToken0,
             false,
+            positionAssetAmount,
             totalConsumedAssetToken > positionAssetAmount ? positionAssetAmount : totalConsumedAssetToken,
             assetPrice,
             oracleDecimals
@@ -817,30 +821,34 @@ contract MarketNFT is IMarketNFT, Initializable, OwnableUpgradeable, ERC721Upgra
     function _updateMarketStatus(
         bool _isAssetToken0,
         bool _isIncrease,
-        uint256 _changeAmount,
+        uint256 _initialAmount,
+        uint256 _changedAmount,
         uint256 _assetPrice,
         uint8 _oracleDecimals
     ) internal {
         if (_isIncrease) {
             if (_isAssetToken0) {
-                totalToken0PositionAmount = totalToken0PositionAmount + _changeAmount;
+                totalToken0PositionAmount = totalToken0PositionAmount + _changedAmount;
                 if (totalToken0PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token0PositionSizeCap) revert ExceedsMaxTotalPositionSize();
-                if (_changeAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) < minToken0PositionSize) revert SizeTooSmall();
             }
             else {
-                totalToken1PositionAmount = totalToken1PositionAmount + _changeAmount;
+                totalToken1PositionAmount = totalToken1PositionAmount + _changedAmount;
                 if (totalToken1PositionAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) > token1PositionSizeCap) revert ExceedsMaxTotalPositionSize();
-                if (_changeAmount.mulDiv(_assetPrice, 10 ** _oracleDecimals) < minToken1PositionSize) revert SizeTooSmall();
             }
         }
         else {
             if (_isAssetToken0) {
-                totalToken0PositionAmount = totalToken0PositionAmount - _changeAmount;
+                totalToken0PositionAmount = totalToken0PositionAmount - _changedAmount;
             }
             else {
-                totalToken1PositionAmount = totalToken1PositionAmount - _changeAmount;
+                totalToken1PositionAmount = totalToken1PositionAmount - _changedAmount;
             }
         }
+
+        uint256 positionSize = _isIncrease ? _initialAmount + _changedAmount : _initialAmount - _changedAmount;
+        if (
+            positionSize.mulDiv(_assetPrice, 10 ** _oracleDecimals) < (_isAssetToken0 ? minToken0PositionSize : minToken1PositionSize)
+        ) revert SizeTooSmall();
     }
 
     modifier onlyNotPaused() {
