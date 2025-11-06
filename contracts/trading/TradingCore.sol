@@ -455,8 +455,8 @@ contract TradingCore is
             FeeConfig memory _feeConfig = _getFeeForAccount(_market, positionOwner);    
             if (_isSizeIncreased) {
                 address pool = _router.borrow(debt, position.lendingType, _swapAmount);
-                _collectTradingFee(debt, tradingFee, _feeConfig);
                 tradingFee = _calculateTradingFee(false, _swapAmount, _feeConfig);
+                _collectTradingFee(debt, tradingFee, _feeConfig);
 
                 (debtDelta, assetDelta) = _swap(
                     debt,
