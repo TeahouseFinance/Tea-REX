@@ -63,11 +63,6 @@ interface IAggregatorHelper {
     /// @notice only owner can call this function
     function retrieveTokens(address _token, uint256 _amount) external;
 
-    /// @notice retrieve scraps left in the contract
-    /// @param _amount amount of the native token to retrieve
-    /// @notice only owner can call this function
-    function retrieveNativeToken(uint256 _amount) external;
-
     /// @notice Function to simulate an exact input swap
     /// @param _src source token
     /// @param _dst destination token

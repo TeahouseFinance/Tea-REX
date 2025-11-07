@@ -80,11 +80,6 @@ contract AggregatorHelper is IAggregatorHelper, Ownable {
     }
 
     /// @inheritdoc IAggregatorHelper
-    function retrieveNativeToken(uint256 _amount) external onlyOwner {
-        payable(msg.sender).transfer(_amount);
-    }
-
-    /// @inheritdoc IAggregatorHelper
     function swapExactInput(
         address _src,
         address _dst,
