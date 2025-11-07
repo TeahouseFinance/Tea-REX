@@ -397,8 +397,8 @@ contract Pool is IPool, Initializable, OwnableUpgradeable, ERC20PermitUpgradeabl
             uint256 newBorrowedConversionRate
         ) = _collectInterestAndFee();
 
-        uint256 suppliedUnderlying = totalSupply().mulDiv(newSuppliedConversionRate, RATE_MULTIPLIER);
-        uint256 borrowedUnderlying = borrowedTeaToken.mulDiv(newBorrowedConversionRate, RATE_MULTIPLIER);
+        uint256 suppliedUnderlying = totalSupply().mulDiv(newSuppliedConversionRate, RATE_MULTIPLIER) / DECIMALS_MULTIPLIER;
+        uint256 borrowedUnderlying = borrowedTeaToken.mulDiv(newBorrowedConversionRate, RATE_MULTIPLIER) / DECIMALS_MULTIPLIER;
         uint256 unclaimedFee = pendingFee + fee;
 
         return (suppliedUnderlying, borrowedUnderlying, unclaimedFee, reserveRatio);
